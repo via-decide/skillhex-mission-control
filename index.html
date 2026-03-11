@@ -3,1609 +3,267 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillHex Mission Control</title>
+  <title>SkillHex Progression Control</title>
   <style>
-    :root{--bg:#0b1020;--panel:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--gold:#f4c35d;--red:#ff6f7f;--green:#55d38a;--purple:#ae8cff}
-    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% -10%,#263a75,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
-    .app{max-width:1280px;margin:auto;padding:12px;display:grid;gap:10px}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    :root{--bg:#0b1020;--card:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--green:#55d38a;--gold:#f4c35d}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 85% -20%,#2f4b9f,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .app{max-width:1100px;margin:auto;padding:16px;display:grid;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1}
-    button,input,select{font:inherit}button{background:#1a2750;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer}
-    input,select{background:#0f1730;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:8px}
-    .tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.tabs button.active{border-color:var(--blue)}
-    .layout{display:grid;grid-template-columns:1.35fr .9fr;gap:10px}.pane{display:none}.pane.active{display:block}
-    .grid{display:grid;gap:8px}.mission{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0e1730}
-    .mini{font-size:.84rem;color:var(--muted)} .skill{display:grid;grid-template-columns:150px 1fr 42px;gap:8px;align-items:center}
-    .bar{height:10px;background:#0a1227;border:1px solid #2d416e;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,#66b3ff,#59dfad)}
-    .hex-map{width:100%;height:360px;border:1px solid var(--line);border-radius:10px;background:#0d162e}
-    .hex{stroke:#d6e2ff;stroke-width:1.5;fill:#334;transition:.35s}.hex.locked{opacity:.35}.hex.science{fill:var(--blue)}.hex.business{fill:var(--gold)}.hex.security{fill:var(--red)}.hex.engineering{fill:var(--green)}.hex.leadership{fill:var(--purple)}
-    .hex.captured{filter:drop-shadow(0 0 8px #fff);transform-origin:center;animation:capture .55s ease}
-    @keyframes capture{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
-    .result{display:grid;gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0e1730}
-    .anim{transition:width .7s ease}
-    .proof{max-height:200px;overflow:auto;border:1px solid var(--line);padding:8px;border-radius:8px;background:#0c1430}
-    @media (max-width:980px){.layout{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    button,input{font:inherit;border-radius:8px;border:1px solid var(--line)}
+    button{background:#1a2750;color:var(--txt);padding:8px 10px;cursor:pointer}
+    input{background:#0f1730;color:var(--txt);padding:8px}
+    .grid{display:grid;gap:10px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .mini{font-size:.88rem;color:var(--muted)} .pill{padding:3px 8px;border-radius:999px;background:#1b2a59;font-size:.8rem}
+    .mission{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1730;display:grid;gap:6px}
+    .bar{height:10px;background:#091125;border:1px solid #335090;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,#6ab4ff,#68e2ad)}
+    .list{max-height:240px;overflow:auto;display:grid;gap:6px}
+    .badge{background:#2f245a;color:#d9c7ff;border:1px solid #5e4fa3;padding:2px 8px;border-radius:999px;font-size:.75rem}
+    svg{max-width:100%;border:1px solid var(--line);border-radius:10px;background:#0e1731}
+    @media(max-width:900px){.cols{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 <div class="app">
-  <section class="card">
-    <div class="row">
-      <h2 style="margin:0" class="grow">SkillHex Mission Control</h2>
-      <div id="userChip" class="mini"></div>
-      <button id="logoutBtn">Logout</button>
-    </div>
-    <div class="tabs" id="tabs"></div>
+  <section class="card row">
+    <h2 style="margin:0" class="grow">SkillHex Progression System</h2>
+    <span id="seasonChip" class="pill"></span>
+    <span id="clock" class="pill"></span>
   </section>
 
-  <div class="layout">
-    <section class="card">
-      <div id="missionPane" class="pane active"></div>
-      <div id="mapPane" class="pane"></div>
-      <div id="resultsPane" class="pane"></div>
-      <div id="proofPane" class="pane"></div>
-      <div id="leaderboardPane" class="pane"></div>
-      <div id="recruiterPane" class="pane"></div>
-      <div id="tutorialPane" class="pane"></div>
-    </section>
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 1 — Daily Missions</h3>
+      <div id="dailyList" class="grid"></div>
+      <div class="row mini"><span id="dailyReset"></span><span class="grow"></span><strong id="tokenBank"></strong></div>
+    </div>
 
-    <aside class="card grid">
-      <div id="authBox"></div>
-      <div>
-        <h3 style="margin:0 0 8px">Skill Graph</h3>
-        <div id="skillGraph"></div>
-      </div>
-      <div>
-        <h3 style="margin:0 0 8px">Mission Timeline</h3>
-        <div id="timeline" class="proof"></div>
+    <div class="card grid">
+      <h3 style="margin:0">Section 2 — SkillHex Pass</h3>
+      <div class="mini">XP from mission completions unlocks levels: missions, hex territories, and skill badges.</div>
+      <div>Pass Level <strong id="passLevel"></strong> · XP <strong id="passXp"></strong></div>
+      <div class="bar"><span id="passBar"></span></div>
+      <div id="passUnlocks" class="mini"></div>
+    </div>
+  </section>
 
-      <div class="pane" data-pane="Solo Mission Mode"><div class="box" id="soloBox"></div></div>
-      <div class="pane" data-pane="Skill Dashboard"><div class="box" id="skillDashboardBox"></div></div>
-      <div class="pane" data-pane="Analytics"><div class="box" id="analyticsBox"></div></div>
-      <div class="pane" data-pane="Room Mode">
-        <div class="box">
-          <div class="row"><input id="roomName" class="input grow" placeholder="Room name"/><button class="btn" id="createRoomBtn">Create Room</button></div>
-          <div class="row" style="margin-top:8px"><input id="roomCode" class="input grow" placeholder="Room code"/><button class="btn" id="joinRoomBtn">Join</button></div>
-          <div id="roomBox" class="mini" style="margin-top:8px"></div>
-        </div>
-      </div>
-    </aside>
-  </div>
-</div>
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 3 — Skill Rating (SR)</h3>
+      <div class="row"><strong id="playerSr"></strong><span class="mini">SR changes with mission score.</span></div>
+      <div class="list" id="leaderboard"></div>
+    </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, getDocs, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-import { getAnalytics, isSupported, logEvent as analyticsLogEvent } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+    <div class="card grid">
+      <h3 style="margin:0">Section 4 — Streak System</h3>
+      <div>Current streak: <strong id="streakCount"></strong> days</div>
+      <div id="streakRewards" class="mini"></div>
+      <button id="loginBtn">Register Daily Login</button>
+    </div>
+  </section>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBixS7kmf5R5BbsCecSgfGqagGrY2cme6Y",
-  authDomain: "skillhex-mission-control.firebaseapp.com",
-  projectId: "skillhex-mission-control",
-  storageBucket: "skillhex-mission-control.firebasestorage.app",
-  messagingSenderId: "859943015449",
-  appId: "1:859943015449:web:42dcdbe56a64574060c688",
-  measurementId: "G-JTFLZSJHWK"
-};
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 5 — Event Missions</h3>
+      <div id="eventInfo"></div>
+      <div class="mini" id="eventTimer"></div>
+    </div>
 
-const STORAGE_KEY = "skillhex-v5";
-const tabs = ["Mission Engine","Hex Map","Results","Proof Vault","Leaderboard","Recruiter View","Tutorial"];
+    <div class="card grid">
+      <h3 style="margin:0">Section 6 — Squad Missions</h3>
+      <div class="row"><input id="roomName" class="grow" placeholder="Room name" /><button id="createRoom">Create Room</button></div>
+      <div class="row"><input id="memberName" class="grow" placeholder="Member name" /><button id="addMember">Add Member</button></div>
+      <div class="mini">Room supports up to 3 players.</div>
+      <div id="roomState" class="mini"></div>
+    </div>
+  </section>
 
-const skillsTemplate = {
-  systemsThinking:0,logic:0,prioritization:0,riskManagement:0,engineeringJudgement:0,
-  strategicThinking:0,leadership:0,resourceOptimization:0,problemSolving:0,adaptability:0
-};
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 7 — Reward System</h3>
+      <div id="rewardLog" class="list"></div>
+    </div>
 
-const missions = [
-  {id:"mars_habitat",title:"Mars Habitat Failure",category:"engineering",scenario:"Critical oxygen and energy systems are degrading.",decisions:[{text:"Repair oxygen generator",impact:{systemsThinking:2,problemSolving:1}},{text:"Fix solar panels",impact:{engineeringJudgement:2,resourceOptimization:1}},{text:"Ration food",impact:{riskManagement:1,prioritization:1}}],outcomes:"Habitat stabilized under constrained resources.",skillImpact:"engineering"},
-  {id:"startup_survival",title:"Startup Survival",category:"business",scenario:"Burn rate is rising while runway shrinks.",decisions:[{text:"Cut non-core spend",impact:{prioritization:2,resourceOptimization:2}},{text:"Refocus on retention",impact:{strategicThinking:2,logic:1}},{text:"Restructure team pods",impact:{leadership:2,adaptability:1}}],outcomes:"Runway extends with focused growth.",skillImpact:"business"},
-  {id:"cyber_attack",title:"Cyber Attack",category:"security",scenario:"Production services are under active intrusion.",decisions:[{text:"Isolate affected systems",impact:{riskManagement:2,systemsThinking:1}},{text:"Activate response team",impact:{leadership:2,adaptability:1}},{text:"Patch and monitor",impact:{logic:2,engineeringJudgement:1}}],outcomes:"Attack contained with service continuity.",skillImpact:"security"},
-  {id:"traffic_planner",title:"Traffic Planner",category:"science",scenario:"City gridlock spikes after infrastructure failure.",decisions:[{text:"Deploy adaptive signals",impact:{systemsThinking:2,logic:1}},{text:"Prioritize emergency lanes",impact:{riskManagement:1,prioritization:2}},{text:"Reroute freight windows",impact:{strategicThinking:2,resourceOptimization:1}}],outcomes:"Flow restored with lower congestion risk.",skillImpact:"science"},
-  {id:"disaster_relief",title:"Disaster Relief",category:"leadership",scenario:"A multi-region relief operation needs rapid coordination.",decisions:[{text:"Establish command center",impact:{leadership:2,systemsThinking:1}},{text:"Allocate critical supplies",impact:{prioritization:2,resourceOptimization:2}},{text:"Rotate field teams",impact:{adaptability:2,riskManagement:1}}],outcomes:"Relief network improves response reliability.",skillImpact:"leadership"},
-  {id:"ai_factory",title:"AI Factory",category:"engineering",scenario:"Model pipeline quality drops under scaling pressure.",decisions:[{text:"Fix data lineage",impact:{logic:2,engineeringJudgement:1}},{text:"Introduce safety gates",impact:{riskManagement:2,strategicThinking:1}},{text:"Optimize inference stack",impact:{problemSolving:2,resourceOptimization:1}}],outcomes:"Pipeline stabilized with safer throughput.",skillImpact:"engineering"}
-];
-
-const hexLayout = missions.map((m,i)=>({id:m.id,label:m.title.split(" ")[0],cat:m.category,index:i,unlocked:i===0,captured:false}));
-
-let app=null,auth=null,db=null,analytics=null;
-let firebaseReady=false;
-try{
-  app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app); firebaseReady=true;
-  setPersistence(auth,browserLocalPersistence).catch(()=>{});
-  isSupported().then(ok=>{ if(ok) analytics=getAnalytics(app); }).catch(()=>{});
-}catch(e){ firebaseReady=false; }
-
-const state = load();
-const el = {
-  tabs:document.getElementById('tabs'),userChip:document.getElementById('userChip'),logoutBtn:document.getElementById('logoutBtn'),
-  missionPane:document.getElementById('missionPane'),mapPane:document.getElementById('mapPane'),resultsPane:document.getElementById('resultsPane'),proofPane:document.getElementById('proofPane'),leaderboardPane:document.getElementById('leaderboardPane'),recruiterPane:document.getElementById('recruiterPane'),tutorialPane:document.getElementById('tutorialPane'),
-  authBox:document.getElementById('authBox'),skillGraph:document.getElementById('skillGraph'),timeline:document.getElementById('timeline')
-};
-
-function load(){
-  let parsed={}; try{parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(_e){}
-  return Object.assign({
-    tab:"Mission Engine",users:[],currentUserId:null,missionRuns:[],proofs:[],hexes:hexLayout,
-    activeMissionId:null,decisionStep:0,currentRun:[],latestResult:null,recruiterTarget:null
-  },parsed);
-}
-function save(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
-function logEvent(name,p={}){ if(analytics){ try{analyticsLogEvent(analytics,name,p);}catch(_e){} } }
-function currentUser(){ return state.users.find(u=>u.id===state.currentUserId)||null; }
-function totalSkillScore(sk){ return Object.values(sk||{}).reduce((a,b)=>a+b,0); }
-function cloneSkills(){ return JSON.parse(JSON.stringify(skillsTemplate)); }
-
-async function signup(email,password,name,mode){
-  if(firebaseReady){
-    const cred = await createUserWithEmailAndPassword(auth,email,password);
-    const user = {id:cred.user.uid,email,name,mode,skills:cloneSkills(),missionsPlayed:0,missionsCompleted:0,createdAt:new Date().toISOString(),proofs:[],history:[]};
-    await setDoc(doc(db,'players',user.id),{name:user.name,mode:user.mode,skills:user.skills,missionsPlayed:0,missionsCompleted:0,createdAt:serverTimestamp(),email:user.email});
-    await setDoc(doc(db,'skillProfiles',user.id),{playerId:user.id,skills:user.skills,totalSkillScore:0,updatedAt:serverTimestamp()});
-    return user;
-  }
-  return {id:crypto.randomUUID(),email,name,mode,password,skills:cloneSkills(),missionsPlayed:0,missionsCompleted:0,createdAt:new Date().toISOString(),proofs:[],history:[]};
-}
-
-async function login(email,password){
-  if(firebaseReady){
-    const cred=await signInWithEmailAndPassword(auth,email,password);
-    const snap=await getDoc(doc(db,'players',cred.user.uid));
-    if(snap.exists()){
-      const d=snap.data();
-      const runs = await getDocs(query(collection(db,'missionRuns'),where('playerId','==',cred.user.uid),orderBy('timestamp','desc'),limit(25)));
-      const proofs = await getDocs(query(collection(db,'proofVault'),where('playerId','==',cred.user.uid),orderBy('timestamp','desc'),limit(25)));
-      return {
-        id:cred.user.uid,email,name:d.name||email,mode:d.mode||'player',skills:Object.assign(cloneSkills(),d.skills||{}),
-        missionsPlayed:d.missionsPlayed||0,missionsCompleted:d.missionsCompleted||0,createdAt:new Date().toISOString(),
-        history:runs.docs.map(x=>x.data()),proofs:proofs.docs.map(x=>x.data())
-      };
-<div class="overlay" id="tutorialOverlay" aria-modal="true" role="dialog">
-  <div class="tutorial">
-    <h3 id="tTitle"></h3>
-    <div class="viz" id="tViz"></div>
-    <div id="tBody"></div>
-    <div class="dock" style="margin-top:8px">
-      <div class="mini" id="tCount"></div>
+    <div class="card grid">
+      <h3 style="margin:0">Section 8 — Result Share Card</h3>
+      <div id="shareCard"></div>
       <div class="row">
-        <button class="btn ghost" id="tBack">Back</button>
-        <button class="btn" id="tNext">Next</button>
-        <button class="btn ghost" id="tSkip">Skip</button>
+        <a id="shareLinkedIn" target="_blank"><button>LinkedIn</button></a>
+        <a id="shareWhatsApp" target="_blank"><button>WhatsApp</button></a>
+        <a id="shareTwitter" target="_blank"><button>Twitter</button></a>
       </div>
     </div>
-  </div>
+  </section>
 </div>
 
-<div class="wheel-wrap">
-  <div class="row" style="justify-content:flex-end;margin-bottom:6px">
-    <button class="btn" id="toggleInputBtn">Mode: Standard</button>
-    <button class="btn ghost" id="toggleWheelBtn">Dock</button>
-  </div>
-  <div id="threadWheel" class="wheel" role="application" aria-label="Thread command wheel"><div id="wheelCenter" class="center">Idle</div></div>
-</div>
+<script>
+const KEY = "skillhex-progression-v1";
+const now = () => Date.now();
+const dayStamp = (ts = now()) => new Date(ts).toISOString().slice(0,10);
+const missionsTemplate = [
+  { id:"complete_any", title:"Complete any mission", target:1, type:"count", reward:20 },
+  { id:"score_700", title:"Score above 700", target:700, type:"score", reward:30 },
+  { id:"improve_skill", title:"Improve a skill category", target:1, type:"improve", reward:25 }
+];
+const events = [
+  { id:"asteroid_rush", name:"Asteroid Rush", desc:"Clear 5 threats in tactical mode", durationHrs:12, reward:"+40 tokens + Hex Territory" },
+  { id:"signal_blackout", name:"Signal Blackout", desc:"Solve comms puzzle with your squad", durationHrs:12, reward:"Rare Badge + 50 XP" },
+  { id:"reactor_peak", name:"Reactor Peak", desc:"Score 900+ in calibration mission", durationHrs:12, reward:"Skill Upgrade Core" }
+];
+const passLevels = [
+  {level:1, unlock:"Mission Slot +1"}, {level:2, unlock:"Hex Territory: Delta-3"}, {level:3, unlock:"Badge: Pathfinder"},
+  {level:4, unlock:"Mission: Elite Circuit"}, {level:5, unlock:"Hex Territory: Nova Ring"}, {level:6, unlock:"Badge: Tactical Ace"}
+];
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+const defaultState = {
+  tokens:0,xp:0,passLevel:1,sr:1000,lastMissionScore:0,territories:0,skillUpgrades:0,badges:[],
+  daily:{stamp:"",missions:[]},streak:{count:0,lastLogin:""},rewardLog:[],
+  squad:{room:"",members:[]},leaderboardBots:[
+    {name:"NovaPilot",sr:1210},{name:"HexRanger",sr:1155},{name:"OrbitMind",sr:1108},{name:"You",sr:1000}
+  ]
+};
 
-(() => {
-  "use strict";
+const state = Object.assign({}, defaultState, JSON.parse(localStorage.getItem(KEY) || "{}"));
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBixS7kmf5R5BbsCecSgfGqagGrY2cme6Y",
-    authDomain: "skillhex-mission-control.firebaseapp.com",
-    projectId: "skillhex-mission-control",
-    storageBucket: "skillhex-mission-control.firebasestorage.app",
-    messagingSenderId: "859943015449",
-    appId: "1:859943015449:web:42dcdbe56a64574060c688",
-    measurementId: "G-JTFLZSJHWK"
-  };
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function pushReward(text){ state.rewardLog.unshift(`${new Date().toLocaleTimeString()} — ${text}`); state.rewardLog = state.rewardLog.slice(0,20); }
 
-  let app = null, auth = null, db = null, analytics = null;
-  const hasFirebase = !!firebaseConfig.apiKey;
-  if(hasFirebase){
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    analyticsSupported().then(ok=>{ if(ok) analytics=getAnalytics(app); }).catch(()=>{});
-    setPersistence(auth, browserLocalPersistence).catch(()=>{});
+function resetDailyIfNeeded(){
+  const today = dayStamp();
+  if(state.daily.stamp !== today){
+    state.daily.stamp = today;
+    state.daily.missions = missionsTemplate.map(m=>({...m,progress:0,done:false}));
   }
+}
 
-  const STORAGE_KEY = "skillhex-mission-control-v4";
-  const tabs = ["Demo Mode","Solo Mission Mode","Skill Dashboard","Proof Vault","Recruiter View","Analytics","Room Mode","Settings"];
-  const skillConfig = [
-    {key:"systemsThinking",label:"Systems Thinking"},
-    {key:"analyticalThinking",label:"Analytical Thinking"},
-    {key:"prioritization",label:"Prioritization"},
-    {key:"adaptability",label:"Adaptability"},
-    {key:"resourceEfficiency",label:"Resource Efficiency"},
-    {key:"strategicThinking",label:"Strategic Thinking"},
-    {key:"collaboration",label:"Collaboration"},
-    {key:"leadership",label:"Leadership"},
-    {key:"crisisResponse",label:"Crisis Response"},
-    {key:"executionReliability",label:"Execution Reliability"}
-  ];
-  const skillsList = skillConfig.map(s=>s.key);
-  const skillLabelMap = Object.fromEntries(skillConfig.map(s=>[s.key,s.label]));
-  const roleFamilies = ["Software Engineering","Operations Analyst","Product Manager","Systems Engineer","Strategy Analyst"];
+function addXp(amount){
+  state.xp += amount;
+  while(state.xp >= state.passLevel*100 && state.passLevel < passLevels.length){
+    state.xp -= state.passLevel*100;
+    state.passLevel += 1;
+    const unlock = passLevels.find(p=>p.level===state.passLevel)?.unlock;
+    if(unlock){ pushReward(`Pass Level ${state.passLevel} unlocked: ${unlock}`); }
+    if(unlock?.includes("Hex Territory")) state.territories += 1;
+    if(unlock?.includes("Badge")) state.badges.push(unlock.replace("Badge: ",""));
+  }
+}
 
-  const seededJobs = [
-    {company:"Google",role:"Associate Product Analyst",location:"Bengaluru",sourceType:"source-backed",sourceUrl:"https://careers.google.com",requiredSkills:["Systems Thinking","Prioritization"],preferredSkills:["Collaboration"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹14L-28L",lastUpdated:"2026-01-03",active:true,confidenceLevel:0.82},
-    {company:"Microsoft",role:"Program Manager I",location:"Hyderabad",sourceType:"source-backed",sourceUrl:"https://careers.microsoft.com",requiredSkills:["Leadership","Execution Reliability"],preferredSkills:["Negotiation"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹18L-34L",lastUpdated:"2026-01-04",active:true,confidenceLevel:0.8},
-    {company:"TCS",role:"Operations Analyst",location:"Mumbai",sourceType:"source-backed",sourceUrl:"https://www.tcs.com/careers",requiredSkills:["Resource Efficiency","Collaboration"],preferredSkills:["Adaptability"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹5L-9L",lastUpdated:"2026-01-04",active:true,confidenceLevel:0.76},
-    {company:"Infosys",role:"Business Process Lead",location:"Pune",sourceType:"source-backed",sourceUrl:"https://www.infosys.com/careers",requiredSkills:["Execution Reliability","Prioritization"],preferredSkills:["Leadership"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹7L-13L",lastUpdated:"2026-01-02",active:true,confidenceLevel:0.74},
-    {company:"JPMorgan",role:"Risk Operations Analyst",location:"Mumbai",sourceType:"source-backed",sourceUrl:"https://careers.jpmorgan.com",requiredSkills:["Analytical Thinking","Crisis Response"],preferredSkills:["Systems Thinking"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹14L-24L",lastUpdated:"2026-01-02",active:true,confidenceLevel:0.79},
-    {company:"Goldman Sachs",role:"Analyst",location:"Bengaluru",sourceType:"source-backed",sourceUrl:"https://higher.gs.com",requiredSkills:["Analytical Thinking","Execution Reliability"],preferredSkills:["Negotiation"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹20L-35L",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.81},
-    ...Array.from({length:5},(_,i)=>({company:`India Local Firm ${i+1}`,role:"Growth Ops Associate",location:"India",sourceType:"mock-placeholder",sourceUrl:"n/a",requiredSkills:["Adaptability"],preferredSkills:["Collaboration"],minEducation:"Open",ageEligibilityNote:"18+",compensationType:"range",compensationRange:"₹4L-10L",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.4})),
-    ...Array.from({length:5},(_,i)=>({company:`Global Startup ${i+1}`,role:"Product Ops Generalist",location:"Remote",sourceType:"mock-placeholder",sourceUrl:"n/a",requiredSkills:["Systems Thinking"],preferredSkills:["Leadership"],minEducation:"Open",ageEligibilityNote:"18+",compensationType:"range",compensationRange:"$35k-$85k",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.38}))
-  ];
+function applyMissionResult(score){
+  state.lastMissionScore = score;
+  const srDelta = Math.round((score - 700) / 25);
+  state.sr = Math.max(300, state.sr + srDelta);
+  state.leaderboardBots.find(p=>p.name==="You").sr = state.sr;
+  addXp(40 + Math.max(0, Math.round((score-600)/20)));
 
-  const missionScenarios = [
-    {
-      id:"oxygen-crisis", title:"Oxygen Crisis", scenario:"A habitat oxygen processor has failed with 4 hours of reserve left.",
-      constraints:["Reserve oxygen: 4 hours","Repair drone battery at 35%","Comms delay: 9 minutes"],
-      unexpectedEvent:"A dust surge blocks the backup intake manifold.",
-      steps:[
-        {id:"stabilize",text:"Step 1: Stabilize atmosphere",context:"Pressure drop is accelerating in two sectors.",options:[
-          {id:"seal-sectors",text:"Seal two sectors immediately",effects:{crisisResponse:8,prioritization:5,collaboration:-2,resourceEfficiency:-2},timeline:"Sealed sectors and slowed oxygen loss."},
-          {id:"manual-override",text:"Run manual override with crew",effects:{leadership:6,executionReliability:4,adaptability:3,crisisResponse:2},timeline:"Crew performed manual override sequence."},
-          {id:"sensor-scan",text:"Run full diagnostics before action",effects:{analyticalThinking:7,systemsThinking:5,crisisResponse:-2},timeline:"Completed diagnostics before interventions."}
-        ]},
-        {id:"allocate",text:"Step 2: Allocate limited support",context:"You can only support one subsystem at full power.",options:[
-          {id:"support-medbay",text:"Prioritize medbay and life support",effects:{prioritization:6,leadership:4,resourceEfficiency:-3},timeline:"Critical units prioritized for survivability."},
-          {id:"support-repair",text:"Prioritize repair armature",effects:{executionReliability:6,resourceEfficiency:4,adaptability:-2},timeline:"Repair throughput improved for core systems."},
-          {id:"split-load",text:"Split power across all subsystems",effects:{collaboration:5,systemsThinking:4,executionReliability:-3},timeline:"Distributed power across teams and systems."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Dust surge blocks backup manifold.",options:[
-          {id:"remote-flush",text:"Remote flush with risk of valve wear",effects:{adaptability:6,crisisResponse:5,resourceEfficiency:-2},timeline:"Remote flush restored partial intake."},
-          {id:"eva-team",text:"Send EVA team for physical clearance",effects:{leadership:5,collaboration:5,crisisResponse:4,executionReliability:-2},timeline:"EVA team cleared manifold manually."},
-          {id:"load-shed",text:"Load-shed and reduce habitat demand",effects:{resourceEfficiency:7,systemsThinking:4,collaboration:-2},timeline:"Demand reduced to buy repair time."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Choose end-state strategy",options:[
-        {id:"hard-redundancy",text:"Install hard redundancy and postpone expansion",effects:{strategicThinking:7,executionReliability:5,prioritization:3},outcome:"Mission stabilized with resilient oxygen architecture."},
-        {id:"rapid-recovery",text:"Return to full ops quickly with monitored risk",effects:{adaptability:5,executionReliability:4,strategicThinking:-2,resourceEfficiency:2},outcome:"Mission recovered rapidly but retained latent risk."},
-        {id:"crew-rotation",text:"Rotate crew to safe modules and phase repairs",effects:{leadership:6,collaboration:4,resourceEfficiency:3},outcome:"Mission preserved crew health with phased recovery."}
-      ]}
-    },
-    {
-      id:"startup-growth-strategy", title:"Startup Growth Strategy", scenario:"Your SaaS startup must grow 2x in 2 quarters without burning runway.",
-      constraints:["Runway: 8 months","Team size fixed","CAC rising 18%"],
-      unexpectedEvent:"Largest channel partner pauses co-marketing for 6 weeks.",
-      steps:[
-        {id:"gtm-focus",text:"Step 1: Set GTM focus",context:"Three growth levers compete for budget.",options:[
-          {id:"enterprise",text:"Shift to enterprise deals",effects:{strategicThinking:7,prioritization:5,executionReliability:-2},timeline:"Pipeline shifted toward larger contracts."},
-          {id:"plg",text:"Double down on product-led growth",effects:{analyticalThinking:5,resourceEfficiency:5,adaptability:4},timeline:"Self-serve funnel optimization initiated."},
-          {id:"channel",text:"Expand channel partnerships",effects:{collaboration:6,leadership:3,resourceEfficiency:2},timeline:"Partner-led acquisition play launched."}
-        ]},
-        {id:"pricing",text:"Step 2: Pricing move",context:"Revenue target requires higher ARPU or higher volume.",options:[
-          {id:"premium",text:"Introduce premium tier",effects:{strategicThinking:6,analyticalThinking:4,adaptability:-2},timeline:"Premium packaging tested with key segments."},
-          {id:"usage",text:"Switch to usage-based pricing",effects:{systemsThinking:6,adaptability:5,executionReliability:-2},timeline:"Usage instrumentation and billing changes deployed."},
-          {id:"discount",text:"Offer aggressive annual discounts",effects:{prioritization:4,executionReliability:3,resourceEfficiency:-4},timeline:"Short-term conversions improved with discounting."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Partner pause impacts top funnel.",options:[
-          {id:"community",text:"Activate community-led pipeline",effects:{collaboration:6,adaptability:5,leadership:3},timeline:"Community motion replaced partner reach."},
-          {id:"paid-shift",text:"Shift spend to paid acquisition",effects:{executionReliability:5,analyticalThinking:4,resourceEfficiency:-3},timeline:"Paid channels scaled with tighter targeting."},
-          {id:"product-referrals",text:"Build referral incentives fast",effects:{strategicThinking:5,systemsThinking:4,adaptability:4},timeline:"Referral loop shipped to offset top-funnel loss."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Sustainable growth posture",options:[
-        {id:"balanced",text:"Balanced growth with monthly guardrails",effects:{strategicThinking:6,executionReliability:5,resourceEfficiency:4},outcome:"Growth target met with controlled burn and clearer predictability."},
-        {id:"aggressive",text:"Aggressive expansion with higher spend",effects:{leadership:5,adaptability:4,resourceEfficiency:-4},outcome:"Growth accelerated with elevated financial risk."},
-        {id:"conservative",text:"Conserve runway and optimize retention",effects:{prioritization:6,resourceEfficiency:6,strategicThinking:3},outcome:"Runway extended and retention improved, growth pace moderated."}
-      ]}
-    },
-    {
-      id:"supply-chain-breakdown", title:"Supply Chain Breakdown", scenario:"A critical supplier shutdown threatens your delivery commitments.", constraints:["Inventory cover: 11 days","Penalty clauses active","Two alternate suppliers only"], unexpectedEvent:"Port congestion adds 10-day delay for imported components.",
-      steps:[
-        {id:"triage",text:"Step 1: Triage order book",context:"Not all customers can be served equally.",options:[
-          {id:"tier-customers",text:"Prioritize strategic accounts",effects:{prioritization:7,strategicThinking:5,collaboration:-2},timeline:"High-value contracts prioritized."},
-          {id:"fifo",text:"Honor first-in-first-out",effects:{executionReliability:6,leadership:2,strategicThinking:-2},timeline:"Queue fairness policy enforced."},
-          {id:"rebalance",text:"Rebalance by margin and urgency",effects:{analyticalThinking:6,systemsThinking:5,resourceEfficiency:3},timeline:"Dynamic allocation model deployed."}
-        ]},
-        {id:"supplier",text:"Step 2: Supplier strategy",context:"Alternate vendors differ on quality and lead time.",options:[
-          {id:"split-sourcing",text:"Split sourcing across both alternates",effects:{systemsThinking:6,adaptability:4,executionReliability:3},timeline:"Dual-sourcing lowered single-point risk."},
-          {id:"fastest",text:"Choose fastest supplier only",effects:{crisisResponse:6,executionReliability:4,resourceEfficiency:-3},timeline:"Fastest supplier engaged for continuity."},
-          {id:"quality-first",text:"Choose quality-first supplier",effects:{executionReliability:5,strategicThinking:4,prioritization:-2},timeline:"Quality variance reduced, throughput constrained."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Port congestion delays imports by 10 days.",options:[
-          {id:"regional-shift",text:"Shift to regional substitutes",effects:{adaptability:6,resourceEfficiency:4,analyticalThinking:3},timeline:"Regional materials substitution executed."},
-          {id:"air-freight",text:"Use air freight for critical SKUs",effects:{crisisResponse:5,prioritization:5,resourceEfficiency:-4},timeline:"Air freight protected top SKUs."},
-          {id:"customer-plan",text:"Negotiate revised delivery windows",effects:{collaboration:6,leadership:4,executionReliability:-2},timeline:"Customers aligned on revised timelines."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Long-term resilience model",options:[
-        {id:"network-redesign",text:"Redesign supplier network with buffers",effects:{systemsThinking:7,strategicThinking:6,resourceEfficiency:3},outcome:"Supply network resilience improved with lower disruption exposure."},
-        {id:"lean-recovery",text:"Return to lean model after crisis",effects:{resourceEfficiency:6,executionReliability:4,crisisResponse:-2},outcome:"Cost profile improved but resilience remained moderate."},
-        {id:"partnerships",text:"Form strategic supplier alliances",effects:{collaboration:6,leadership:5,strategicThinking:4},outcome:"Strategic alliances improved reliability and shared planning."}
-      ]}
-    },
-    {
-      id:"ai-model-deployment", title:"AI Model Deployment", scenario:"You must deploy a high-impact model to production under regulatory scrutiny.", constraints:["Latency target <120ms","Bias threshold strict","Rollback window: 30 min"], unexpectedEvent:"A drift alert fires during final rollout rehearsal.",
-      steps:[
-        {id:"release",text:"Step 1: Release strategy",context:"Stakeholders push for fast launch.",options:[
-          {id:"canary",text:"Canary release by cohort",effects:{executionReliability:7,systemsThinking:5,adaptability:3},timeline:"Canary release plan approved."},
-          {id:"full-rollout",text:"Full rollout at once",effects:{leadership:4,crisisResponse:3,executionReliability:-4},timeline:"Full rollout scheduled under pressure."},
-          {id:"shadow",text:"Shadow mode validation first",effects:{analyticalThinking:7,resourceEfficiency:3,prioritization:-2},timeline:"Shadow validation extended before activation."}
-        ]},
-        {id:"guardrails",text:"Step 2: Guardrails selection",context:"Monitoring budget is limited.",options:[
-          {id:"bias-first",text:"Bias and fairness monitors first",effects:{strategicThinking:6,analyticalThinking:4,resourceEfficiency:-2},timeline:"Fairness guardrails prioritized."},
-          {id:"latency-first",text:"Latency and uptime monitors first",effects:{executionReliability:6,prioritization:5,strategicThinking:-2},timeline:"Performance guardrails prioritized."},
-          {id:"balanced",text:"Balanced minimal guardrails",effects:{systemsThinking:5,resourceEfficiency:4,adaptability:3},timeline:"Balanced monitoring stack configured."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Drift alert triggers during rehearsal.",options:[
-          {id:"pause-and-retrain",text:"Pause rollout and retrain",effects:{analyticalThinking:6,executionReliability:5,adaptability:-2},timeline:"Rollout paused for targeted retraining."},
-          {id:"feature-gate",text:"Deploy with feature gate fallback",effects:{crisisResponse:5,adaptability:5,systemsThinking:4},timeline:"Feature-gated rollout reduced blast radius."},
-          {id:"scope-limit",text:"Limit deployment scope to safe segments",effects:{prioritization:6,resourceEfficiency:4,leadership:3},timeline:"Deployment scope constrained to low-risk cohorts."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Production governance policy",options:[
-        {id:"governed-scale",text:"Scale with governance council checkpoints",effects:{leadership:6,strategicThinking:6,collaboration:4},outcome:"Model scaled with strong governance and trust."},
-        {id:"speed-scale",text:"Scale aggressively and tune live",effects:{adaptability:6,crisisResponse:4,executionReliability:-3},outcome:"Scale was fast, but operational volatility increased."},
-        {id:"slow-certify",text:"Delay scale until full certification",effects:{executionReliability:6,prioritization:4,resourceEfficiency:-2},outcome:"Risk was reduced, though opportunity window narrowed."}
-      ]}
-    },
-    {
-      id:"financial-portfolio-risk", title:"Financial Portfolio Risk", scenario:"Market volatility spikes and your portfolio drawdown breaches risk tolerance.", constraints:["Max drawdown: 8%","Liquidity floor required","Regulatory exposure limits"], unexpectedEvent:"A correlated asset unexpectedly gaps down 12% pre-market.",
-      steps:[
-        {id:"risk-cut",text:"Step 1: Immediate risk action",context:"Opening bell is in 30 minutes.",options:[
-          {id:"hedge",text:"Add protective hedges",effects:{analyticalThinking:6,strategicThinking:5,resourceEfficiency:-2},timeline:"Hedges layered onto vulnerable positions."},
-          {id:"delever",text:"Rapid deleveraging",effects:{crisisResponse:7,prioritization:5,executionReliability:3},timeline:"Gross exposure reduced quickly."},
-          {id:"hold",text:"Hold positions and monitor",effects:{resourceEfficiency:4,adaptability:2,crisisResponse:-4},timeline:"Positions held awaiting additional signal."}
-        ]},
-        {id:"realloc",text:"Step 2: Reallocation path",context:"Need balance between protection and upside.",options:[
-          {id:"defensive",text:"Shift toward defensive sectors",effects:{strategicThinking:6,executionReliability:4,adaptability:-2},timeline:"Allocation moved to defensive assets."},
-          {id:"barbell",text:"Adopt barbell allocation",effects:{systemsThinking:6,analyticalThinking:5,resourceEfficiency:3},timeline:"Barbell structure balanced risk and return."},
-          {id:"cash",text:"Increase cash materially",effects:{prioritization:5,resourceEfficiency:5,strategicThinking:-2},timeline:"Cash buffer raised for flexibility."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Correlated asset gaps down 12%.",options:[
-          {id:"rebalance-fast",text:"Fast rebalance and cap correlation",effects:{crisisResponse:6,systemsThinking:5,executionReliability:4},timeline:"Correlation exposure capped rapidly."},
-          {id:"communicate",text:"Communicate updated risk memo first",effects:{leadership:5,collaboration:4,crisisResponse:-2},timeline:"Stakeholders briefed before major moves."},
-          {id:"opportunistic",text:"Deploy tactical buy orders",effects:{adaptability:5,analyticalThinking:4,resourceEfficiency:-3},timeline:"Tactical entries placed amid dislocation."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Portfolio doctrine",options:[
-        {id:"risk-discipline",text:"Codify stricter risk discipline",effects:{executionReliability:6,strategicThinking:5,prioritization:4},outcome:"Portfolio stabilized under a stronger risk framework."},
-        {id:"dynamic-risk",text:"Adopt dynamic volatility targeting",effects:{systemsThinking:6,adaptability:5,analyticalThinking:4},outcome:"Portfolio became more adaptive to volatility regimes."},
-        {id:"return-tilt",text:"Maintain return tilt with selective hedges",effects:{strategicThinking:5,resourceEfficiency:4,crisisResponse:-2},outcome:"Return profile improved with moderate residual risk."}
-      ]}
-    },
-    {
-      id:"data-breach-crisis", title:"Data Breach Crisis", scenario:"Security team confirms unauthorized access to customer records.", constraints:["Regulatory notice window: 72h","Core platform must stay online","Forensic team limited"], unexpectedEvent:"Attackers begin extortion with sample data leak.",
-      steps:[
-        {id:"contain",text:"Step 1: Initial containment",context:"Unclear blast radius across services.",options:[
-          {id:"isolate",text:"Isolate affected services immediately",effects:{crisisResponse:7,executionReliability:5,resourceEfficiency:-2},timeline:"Affected services isolated quickly."},
-          {id:"monitor",text:"Silent monitor before containment",effects:{analyticalThinking:6,systemsThinking:4,crisisResponse:-3},timeline:"Monitoring expanded before containment."},
-          {id:"rotate-keys",text:"Global credential and key rotation",effects:{executionReliability:6,prioritization:5,collaboration:2},timeline:"Credential rotation executed platform-wide."}
-        ]},
-        {id:"comms",text:"Step 2: Communication strategy",context:"Legal, PR, and engineering priorities conflict.",options:[
-          {id:"transparent",text:"Transparent early disclosure",effects:{leadership:6,collaboration:5,resourceEfficiency:-2},timeline:"Public disclosure shared with early timeline."},
-          {id:"minimal",text:"Minimal disclosure until confirmed",effects:{prioritization:4,executionReliability:3,leadership:-2},timeline:"Disclosure delayed pending full confirmation."},
-          {id:"targeted",text:"Targeted notice to impacted users",effects:{systemsThinking:5,resourceEfficiency:4,collaboration:3},timeline:"Targeted notifications sent to affected users."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Extortion demand follows sample leak.",options:[
-          {id:"law-enforcement",text:"Coordinate with law enforcement",effects:{leadership:5,collaboration:5,crisisResponse:4},timeline:"Law enforcement coordination initiated."},
-          {id:"harden-first",text:"Prioritize hardening over negotiation",effects:{executionReliability:6,crisisResponse:5,strategicThinking:3},timeline:"Security hardening accelerated across stack."},
-          {id:"negotiate",text:"Engage negotiator to buy time",effects:{adaptability:5,collaboration:4,resourceEfficiency:-3},timeline:"Negotiation used to extend response window."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Trust recovery plan",options:[
-        {id:"trust-program",text:"Launch long-term trust recovery program",effects:{strategicThinking:6,leadership:6,executionReliability:4},outcome:"Trust restored through transparent long-term remediation."},
-        {id:"fast-fix",text:"Close incident quickly and move on",effects:{crisisResponse:5,resourceEfficiency:4,strategicThinking:-3},outcome:"Incident closed fast but confidence recovered slowly."},
-        {id:"independent-audit",text:"Commission independent security audit",effects:{analyticalThinking:5,collaboration:4,executionReliability:5},outcome:"Independent validation improved stakeholder confidence."}
-      ]}
-    },
-    {
-      id:"product-roadmap-decision", title:"Product Roadmap Decision", scenario:"You can only ship one major roadmap initiative this quarter.", constraints:["One cross-functional team","Fixed quarter deadline","Tech debt already high"], unexpectedEvent:"Largest customer requests urgent compliance feature.",
-      steps:[
-        {id:"selection",text:"Step 1: Initiative selection",context:"Growth feature and reliability upgrade compete.",options:[
-          {id:"growth-feature",text:"Choose growth feature",effects:{strategicThinking:6,adaptability:4,executionReliability:-2},timeline:"Roadmap shifted toward growth capture."},
-          {id:"reliability-upgrade",text:"Choose reliability upgrade",effects:{executionReliability:7,systemsThinking:5,prioritization:3},timeline:"Roadmap shifted toward platform reliability."},
-          {id:"debt-burn",text:"Choose tech debt reduction",effects:{resourceEfficiency:6,analyticalThinking:4,strategicThinking:-2},timeline:"Roadmap focused on debt reduction."}
-        ]},
-        {id:"resourcing",text:"Step 2: Team resource model",context:"PM, design, and backend bandwidth is tight.",options:[
-          {id:"squad-model",text:"Dedicated squad model",effects:{leadership:5,executionReliability:4,resourceEfficiency:-2},timeline:"Dedicated squad formed for critical path."},
-          {id:"shared-model",text:"Shared model across streams",effects:{collaboration:6,systemsThinking:4,executionReliability:-2},timeline:"Shared staffing used to spread expertise."},
-          {id:"partner-outsourcing",text:"Outsource non-core pieces",effects:{prioritization:5,resourceEfficiency:4,adaptability:3},timeline:"External support added for non-core work."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Urgent compliance request from largest customer.",options:[
-          {id:"fast-track",text:"Fast-track compliance and re-scope roadmap",effects:{prioritization:6,collaboration:5,strategicThinking:4},timeline:"Roadmap re-scoped to absorb compliance need."},
-          {id:"defer-customer",text:"Defer request to next quarter",effects:{resourceEfficiency:5,executionReliability:4,leadership:-2},timeline:"Compliance request deferred with documented rationale."},
-          {id:"modular-release",text:"Ship modular compliance extension",effects:{adaptability:6,systemsThinking:5,analyticalThinking:3},timeline:"Modular compliance path designed and shipped."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Roadmap governance",options:[
-        {id:"evidence-governance",text:"Adopt evidence-based roadmap governance",effects:{analyticalThinking:6,strategicThinking:6,executionReliability:4},outcome:"Roadmap quality improved with better evidence gates."},
-        {id:"customer-first",text:"Prioritize top customer requests by default",effects:{collaboration:5,leadership:4,prioritization:3},outcome:"Customer alignment increased with some innovation trade-off."},
-        {id:"platform-first",text:"Prioritize platform health by default",effects:{systemsThinking:6,resourceEfficiency:5,adaptability:-2},outcome:"Platform stability improved while feature velocity slowed."}
-      ]}
-    },
-    {
-      id:"research-funding-allocation", title:"Research Funding Allocation", scenario:"You must allocate a constrained grant budget across competing research tracks.", constraints:["Budget covers 2 of 5 proposals","Review board split","Milestone reporting strict"], unexpectedEvent:"A key PI loses access to a critical lab facility.",
-      steps:[
-        {id:"portfolio",text:"Step 1: Portfolio balance",context:"High-risk innovation vs near-term outcomes.",options:[
-          {id:"high-risk",text:"Fund high-risk breakthrough tracks",effects:{strategicThinking:7,adaptability:4,executionReliability:-3},timeline:"Funding tilted toward breakthrough potential."},
-          {id:"balanced",text:"Balanced mix of safe and bold",effects:{systemsThinking:6,prioritization:5,resourceEfficiency:3},timeline:"Portfolio balanced across risk horizons."},
-          {id:"safe",text:"Fund only near-term predictable tracks",effects:{executionReliability:6,resourceEfficiency:4,adaptability:-2},timeline:"Funding favored predictable outcomes."}
-        ]},
-        {id:"evaluation",text:"Step 2: Evaluation criteria",context:"Board asks for transparent scoring model.",options:[
-          {id:"impact-score",text:"Weight societal impact highest",effects:{leadership:5,collaboration:4,strategicThinking:4},timeline:"Impact-centric scoring model adopted."},
-          {id:"feasibility-score",text:"Weight feasibility highest",effects:{analyticalThinking:6,executionReliability:4,prioritization:3},timeline:"Feasibility-centric scoring model adopted."},
-          {id:"open-review",text:"Open peer review process",effects:{collaboration:6,systemsThinking:4,resourceEfficiency:-2},timeline:"Open review expanded decision participation."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Key PI loses lab access.",options:[
-          {id:"reassign",text:"Reassign project to partner lab",effects:{adaptability:6,collaboration:5,executionReliability:3},timeline:"Project reassigned to partner facility."},
-          {id:"pause-track",text:"Pause track and redirect funds",effects:{prioritization:6,resourceEfficiency:5,leadership:-2},timeline:"Funding redirected after pausing affected track."},
-          {id:"remote-method",text:"Adopt remote simulation method",effects:{systemsThinking:5,analyticalThinking:4,adaptability:4},timeline:"Remote methods preserved project momentum."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Funding doctrine",options:[
-        {id:"stage-gates",text:"Use stage-gated continuation funding",effects:{executionReliability:6,strategicThinking:5,resourceEfficiency:4},outcome:"Funding discipline improved with clear continuation gates."},
-        {id:"open-innovation",text:"Create open innovation reserve",effects:{adaptability:6,collaboration:5,leadership:4},outcome:"Innovation diversity increased with managed uncertainty."},
-        {id:"mission-focus",text:"Align all funds to mission-critical outcomes",effects:{prioritization:7,strategicThinking:5,systemsThinking:4},outcome:"Mission outcomes improved with tighter focus."}
-      ]}
-    },
-    {
-      id:"infrastructure-failure", title:"Infrastructure Failure", scenario:"A multi-region outage is impacting core services and SLAs.", constraints:["SLA penalties active","One region at 20% capacity","On-call fatigue high"], unexpectedEvent:"Secondary failover cluster shows intermittent packet loss.",
-      steps:[
-        {id:"incident-command",text:"Step 1: Incident command",context:"Need clear command structure within minutes.",options:[
-          {id:"central-command",text:"Centralized incident command",effects:{leadership:7,executionReliability:5,collaboration:-2},timeline:"Central command established for outage response."},
-          {id:"regional-leads",text:"Regional autonomous leads",effects:{adaptability:6,collaboration:5,executionReliability:-2},timeline:"Regional leads activated with local authority."},
-          {id:"auto-recovery",text:"Maximize automated recovery",effects:{systemsThinking:6,resourceEfficiency:4,crisisResponse:4},timeline:"Automation prioritized for restoration."}
-        ]},
-        {id:"capacity",text:"Step 2: Capacity strategy",context:"Traffic exceeds safe throughput.",options:[
-          {id:"shed-load",text:"Shed non-critical load",effects:{prioritization:6,resourceEfficiency:5,collaboration:-2},timeline:"Non-critical traffic shed to preserve core APIs."},
-          {id:"burst-cloud",text:"Burst to external cloud capacity",effects:{crisisResponse:6,adaptability:5,resourceEfficiency:-3},timeline:"Burst capacity restored partial throughput."},
-          {id:"queue-requests",text:"Queue and degrade gracefully",effects:{systemsThinking:5,executionReliability:5,leadership:3},timeline:"Graceful degradation stabilized service."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Failover cluster packet loss appears.",options:[
-          {id:"reroute",text:"Reroute traffic through tertiary path",effects:{crisisResponse:6,systemsThinking:5,executionReliability:4},timeline:"Traffic rerouted to tertiary path."},
-          {id:"hardware-swap",text:"Perform emergency hardware swap",effects:{executionReliability:6,leadership:4,resourceEfficiency:-3},timeline:"Emergency hardware replacement initiated."},
-          {id:"incident-pause",text:"Pause new deployments and freeze change",effects:{prioritization:5,executionReliability:5,adaptability:-2},timeline:"Change freeze reduced incident volatility."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Reliability investment",options:[
-        {id:"resilience-program",text:"Fund multi-region resilience program",effects:{strategicThinking:7,systemsThinking:6,executionReliability:4},outcome:"Infrastructure resilience improved across regions."},
-        {id:"cost-optimize",text:"Optimize for cost with selective safeguards",effects:{resourceEfficiency:6,prioritization:4,crisisResponse:-2},outcome:"Costs reduced with moderate reliability gains."},
-        {id:"team-reset",text:"Invest in on-call health and runbooks",effects:{leadership:6,collaboration:5,executionReliability:4},outcome:"Team reliability improved with healthier operations."}
-      ]}
-    },
-    {
-      id:"hiring-decision", title:"Hiring Decision", scenario:"You must hire for a mission-critical role under tight timeline pressure.", constraints:["Offer deadline in 5 days","Budget allows one hire","Team skill gap is severe"], unexpectedEvent:"Top candidate receives competing offer with 48-hour expiry.",
-      steps:[
-        {id:"role-profile",text:"Step 1: Define hiring profile",context:"Need immediate delivery and future leadership potential.",options:[
-          {id:"specialist",text:"Hire deep specialist",effects:{executionReliability:6,prioritization:4,collaboration:-2},timeline:"Role profile emphasized specialist depth."},
-          {id:"generalist",text:"Hire adaptable generalist",effects:{adaptability:6,systemsThinking:5,resourceEfficiency:3},timeline:"Role profile emphasized cross-functional adaptability."},
-          {id:"leader",text:"Hire player-coach leader",effects:{leadership:7,collaboration:5,resourceEfficiency:-2},timeline:"Role profile emphasized leadership leverage."}
-        ]},
-        {id:"assessment",text:"Step 2: Assessment method",context:"Interview loop must be fast and fair.",options:[
-          {id:"work-sim",text:"Use work simulation challenge",effects:{analyticalThinking:6,executionReliability:4,resourceEfficiency:-2},timeline:"Work-sim used for evidence-based assessment."},
-          {id:"panel",text:"Use cross-functional panel",effects:{collaboration:6,leadership:4,prioritization:3},timeline:"Panel interview aligned stakeholders quickly."},
-          {id:"references",text:"Rely heavily on references",effects:{resourceEfficiency:5,strategicThinking:3,analyticalThinking:-2},timeline:"Reference-driven process shortened cycle time."}
-        ]},
-        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Top candidate gets 48-hour competing offer.",options:[
-          {id:"expedite",text:"Expedite decision and offer now",effects:{crisisResponse:6,prioritization:5,executionReliability:3},timeline:"Offer process expedited to retain candidate."},
-          {id:"hold-bar",text:"Hold quality bar and continue process",effects:{executionReliability:6,strategicThinking:5,crisisResponse:-2},timeline:"Process quality maintained despite pressure."},
-          {id:"dual-track",text:"Run dual-track with backup candidate",effects:{adaptability:5,systemsThinking:4,resourceEfficiency:3},timeline:"Dual-track reduced single-candidate risk."}
-        ]}
-      ],
-      finalDecision:{text:"Final Decision: Team-building strategy",options:[
-        {id:"capability-matrix",text:"Adopt capability-matrix hiring plan",effects:{systemsThinking:6,strategicThinking:6,leadership:4},outcome:"Hiring strategy aligned better to long-term capability needs."},
-        {id:"speed-first",text:"Optimize for speed-to-hire",effects:{prioritization:6,crisisResponse:4,analyticalThinking:-2},outcome:"Role filled quickly with moderate fit uncertainty."},
-        {id:"culture-first",text:"Prioritize collaboration and culture fit",effects:{collaboration:6,leadership:5,executionReliability:3},outcome:"Team cohesion strengthened with stable delivery outlook."}
-      ]}
+  state.daily.missions.forEach(m=>{
+    if(m.done) return;
+    if(m.type==="count") m.progress = Math.min(m.target, m.progress + 1);
+    if(m.type==="score" && score >= m.target) m.progress = m.target;
+    if(m.type==="improve" && score >= 650) m.progress = m.target;
+    if(m.progress >= m.target){
+      m.done = true;
+      state.tokens += m.reward;
+      pushReward(`Daily Mission complete: ${m.title} (+${m.reward} tokens)`);
     }
-  ];
-
-  missionScenarios.forEach(m=>{
-    m.decisions=(m.steps||[]).map((d,i)=>({step:i+1,description:d.text,options:d.options,skillImpact:d.options?.map(o=>o.effects||{})||[]}));
-    m.events=[m.unexpectedEvent];
   });
 
-  const tutorialSteps = [
-    ["Mission Control Map","This Mars-style hex grid is your living proof terrain. Each zone represents a capability domain and mission opportunity."],
-    ["Hex Control","Tap/click a hex to inspect. Completing missions increases control percentage and can change ownership."],
-    ["Mission Engine","Tactical, simulation, and contested missions generate decisions, deltas, and timeline evidence."],
-    ["Skill Dynamics","Skill growth includes trade-offs. Gains in speed may reduce efficiency or collaboration."],
-    ["Role-Fit Mapping","Mission evidence maps to role families using confidence and consistency—not profile claims."],
-    ["Proof Vault","Every run stores canonical payload + SVG evidence + fallback summary for replay and recruiter review."],
-    ["Thread Input","Thread mode uses a 12-command wheel with drag/pull gestures and confidence checks for low-certainty input."]
-  ];
-
-  function seedZones(){
-    const domains=["Strategy","Operations","Product","Analytics","Leadership","Systems","Negotiation","Crisis"];
-    return Array.from({length:25},(_,i)=>({id:`Z${i+1}`,name:`Ares-${i+1}`,domain:domains[i%domains.length],owner:"neutral",control:20+((i*7)%45),missionId:missionScenarios[i%missionScenarios.length].id,targetSkill:skillsList[i%skillsList.length],difficulty:1+(i%5),status:"open"}));
-  }
-
-  function baseUser(){ const s={}; skillsList.forEach(k=>s[k]=50); return s; }
-
-  function emptyPlayerStats(){
-    return {missionsPlayed:0,missionsCompleted:0,averageScore:0,averageDecisionTime:0,skillDistribution:{}};
-  }
-
-  function ensurePlayerShape(u){
-    if(!u) return;
-    u.skills = Object.assign(baseUser(), u.skills||{});
-    u.playerStats = Object.assign(emptyPlayerStats(), u.playerStats||{});
-    u.missionsPlayed = Number(u.missionsPlayed||u.playerStats.missionsPlayed||0);
-    u.missionsCompleted = Number(u.missionsCompleted||u.playerStats.missionsCompleted||0);
-    u.averageScore = Number(u.averageScore||u.playerStats.averageScore||0);
-    u.averageDecisionTime = Number(u.averageDecisionTime||u.playerStats.averageDecisionTime||0);
-    u.skillDistribution = Object.assign({}, u.skillDistribution||u.playerStats.skillDistribution||{});
-    u.missionHistory = Array.isArray(u.missionHistory)?u.missionHistory:[];
-    u.proofVault = Array.isArray(u.proofVault)?u.proofVault:[];
-    u.roleFit = Array.isArray(u.roleFit)?u.roleFit:[];
-    u.recentSkillChanges = Array.isArray(u.recentSkillChanges)?u.recentSkillChanges:[];
-  }
-
-  async function persistCloud(){
-    if(!hasFirebase || !db) return;
-    const u=currentUser();
-    if(!u) return;
-    try {
-      await setDoc(doc(db,'players',u.id), {
-        name:u.displayName,
-        email:u.email||null,
-        userType:u.userType||'player',
-        skills:u.skills,
-        missionsPlayed:u.missionsPlayed||0,
-        missionsCompleted:u.missionsCompleted||0,
-        averageScore:u.averageScore||0,
-        averageDecisionTime:u.averageDecisionTime||0,
-        updatedAt:serverTimestamp(),
-        createdAt:u.createdAt||serverTimestamp()
-      }, {merge:true});
-      await setDoc(doc(db,'global','analytics'), {
-        totalPlayers:state.users.length,
-        missionsPlayed:state.globalAnalytics.missionsPlayed||0,
-        missionsCompleted:state.globalAnalytics.missionsCompleted||0,
-        skillSignalTotals:state.globalAnalytics.skillSignalTotals||{},
-        updatedAt:serverTimestamp()
-      }, {merge:true});
-    } catch(_e){}
-  }
-
-  function trackAnalyticsEvent(name,params={}){
-    if(analytics){
-      try { firebaseLogEvent(analytics,name,params); } catch(_e){}
-    }
-  }
-
-  async function signup(email,password,profile){
-    if(!hasFirebase || !auth || !db) throw new Error('Firebase unavailable');
-    const cred = await createUserWithEmailAndPassword(auth,email,password);
-    const player={
-      id:cred.user.uid,
-      displayName:profile.name||'Player',
-      email,
-      userType:profile.userType||'player',
-      rolePath:profile.rolePath||'Explorer',
-      ageGroup:profile.ageGroup||'18+',
-      region:profile.region||'Unknown',
-      skills:baseUser(),
-      missionsPlayed:0,
-      missionsCompleted:0,
-      createdAt:new Date().toISOString(),
-      tutorialCompleted:false,
-      playerStats:emptyPlayerStats(),
-      missionHistory:[],
-      proofVault:[],
-      roleFit:[],
-      recentSkillChanges:[]
-    };
-    ensurePlayerShape(player);
-    await setDoc(doc(db,'players',player.id), {
-      name:player.displayName,
-      email:player.email,
-      userType:player.userType,
-      rolePath:player.rolePath,
-      ageGroup:player.ageGroup,
-      region:player.region,
-      skills:player.skills,
-      missionsPlayed:0,
-      missionsCompleted:0,
-      createdAt:serverTimestamp(),
-      updatedAt:serverTimestamp()
-    }, {merge:true});
-    return player;
-  }
-
-  async function login(email,password){
-    if(!hasFirebase || !auth) throw new Error('Firebase unavailable');
-    const cred = await signInWithEmailAndPassword(auth,email,password);
-    return cred.user;
-  }
-
-  async function logout(){
-    if(hasFirebase && auth){
-      try { await signOut(auth); } catch(_e){}
-    }
-    state.currentUserId=null;
-    state.session=null;
-    saveState();
-    render();
-  }
-
-  async function hydrateUserFromCloud(uid){
-    if(!hasFirebase || !db) return null;
-    try {
-      const snap = await getDoc(doc(db,'players',uid));
-      if(!snap.exists()) return null;
-      const d=snap.data();
-      const player={
-        id:uid,
-        displayName:d.name||'Player',
-        email:d.email||'',
-        userType:d.userType||'player',
-        rolePath:d.rolePath||'Explorer',
-        ageGroup:d.ageGroup||'18+',
-        region:d.region||'Unknown',
-        skills:d.skills||baseUser(),
-        missionsPlayed:d.missionsPlayed||0,
-        missionsCompleted:d.missionsCompleted||0,
-        averageScore:d.averageScore||0,
-        averageDecisionTime:d.averageDecisionTime||0,
-        createdAt:d.createdAt?.toDate?.()?.toISOString?.()||new Date().toISOString(),
-        tutorialCompleted:d.tutorialCompleted||false,
-        playerStats:d.playerStats||emptyPlayerStats(),
-        missionHistory:[],
-        proofVault:[],
-        roleFit:d.roleFit||[],
-        recentSkillChanges:d.recentSkillChanges||[]
-      };
-      ensurePlayerShape(player);
-      const runs = await getDocs(query(collection(db,'missionRuns'), where('playerId','==',uid), orderBy('timestamp','desc'), limit(20)));
-      player.missionHistory = runs.docs.map(x=>{ const r=x.data(); return {missionId:r.missionId,missionTitle:r.missionTitle||r.missionId,score:r.score,skillDeltas:r.skillDeltas||{},timeline:r.timeline||[],outcome:r.outcome||'',timestamp:r.timestamp?.toDate?.()?.toISOString?.()||new Date().toISOString()}; });
-      const proofs = await getDocs(query(collection(db,'proofVault'), where('playerId','==',uid), orderBy('timestamp','desc'), limit(20)));
-      player.proofVault = proofs.docs.map(x=>{ const r=x.data(); return {missionId:r.missionId,missionTitle:r.missionTitle||r.missionId,score:r.score||0,skillDeltas:r.skillDeltas||{},timeline:r.timeline||[],outcome:r.outcome||'',timestamp:r.timestamp?.toDate?.()?.toISOString?.()||new Date().toISOString(),svg:r.svgProof||null,resultId:x.id}; });
-      return player;
-    } catch(_e){ return null; }
-  }
-
-  async function saveMissionRunToCloud(result,effects){
-    if(!hasFirebase || !db) return;
-    await addDoc(collection(db,'missionRuns'), {
-      playerId:result.playerId,
-      missionId:result.missionId,
-      missionTitle:result.missionTitle,
-      score:result.score.missionScore,
-      skillDeltas:effects,
-      timeline:result.timeline,
-      outcome:result.outcome,
-      timestamp:serverTimestamp()
-    });
-  }
-
-  async function saveProofToCloud(result,vaultItem,effects){
-    if(!hasFirebase || !db) return;
-    await addDoc(collection(db,'proofVault'), {
-      playerId:result.playerId,
-      missionId:result.missionId,
-      missionTitle:result.missionTitle,
-      score:result.score.missionScore,
-      skillDeltas:effects,
-      timeline:result.timeline,
-      outcome:result.outcome,
-      svgProof:vaultItem.svg||null,
-      timestamp:serverTimestamp()
-    });
-    if(!hasFirebase) return;
-    try{
-      const db = window.firebase?.firestore?.();
-      const u=currentUser();
-      if(db && u){
-        await db.collection('players').doc(u.id).set(u,{merge:true});
-        await db.collection('global').doc('analytics').set(state.globalAnalytics,{merge:true});
-      }
-    }catch(_e){}
-  }
-
-  function defaultState(){
-    return {
-      mode:"Demo Mode", inputMode:"standard", wheelDocked:false, tutorial:{seen:false,step:0,active:false}, agents:true,
-      users:[], currentUserId:null, session:null, zones:seedZones(), selectedZone:null, missions:[], timeline:[],
-      proofVault:[], roleFitHistory:[], recruiterActions:[], savedReports:[], rooms:[{code:"ALPHA7",name:"Demo Room",members:[]}],
-      telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false, activeMissionRun:null,
-      globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}, recruiterTarget:""
-      globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}
-    };
-  }
-
-  function loadState(){
-    let parsed=null; try { parsed = JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(_e){}
-    const s=Object.assign(defaultState(), parsed||{});
-    s.zones = Array.isArray(s.zones) && s.zones.length>=25 ? s.zones : seedZones();
-    s.users = Array.isArray(s.users) ? s.users : [];
-    const legacySkillMap={"Systems Thinking":"systemsThinking","Analytical Thinking":"analyticalThinking","Prioritization":"prioritization","Adaptability":"adaptability","Resource Efficiency":"resourceEfficiency","Strategic Thinking":"strategicThinking","Collaboration":"collaboration","Leadership":"leadership","Crisis Response":"crisisResponse","Execution Reliability":"executionReliability","Negotiation":"collaboration"};
-    s.users.forEach(u=>{
-      const next=baseUser();
-      Object.entries(u.skills||{}).forEach(([k,v])=>{ next[legacySkillMap[k]||k]=v; });
-      u.skills=next;
-      ensurePlayerShape(u);
-    });
-    s.globalAnalytics = Object.assign({totalPlayers:s.users.length,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}, s.globalAnalytics||{});
-    if (!s.currentUserId && s.currentUser && s.currentUser.id) s.currentUserId = s.currentUser.id; // migration
-    delete s.currentUser;
-    return s;
-  }
-
-  const state = loadState();
-
-  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); persistCloud(); }
-  function currentUser(){ return state.users.find(u=>u.id===state.currentUserId) || null; }
-
-  const el = {
-    tabs:document.getElementById("tabs"), panes:[...document.querySelectorAll(".pane")], mapSvg:document.getElementById("mapSvg"),
-    zoneBox:document.getElementById("zoneBox"), missionBox:document.getElementById("missionBox"), soloBox:document.getElementById("soloBox"),
-    recruiterBox:document.getElementById("recruiterBox"), vaultBox:document.getElementById("vaultBox"), settingsBox:document.getElementById("settingsBox"),
-    skillDashboardBox:document.getElementById("skillDashboardBox"), analyticsBox:document.getElementById("analyticsBox"),
-    authCard:document.getElementById("authCard"), skills:document.getElementById("skills"), telemetry:document.getElementById("telemetry"), activity:document.getElementById("activity"),
-    persistChip:document.getElementById("persistChip"), userChip:document.getElementById("userChip"), inputChip:document.getElementById("inputChip"), logoutBtn:document.getElementById("logoutBtn"),
-    replayTutorialBtn:document.getElementById("replayTutorialBtn"), tOverlay:document.getElementById("tutorialOverlay"), tTitle:document.getElementById("tTitle"), tBody:document.getElementById("tBody"),
-    tViz:document.getElementById("tViz"), tCount:document.getElementById("tCount"), tBack:document.getElementById("tBack"), tNext:document.getElementById("tNext"), tSkip:document.getElementById("tSkip"),
-    toggleInputBtn:document.getElementById("toggleInputBtn"), toggleWheelBtn:document.getElementById("toggleWheelBtn"), wheel:document.getElementById("threadWheel"), wheelCenter:document.getElementById("wheelCenter"),
-    createRoomBtn:document.getElementById("createRoomBtn"), joinRoomBtn:document.getElementById("joinRoomBtn"), roomName:document.getElementById("roomName"), roomCode:document.getElementById("roomCode"), roomBox:document.getElementById("roomBox")
-  };
-
-  function logEvent(type,payload={}){
-    const evt={type,payload,at:new Date().toISOString()};
-    state.telemetry.unshift(evt); state.telemetry=state.telemetry.slice(0,300);
-    if(["mission_started","mission_completed","decision_made","result_viewed"].includes(type)) trackAnalyticsEvent(type,payload||{});
-    saveState();
-    renderTelemetry();
-  }
-
-  function markAgent(label){
-    if(!state.agents) return;
-    const d=document.createElement("div");
-    d.className="agent";
-    d.textContent=`${new Date().toLocaleTimeString()} · ${label}`;
-    el.activity.prepend(d);
-    [...el.activity.children].slice(10).forEach(x=>x.remove());
-  }
-
-  function setupTabs(){
-    el.tabs.innerHTML="";
-    tabs.forEach(name=>{
-      const b=document.createElement("button");
-      b.textContent=name;
-      b.className=name===state.mode?"active":"";
-      b.onclick=()=>{ state.mode=name; state.recruiterViewed=false; logEvent("mode_selected",{mode:name}); render(); };
-      el.tabs.appendChild(b);
-    });
-  }
-
-  function renderAuth(){
-    const u=currentUser();
-    if(u){
-      el.authCard.innerHTML=`<div><b>${u.displayName}</b> · ${u.userType}</div><div class='mini'>${u.email||''}</div><div class='mini'>${u.rolePath} · ${u.ageGroup} · ${u.region}</div>`;
-      return;
-    }
-    el.authCard.innerHTML=`
-      <div class='mini'>Sign up / log in (Firebase auth + local fallback)</div>
-      <div class='auth-grid' style='margin-top:8px'>
-        <input id='suName' placeholder='Display name' />
-        <input id='suEmail' placeholder='Email address' />
-        <select id='suType'><option value='player'>Player</option><option value='recruiter'>Recruiter</option></select>
-        <input id='suRole' placeholder='Role path' />
-        <select id='suAge'><option>under 14</option><option>14-17</option><option selected>18+</option></select>
-        <input id='suRegion' placeholder='Country/Region' />
-        <input id='suPass' type='password' placeholder='Password' />
-      </div>
-      <div class='row' style='margin-top:8px'><button class='btn' id='signupBtn'>Sign up</button><button class='btn ghost' id='loginBtn'>Log in</button></div>`;
-
-    document.getElementById("signupBtn").onclick = async () => {
-      logEvent("signup_started",{});
-      const profile={
-        name:val("suName")||"Player",
-        userType:val("suType")||"player",
-        rolePath:val("suRole")||"Explorer",
-        ageGroup:val("suAge")||"18+",
-        region:val("suRegion")||"Unknown"
-      };
-      const email=val('suEmail');
-      const password=val('suPass')||"123456";
-      try{
-        let user;
-        if(hasFirebase){
-          user = await signup(email,password,profile);
-        } else {
-          user={
-            id:crypto.randomUUID(),
-            displayName:profile.name,
-            email,
-            userType:profile.userType,
-            rolePath:profile.rolePath,
-            ageGroup:profile.ageGroup,
-            region:profile.region,
-            password,
-            skills:baseUser(), tutorialCompleted:false, playerStats:emptyPlayerStats(), missionHistory:[], proofVault:[], roleFit:[], recentSkillChanges:[]
-          };
-        }
-        ensurePlayerShape(user);
-        if(!state.users.find(x=>x.id===user.id)) state.users.push(user);
-        state.globalAnalytics.totalPlayers=state.users.length;
-        state.currentUserId=user.id;
-        state.session={id:user.id};
-        saveState();
-        logEvent("signup_completed",{id:user.id});
-        render();
-      }catch(e){
-        alert(`Signup failed: ${e?.message||'Please check credentials.'}`);
-      }
-        region:val("suRegion")||"Unknown",
-        password:val("suPass")||"1234",
-        skills:baseUser(), tutorialCompleted:false, playerStats:emptyPlayerStats(), missionHistory:[], proofVault:[], roleFit:[], recentSkillChanges:[]
-      };
-      ensurePlayerShape(user);
-      state.users.push(user);
-      state.globalAnalytics.totalPlayers=state.users.length;
-      state.currentUserId=user.id;
-      state.session={id:user.id};
-      saveState();
-      logEvent("signup_completed",{id:user.id});
-      render();
-    };
-
-    document.getElementById("loginBtn").onclick = async () => {
-      const email=val('suEmail'), p=val("suPass");
-      try{
-        if(hasFirebase){
-          const fbUser=await login(email,p);
-          let u=await hydrateUserFromCloud(fbUser.uid);
-          if(!u){
-            u={id:fbUser.uid,displayName:email.split('@')[0],email,userType:'player',rolePath:'Explorer',ageGroup:'18+',region:'Unknown',skills:baseUser(),playerStats:emptyPlayerStats(),missionHistory:[],proofVault:[],roleFit:[],recentSkillChanges:[]};
-            ensurePlayerShape(u);
-            await persistCloud();
-          }
-          state.users=state.users.filter(x=>x.id!==u.id);
-          state.users.push(u);
-          state.currentUserId=u.id;
-          state.session={id:u.id};
-        } else {
-          const u=state.users.find(x=>x.email===email && x.password===p);
-          if(!u){ alert("Invalid credentials in local mode."); return; }
-          state.currentUserId=u.id;
-          state.session={id:u.id};
-        }
-        saveState();
-        logEvent("login_completed",{id:state.currentUserId});
-        render();
-      }catch(e){
-        alert(`Login failed: ${e?.message||'Please retry.'}`);
-      }
-    };
-  }
-
-  function renderSkills(){
-    const u=currentUser();
-    const skills=(u && u.skills) || baseUser();
-    el.skills.innerHTML=skillsList.map(k=>`<div class='r'><div class='mini'>${skillLabelMap[k]||k}</div><div class='bar'><span style='width:${Math.max(0,Math.min(100,skills[k]||0))}%'></span></div><div>${Math.round(skills[k]||0)}</div></div>`).join("");
-  }
-
-  function topSkills(s){ return [...Object.entries(s)].sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]); }
-  function lowSkills(s){ return [...Object.entries(s)].sort((a,b)=>a[1]-b[1]).slice(0,2).map(x=>x[0]); }
-
-  function roleFitFromSkills(skills){
-    const mapping=[
-      {role:"Software Engineering",rules:[["systemsThinking",0.28],["analyticalThinking",0.24],["executionReliability",0.22],["adaptability",0.14],["collaboration",0.12]]},
-      {role:"Operations Analyst",rules:[["systemsThinking",0.24],["prioritization",0.2],["resourceEfficiency",0.2],["crisisResponse",0.18],["executionReliability",0.18]]},
-      {role:"Product Manager",rules:[["prioritization",0.24],["strategicThinking",0.24],["collaboration",0.2],["leadership",0.18],["adaptability",0.14]]},
-      {role:"Systems Engineer",rules:[["systemsThinking",0.3],["resourceEfficiency",0.2],["crisisResponse",0.2],["executionReliability",0.18],["analyticalThinking",0.12]]},
-      {role:"Strategy Analyst",rules:[["analyticalThinking",0.3],["strategicThinking",0.28],["prioritization",0.18],["systemsThinking",0.14],["adaptability",0.1]]}
-    ];
-    return mapping.map(({role,rules})=>{
-      const score=rules.reduce((sum,[k,w])=>sum+((skills[k]||0)*w),0);
-      const confidence=Math.max(35,Math.min(99,Math.round(score)));
-      return { role, score:Math.round(score), confidence,
-        reason:`Signals strongest in ${topSkills(skills).map(k=>skillLabelMap[k]||k).join(" + ")}. Improve ${lowSkills(skills).map(k=>skillLabelMap[k]||k).join(" / ")}.`};
-    }).sort((a,b)=>b.score-a.score);
-  }
-
-  function buildMap(){
-    const svg=el.mapSvg;
-    svg.innerHTML="";
-    const r=33, xStep=142, yStep=104;
-    let idx=0;
-    for(let row=0; row<5; row++){
-      for(let col=0; col<5; col++){
-        const z=state.zones[idx++];
-        const cx=110 + col*xStep + (row%2?68:0), cy=92 + row*yStep;
-        const pts=[0,60,120,180,240,300].map(a=>{const rad=Math.PI*a/180;return `${cx+r*Math.cos(rad)},${cy+r*Math.sin(rad)}`;}).join(" ");
-        const p=document.createElementNS("http://www.w3.org/2000/svg","polygon");
-        p.setAttribute("points",pts);
-        p.setAttribute("class",`hex ${z.owner} ${state.selectedZone===z.id?"selected":""}`);
-        p.setAttribute("tabindex","0");
-        p.onclick=()=>{ state.selectedZone=z.id; renderMissionPanel(); buildMap(); };
-        p.onkeydown=(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); p.onclick(); } };
-        const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-        t.setAttribute("x",cx-18); t.setAttribute("y",cy+3); t.setAttribute("class","zone-label"); t.textContent=z.id;
-        svg.appendChild(p); svg.appendChild(t);
-      }
-    }
-  }
-
-  function getMissionForZone(zone){
-    const idx=Math.max(0, Number(zone.id.replace("Z",""))-1);
-    return missionScenarios[idx % missionScenarios.length];
-  }
-
-  function beginMission(zone, mission){
-    state.activeMissionRun={zoneId:zone.id,missionId:mission.id,stepIndex:0,selections:[],effects:{},timeline:[{time:"T+0m",event:"Scenario",playerDecision:"Mission initialized",skillChanges:{}}],contextEventShown:false,startedAt:Date.now()};
-    const u=currentUser();
-    if(u){ ensurePlayerShape(u); u.missionsPlayed +=1; u.playerStats.missionsPlayed=u.missionsPlayed; }
-    state.globalAnalytics.missionsPlayed=(state.globalAnalytics.missionsPlayed||0)+1;
-    logEvent("mission_started",{zone:zone.id,missionId:mission.id});
-    markAgent("mission_engine: mission_started");
-    renderMissionPanel();
-  }
-
-  function applyEffects(user,effects){
-    Object.entries(effects).forEach(([k,v])=>{
-      user.skills[k]=Math.max(0,Math.min(100,(user.skills[k]||50)+v));
-      logEvent("mission_step_completed",{skill:k,delta:v});
-    });
-  }
-
-  function aggregateEffects(run){
-    return run.selections.reduce((acc,s)=>{
-      Object.entries(s.effects||{}).forEach(([k,v])=>acc[k]=(acc[k]||0)+v);
-      return acc;
-    },{});
-  }
-
-  function renderMissionPanel(){
-    const z=state.zones.find(x=>x.id===state.selectedZone) || state.zones[0];
-    if(!state.selectedZone) state.selectedZone=z.id;
-    const mission=getMissionForZone(z);
-    const run=state.activeMissionRun && state.activeMissionRun.zoneId===z.id ? state.activeMissionRun : null;
-    const latest=state.missions[0];
-    const renderFeedback=(m)=>{
-      if(!m||!m.feedback) return "";
-      return `<div class='evt' style='margin-top:8px'><b>Player Feedback</b><div class='mini'>What you did well: ${(m.feedback.didWell||[]).join(' · ')||'n/a'}</div><div class='mini'>What you missed: ${(m.feedback.missed||[]).join(' · ')||'n/a'}</div><div class='mini'>Skills improved: ${(m.feedback.improved||[]).map(([k,v])=>`${skillLabelMap[k]} (+${v})`).join(', ')||'none'}</div><div class='mini'>Skills weakened: ${(m.feedback.weakened||[]).map(([k,v])=>`${skillLabelMap[k]} (${v})`).join(', ')||'none'}</div></div>`;
-    };
-    el.zoneBox.innerHTML=`<b>${z.name}</b> (${z.id})<br><span class='mini'>Domain: ${z.domain} · Owner: ${z.owner} · Control: ${z.control}% · Difficulty: ${z.difficulty}</span>`;
-
-    const renderRoot=(root)=>{
-      if(!run){
-        root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div>${latest?`<div class='evt' style='margin-top:6px'><b>Latest Score</b><div class='mini'>Mission ${latest.score.missionScore} · Confidence ${latest.score.confidenceScore} · Consistency ${latest.score.decisionConsistency}</div></div>`:''}<button class='btn mission-choice' data-begin='1'>Begin Mission</button>${renderFeedback(latest)}`;
-        const btn=root.querySelector("[data-begin]");
-        if(btn) btn.onclick=()=>beginMission(z,mission);
-        return;
-      }
-      const totalSteps=mission.steps.length+1;
-      const isFinal=run.stepIndex>=mission.steps.length;
-      const step=isFinal?null:mission.steps[run.stepIndex];
-      const progress=`Step ${run.stepIndex+1}/${totalSteps}`;
-      const contextInfo=isFinal?"Final phase: lock your final strategic decision.":step.context;
-      const header=isFinal?mission.finalDecision.text:step.text;
-      const options=(isFinal?mission.finalDecision.options:step.options).map((o,i)=>`<button class='btn mission-choice' data-opt='${o.id}'>${i+1}. ${o.text}</button>`).join("");
-      const unexpected = (!run.contextEventShown && run.stepIndex===2) ? `<div class='evt'><b>Unexpected Event</b><div class='mini'>${mission.unexpectedEvent}</div></div>` : "";
-      root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div><div class='mini' style='margin-top:6px'><b>${progress}</b></div>${unexpected}<div class='mini' style='margin-top:6px'>${header}</div><div class='mini'>Context: ${contextInfo}</div>${options}${renderFeedback(latest)}`;
-      root.querySelectorAll("[data-opt]").forEach(btn=>btn.onclick=()=>advanceMission(z,mission,btn.dataset.opt));
-    };
-
-    renderRoot(el.missionBox);
-    renderRoot(el.soloBox);
-  }
-
-  function buildAgeAware(age,fit){
-    if(age==="under 14") return {mode:"future-fit",recommendHiring:false,label:"No direct hiring recommendations.",families:fit.slice(0,3).map(f=>f.role)};
-    if(age==="14-17") return {mode:"restricted",recommendHiring:false,label:"Restricted pathway mode with caution labels.",families:fit.slice(0,3).map(f=>f.role)};
-    return {mode:"opportunity",recommendHiring:true,label:"Opportunity matching mode",families:fit.slice(0,3).map(f=>f.role)};
-  }
-
-  function recommendationsFor(age,fit){
-    if(age==="18+") return [{type:"role_matches",items:fit.slice(0,3)},{type:"opportunities",items:seededJobs.filter(j=>j.active).slice(0,4)}];
-    return [{type:"future_fit",items:fit.slice(0,4)},{type:"learning_pathway",items:["Communication loops","Scenario prioritization","Systems mapping"]}];
-  }
-
-  function normalizeResultPayload({player,zone,mission,run,effects,outcomeText,startedAt}){
-    const fit=roleFitFromSkills(player.skills);
-    const missionScoreRaw=(effects.systemsThinking||0)*0.25 + (effects.prioritization||0)*0.20 + (effects.adaptability||0)*0.15 + (effects.crisisResponse||0)*0.20 + (effects.executionReliability||0)*0.20;
-    const missionScore=Math.max(0,Math.min(100,Math.round(60+missionScoreRaw*2.4)));
-    const positive=Object.values(effects).filter(v=>v>0).length;
-    const negative=Object.values(effects).filter(v=>v<0).length;
-    const decisionConsistency=Math.max(45,Math.min(99,Math.round(70 + (positive-negative)*3)));
-    const confidenceScore=Math.max(40,Math.min(99,Math.round((missionScore*0.65)+(decisionConsistency*0.35))));
-    const duration=Math.max(1,Math.round((Date.now()-startedAt)/1000));
-    const improved=Object.entries(effects).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-    const weakened=Object.entries(effects).filter(([,v])=>v<0).sort((a,b)=>a[1]-b[1]);
-    return {
-      missionId: mission.id, missionTitle: mission.title, playerId: player.id, duration,
-      decisions: run.selections, timeline: run.timeline,
-      score:{missionScore,confidenceScore,decisionConsistency}, skills:{...effects},
-      roleFit:fit.slice(0,3), outcome:outcomeText,
-      recommendations:[
-        improved[0]?`Double down on ${skillLabelMap[improved[0][0]]} during higher-difficulty missions.`:"Keep stacking cross-functional wins.",
-        weakened[0]?`Mitigate ${skillLabelMap[weakened[0][0]]} trade-offs with contingency planning.`:"Test with tighter constraints to stress consistency."
-      ],
-      feedback:{
-        didWell:improved.slice(0,2).map(([k,v])=>`Strong ${skillLabelMap[k]} (+${v})`),
-        missed:weakened.slice(0,2).map(([k,v])=>`Pressure on ${skillLabelMap[k]} (${v})`),
-        improved:improved.slice(0,4), weakened:weakened.slice(0,4)
-      },
-      type:"mission_result", version:"3.0.0", id:crypto.randomUUID(), createdAt:new Date().toISOString(),
-      player:{id:player.id,name:player.displayName,userType:player.userType,ageGroup:player.ageGroup,rolePath:player.rolePath},
-      mission:{zoneId:zone.id,zoneName:zone.name,domain:zone.domain,title:mission.title,scenario:mission.scenario,difficulty:zone.difficulty,constraints:mission.constraints},
-      outcomeMeta:{status:"completed",score:missionScore,consistency:decisionConsistency}, territory:{owner:zone.owner,control:zone.control},
-      sourceMeta:{mode:hasFirebase?"firebase":"local-mock",jobsVersion:"seed-v1"},
-      render:{preferredLayout:["compact","full","story"][state.missions.length%3],theme:"mars-control"},
-      exportMeta:{canSvg:true,canFallback:true,schema:"canonical-mission-result-v3"}
-    };
-  }
-  function validateResultPayload(p){ return !!(p&&p.missionId&&p.missionTitle&&p.playerId&&p.score&&typeof p.score.missionScore==="number"&&p.skills&&Array.isArray(p.timeline)&&Array.isArray(p.decisions)&&p.outcome&&Array.isArray(p.recommendations)); }
-  function summarizeResultPayload(p){ return `${p.player.name}: ${p.mission.title} → ${p.score.missionScore} (${p.roleFit[0]?.role||"Generalist"})`; }
-
-  function buildSvgLayout(payload,layout){
-    const w=layout==="full"?860:layout==="story"?720:500;
-    const h=layout==="full"?420:layout==="story"?320:260;
-    return [`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>`,`<rect width='100%' height='100%' rx='16' fill='#0f1832' stroke='#2f4168'/>`];
-  }
-  function renderSkillBars(skills,x,y){
-    const entries=Object.entries(skills||{}).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    return entries.map(([k,v],i)=>`<text x='${x}' y='${y+i*24}' fill='#c7d6ff' font-size='12'>${escapeXml(skillLabelMap[k]||k)}</text><rect x='${x+160}' y='${y-10+i*24}' width='120' height='10' fill='#162645' rx='4'/><rect x='${x+160}' y='${y-10+i*24}' width='${Math.min(120,Math.abs(v)*10)}' height='10' fill='${v>=0?"#00d1b0":"#ff7185"}' rx='4'/>`).join("");
-  }
-  function renderTimeline(timeline,x,y,max){ return (timeline||[]).slice(0,max).map((e,i)=>`<text x='${x}' y='${y+i*18}' fill='#9fb0d9' font-size='11'>${escapeXml(e.time)}: ${escapeXml(e.event)} / ${escapeXml(e.playerDecision||"-")}</text>`).join(""); }
-
-  function renderRoleFit(payload,x,y){ const top=payload.roleFit[0]||{role:"Generalist",confidence:50}; return `<text x='${x}' y='${y}' fill='#63b6ff' font-size='13'>Top Role: ${escapeXml(top.role)} (${top.confidence}% confidence)</text>`; }
-  function renderOutcomeBadge(payload,x,y){ return `<rect x='${x}' y='${y-18}' width='220' height='28' rx='8' fill='#1f3f62'/><text x='${x+8}' y='${y}' fill='#fff' font-size='13'>Score ${payload.score.missionScore} · Confidence ${payload.score.confidenceScore}</text>`; }
-  function exportSvgString(parts){ return parts.join("")+"</svg>"; }
-
-  function generateMissionSVG(payload){
-    const layout=payload.render?.preferredLayout||"compact";
-    const s=buildSvgLayout(payload,layout);
-    const timelineY = layout==="full" ? 300 : layout==="story" ? 224 : 190;
-    const nextY = layout==="full" ? 392 : layout==="story" ? 286 : 244;
-    const timelineCount = layout==="compact" ? 3 : 4;
-    s.push(`<text x='20' y='28' fill='#f2f5ff' font-size='16' font-weight='700'>${escapeXml(payload.missionTitle)}</text>`);
-    s.push(`<text x='20' y='48' fill='#9fb0d9' font-size='12'>Player: ${escapeXml(payload.player.name)} · Mission: ${escapeXml(payload.missionId)}</text>`);
-    s.push(renderOutcomeBadge(payload,20,76));
-    s.push(renderRoleFit(payload,250,76));
-    s.push(renderSkillBars(payload.skills,20,120));
-    s.push(renderTimeline(payload.timeline,20,timelineY,timelineCount));
-    s.push(`<text x='20' y='${nextY}' fill='#ffd88f' font-size='11'>Outcome: ${escapeXml(payload.outcome)}</text>`);
-    return exportSvgString(s);
-  }
-
-  function renderResult(payload,valid){
-    markAgent("svg_renderer: svg_render_started");
-    logEvent("svg_render_started",{id:payload.id});
-    try {
-      if(!valid) throw new Error("Invalid payload");
-      const svg=generateMissionSVG(payload);
-      markAgent("svg_renderer: svg_render_completed");
-      logEvent("svg_render_succeeded",{id:payload.id});
-      return {svg};
-    } catch(err){
-      logEvent("svg_render_failed",{id:payload.id,error:String(err)});
-      markAgent("svg_renderer: svg_render_failed");
-      const fallback={summary:summarizeResultPayload(payload),timeline:(payload.timeline||[]).slice(0,4)};
-      logEvent("fallback_render_used",{id:payload.id});
-      return {fallback};
-    }
-  }
-
-  function advanceMission(zone, mission, optionId){
-    const run=state.activeMissionRun;
-    const user=currentUser();
-    if(!run || !user) return;
-    const isFinal=run.stepIndex>=mission.steps.length;
-    const optionSet=isFinal?mission.finalDecision.options:mission.steps[run.stepIndex].options;
-    const option=optionSet.find(o=>o.id===optionId);
-    if(!option) return;
-    run.selections.push({step:isFinal?"final":mission.steps[run.stepIndex].id,option:option.text,effects:option.effects});
-    logEvent("decision_made",{missionId:mission.id,step:isFinal?"final":mission.steps[run.stepIndex].id,option:option.id});
-    run.timeline.push({time:`T+${run.selections.length*2}m`,event:isFinal?"Final Decision":(mission.steps[run.stepIndex]?.text||"Decision"),playerDecision:option.text,skillChanges:option.effects});
-    if(!isFinal && run.stepIndex===2 && !run.contextEventShown){
-      run.timeline.push({time:`T+${run.selections.length*2+1}m`,event:"Unexpected Event",playerDecision:"Responded under pressure",skillChanges:{},details:mission.unexpectedEvent});
-      run.contextEventShown=true;
-    }
-    if(isFinal){
-      const effects=aggregateEffects(run);
-      applyEffects(user,effects);
-      zone.control=Math.max(0,Math.min(100,zone.control+Math.round(Object.values(effects).reduce((a,b)=>a+b,0)/8)));
-      if(zone.control>55) zone.owner="player";
-      markAgent("skill_analyzer: skill_analysis_started");
-      const result = normalizeResultPayload({player:user,zone,mission,run,effects,outcomeText:option.outcome||"Mission completed.",startedAt:run.startedAt||Date.now()});
-      logEvent("mission_result_payload_created",{id:result.id,missionId:mission.id});
-      const valid=validateResultPayload(result);
-      markAgent("skill_analyzer: skill_analysis_completed");
-      const rendered=renderResult(result, valid);
-      const vaultItem={id:result.id,createdAt:new Date().toISOString(),raw:result,normalized:result,svg:rendered.svg||null,fallback:rendered.fallback||null,report:summarizeResultPayload(result),roleFit:result.roleFit};
-      state.proofVault.unshift(vaultItem); state.proofVault=state.proofVault.slice(0,120);
-      user.proofVault.unshift({missionId:result.missionId,missionTitle:result.missionTitle,score:result.score.missionScore,skillDeltas:effects,timeline:result.timeline,outcome:result.outcome,timestamp:new Date().toISOString(),svg:vaultItem.svg||null,resultId:result.id});
-      user.proofVault=user.proofVault.slice(0,80);
-      state.missions.unshift(result);
-      updatePlayerProgress(user,result,effects);
-      state.roleFitHistory.unshift(result.roleFit);
-      if(hasFirebase){
-        saveMissionRunToCloud(result,effects).catch(()=>{});
-        saveProofToCloud(result,vaultItem,effects).catch(()=>{});
-        persistCloud();
-      }
-      state.activeMissionRun=null;
-      markAgent("proof_vault: proof_saved");
-      logEvent("proof_saved",{id:result.id});
-      logEvent("mission_completed",{id:result.id,missionId:mission.id});
-      render();
-      return;
-    }
-    run.stepIndex += 1;
-    renderMissionPanel();
-  }
-
-  function updatePlayerProgress(user, result, effects){
-    ensurePlayerShape(user);
-    user.missionsCompleted += 1;
-    user.playerStats.missionsCompleted = user.missionsCompleted;
-    user.averageScore = ((user.averageScore*(user.missionsCompleted-1))+result.score.missionScore)/user.missionsCompleted;
-    user.playerStats.averageScore = user.averageScore;
-    user.averageDecisionTime = ((user.averageDecisionTime*(user.missionsCompleted-1))+result.score.decisionTime)/user.missionsCompleted;
-    user.playerStats.averageDecisionTime = user.averageDecisionTime;
-    user.skillDistribution = Object.fromEntries(skillsList.map(k=>[k,Math.round(user.skills[k]||0)]));
-    user.playerStats.skillDistribution = user.skillDistribution;
-    user.missionHistory.unshift({missionId:result.missionId,missionTitle:result.missionTitle,score:result.score.missionScore,skillDeltas:effects,timeline:result.timeline,outcome:result.outcome,timestamp:new Date().toISOString()});
-    user.missionHistory=user.missionHistory.slice(0,80);
-    user.recentSkillChanges.unshift({missionId:result.missionId,skillDeltas:effects,timestamp:new Date().toISOString()});
-    user.recentSkillChanges=user.recentSkillChanges.slice(0,10);
-    user.roleFit=result.roleFit;
-    Object.entries(effects||{}).forEach(([k,v])=>{ state.globalAnalytics.skillSignalTotals[k]=(state.globalAnalytics.skillSignalTotals[k]||0)+v; });
-    state.globalAnalytics.missionsCompleted=(state.globalAnalytics.missionsCompleted||0)+1;
-  }
-
-
-  function deriveRoleSuggestions(skills){
-    const out=[];
-    if((skills.systemsThinking||0)>70) out.push({role:"Systems Engineer",confidence:Math.min(99,Math.round((skills.systemsThinking||0)*0.9))});
-    if((skills.prioritization||0)>60) out.push({role:"Operations Analyst",confidence:Math.min(99,Math.round((skills.prioritization||0)*0.88))});
-    if((skills.analyticalThinking||0)>70) out.push({role:"Data Analyst",confidence:Math.min(99,Math.round((skills.analyticalThinking||0)*0.9))});
-    if(!out.length) out.push(...roleFitFromSkills(skills).slice(0,2).map(r=>({role:r.role,confidence:r.confidence})));
-    return out.slice(0,3);
-  }
-
-  function renderSkillDashboard(){
-    const u=currentUser();
-    if(!u){ el.skillDashboardBox.innerHTML='Sign in to see your skill dashboard.'; return; }
-    ensurePlayerShape(u);
-    const top=Object.entries(u.skills).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    const recent=u.recentSkillChanges[0]?.skillDeltas||{};
-    const bars=skillsList.map(k=>`<div class='r'><div class='mini'>${skillLabelMap[k]}</div><div class='bar'><span style='width:${Math.min(100,Math.max(0,u.skills[k]))}%'></span></div><div>${Math.round(u.skills[k])}</div></div>`).join('');
-    const recentTxt=Object.entries(recent).map(([k,v])=>`${skillLabelMap[k]} ${v>0?'+':''}${v}`).join(' · ') || 'No recent changes';
-    const fit=deriveRoleSuggestions(u.skills).map(r=>`<li>${r.role} (${r.confidence}%)</li>`).join('');
-    el.skillDashboardBox.innerHTML=`<b>Skill Graph</b><div class='mini'>Current levels and trend signals</div><div class='skills'>${bars}</div><div class='mini' style='margin-top:8px'><b>Recent skill changes:</b> ${recentTxt}</div><div class='mini'><b>Top strengths:</b> ${top.map(([k,v])=>`${skillLabelMap[k]} (${Math.round(v)})`).join(' · ')}</div><div class='mini'><b>Role Fit Suggestions</b></div><ul>${fit}</ul>`;
-  }
-
-  function renderAnalytics(){
-    const ga=state.globalAnalytics||{};
-    const completion=(ga.missionsPlayed?Math.round(((ga.missionsCompleted||0)/ga.missionsPlayed)*100):0);
-    const common=Object.entries(ga.skillSignalTotals||{}).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,4).map(([k,v])=>`${skillLabelMap[k]||k} (${v>0?'+':''}${v})`).join(' · ') || 'No signals yet';
-    el.analyticsBox.innerHTML=`<b>Mission Analytics</b><div class='mini'>Total Players: ${state.users.length}</div><div class='mini'>Missions Played: ${ga.missionsPlayed||0}</div><div class='mini'>Average Completion Rate: ${completion}%</div><div class='mini'>Most Common Skill Signals: ${common}</div>`;
-  }
-
-  function renderVault(){
-    if(!state.proofVault.length){
-      el.vaultBox.innerHTML="No proof entries yet. Complete a mission to save evidence.";
-      return;
-    }
-    el.vaultBox.innerHTML = state.proofVault.slice(0,8).map(v=>`<div class='evt'><b>${escapeXml(v.report)}</b><div class='mini'>${escapeXml(v.createdAt)}</div><div class='row' style='margin-top:6px'><button class='btn ghost' data-view='${v.id}'>View Result</button><button class='btn ghost' data-dl='${v.id}'>Download SVG</button></div><div id='pv-${v.id}'></div></div>`).join("");
-
-    el.vaultBox.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{
-      const v=state.proofVault.find(x=>x.id===b.dataset.view);
-      if(!v) return;
-      const tgt=document.getElementById(`pv-${v.id}`);
-      logEvent("result_viewed",{resultId:v.id,missionId:v.raw?.missionId||v.missionId});
-      if(!tgt) return;
-      tgt.innerHTML = v.svg
-        ? `<div class='mini'>SVG Preview</div>${v.svg}`
-        : `<div class='mini'>Fallback summary: ${escapeXml(v.fallback?.summary||"Unavailable")}</div><div class='mini'>${(v.fallback?.timeline||[]).map(t=>escapeXml(`${t.time||t.t}: ${t.event}`)).join(" | ")}</div>`;
-    });
-
-    el.vaultBox.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>{
-      const v=state.proofVault.find(x=>x.id===b.dataset.dl);
-      if(!v || !v.svg){ alert("No SVG artifact available."); return; }
-      const blob=new Blob([v.svg],{type:"image/svg+xml"});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url; a.download=`proof-${v.id}.svg`; a.click();
-      URL.revokeObjectURL(url);
-      state.savedReports.push({id:v.id,downloadedAt:new Date().toISOString()});
-      saveState();
-    });
-  }
-
-  function renderRecruiter(){
-    const user=currentUser();
-    const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist",missionHistory:[],proofVault:[]};
-    const fit=roleFitFromSkills(candidate.skills||baseUser());
-    const recentRuns=state.missions.slice(0,5);
-    const missionHistory=(candidate.missionHistory||[]).slice(0,5).map(m=>`<li>${escapeXml(m.missionTitle)} · score ${m.score} · ${escapeXml(m.timestamp)}</li>`).join("") || "<li>No missions yet</li>";
-    const timeline=(candidate.missionHistory||[])[0]?.timeline?.slice(0,5).map(t=>`<li>${escapeXml(t.time)} - ${escapeXml(t.event)}: ${escapeXml(t.playerDecision||'')}</li>`).join("") || "<li>No timeline yet</li>";
-    const consistency=recentRuns.length?Math.round(recentRuns.reduce((a,m)=>a+m.score.decisionConsistency,0)/recentRuns.length):0;
-    const skillGraph=Object.entries(candidate.skills||{}).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>`<div class='mini'>${skillLabelMap[k]}: ${Math.round(v)}</div>`).join('');
-    const recruiterTools = user?.userType==='recruiter' ? `<div class='row' style='margin-top:6px'><input class='input grow' id='candidateId' placeholder='Candidate player ID' value='${escapeXml(state.recruiterTarget||'')}'/><button class='btn ghost' id='loadCandidateBtn'>Load Candidate</button></div>` : '';
-    el.recruiterBox.innerHTML=`<b>Recruiter Evidence Panel</b><br><span class='mini'>${escapeXml(candidate.displayName)} · ${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
-      ${recruiterTools}
-      <div class='mini' style='margin-top:6px'><b>Role Fit</b>: ${fit.slice(0,3).map(f=>`${f.role} (${f.confidence}%)`).join(' · ')}</div>
-      <div class='mini' style='margin-top:6px'><b>Consistency Score</b>: ${consistency}</div>
-      <div class='mini' style='margin-top:6px'><b>Mission History</b></div><ul>${missionHistory}</ul>
-      <div class='mini'><b>Decision Timeline (latest)</b></div><ul>${timeline}</ul>
-      <div class='mini'><b>Skill Graph</b></div>${skillGraph}
-      <div class='mini'><b>Proof Artifacts</b>: ${(candidate.proofVault||[]).slice(0,3).map(p=>`${escapeXml(p.missionTitle)} (${p.score})`).join(' · ')||'None'}</div>
-      <button class='btn' id='shortlistBtn'>Shortlist</button>`;
-
-    document.getElementById("shortlistBtn").onclick=()=>{
-      state.recruiterActions.unshift({type:"shortlist",candidate:candidate.displayName,at:new Date().toISOString()});
-      logEvent("recruiter_shortlisted_candidate",{candidate:candidate.displayName});
-      markAgent("recruiter_observer: shortlisted");
-      renderRecruiter();
-      saveState();
-    };
-
-    if(user?.userType==='recruiter'){
-      document.getElementById('loadCandidateBtn')?.addEventListener('click', async ()=>{
-        const cid=val('candidateId');
-        state.recruiterTarget=cid;
-        if(!cid) return;
-        if(hasFirebase){
-          const candidateData = await hydrateUserFromCloud(cid);
-          if(candidateData){
-            state.users=state.users.filter(x=>x.id!==candidateData.id);
-            state.users.push(candidateData);
-            state.currentUserId=candidateData.id;
-            logEvent('recruiter_loaded_candidate',{candidateId:cid});
-            render();
-            return;
-          }
-          alert('Candidate not found');
-        }
-      });
-    }
-
-    if (!state.recruiterViewed) {
-      state.recruiterViewed = true;
-      logEvent("recruiter_viewed_candidate",{candidate:candidate.displayName});
-    }
-  }
-
-  function renderSettings(){
-    el.settingsBox.innerHTML=`<div class='row'><button class='btn' id='toggleAgents'>System Agents: ${state.agents?"On":"Off"}</button><button class='btn ghost' id='resetBtn'>Reset Local Data</button></div>
-      <div class='mini' style='margin-top:8px'>Input mode / Tutorial replay / Accessibility fallback enabled via keyboard arrows + Enter.</div>`;
-    document.getElementById("toggleAgents").onclick=()=>{ state.agents=!state.agents; saveState(); render(); };
-    document.getElementById("resetBtn").onclick=()=>{ localStorage.removeItem(STORAGE_KEY); location.reload(); };
-  }
-
-  function renderRoom(){
-    el.roomBox.textContent = `Rooms: ${state.rooms.map(r=>`${r.name} (${r.code})`).join(", ")}`;
-  }
-
-  function renderTelemetry(){
-    el.telemetry.innerHTML = state.telemetry.slice(0,30).map(e=>`<div class='evt'><b>${escapeXml(e.type)}</b><div class='mini'>${escapeXml(e.at)}</div></div>`).join("");
-  }
-
-  function renderTutorial(){
-    const t=state.tutorial;
-    const [title,body]=tutorialSteps[t.step];
-    el.tTitle.textContent=title;
-    el.tBody.textContent=body;
-    el.tViz.textContent=`STEP ${t.step+1}`;
-    el.tCount.textContent=`${t.step+1}/${tutorialSteps.length}`;
-    el.tOverlay.classList.toggle("show",t.active);
-    el.tBack.disabled=t.step===0;
-    el.tNext.textContent=t.step===tutorialSteps.length-1?"Finish":"Next";
-  }
-
-  function openTutorial(){
-    state.tutorial.active=true;
-    state.tutorial.step=0;
-    logEvent("tutorial_started",{});
-    renderTutorial();
-    saveState();
-  }
-
-  // Thread Input Controller
-  const wheelState={segs:[],active:-1,gesture:null};
-  const wheelCommands=["Move","Select","Inspect","Confirm","Cancel","Skill Panel","Next","Previous","Zoom In","Zoom Out","Open Menu","Context Action"];
-
-  function contextMap(){
-    if(state.mode==="Demo Mode") return wheelCommands;
-    if(state.mode==="Solo Mission Mode") return ["Select Choice","Confirm","Inspect","Cancel","Next","Previous","Skill Panel","Open Menu","Zoom In","Zoom Out","Move","Context Action"];
-    return wheelCommands;
-  }
-
-  function buildWheel(){
-    el.wheel.querySelectorAll(".seg").forEach(s=>s.remove());
-    wheelState.segs=[];
-    const labels=contextMap(), R=40, C=50;
-    for(let i=0;i<12;i++){
-      const a=((i/12)*Math.PI*2)-Math.PI/2;
-      const x=C+R*Math.cos(a), y=C+R*Math.sin(a);
-      const d=document.createElement("div");
-      d.className="seg";
-      d.style.left=`${x}%`; d.style.top=`${y}%`;
-      d.textContent=`${i+1}`;
-      d.title=labels[i];
-      d.onclick=()=>dispatchThread(i,1,true);
-      el.wheel.appendChild(d);
-      wheelState.segs.push(d);
-    }
-  }
-  return state.users.find(u=>u.email===email && u.password===password)||null;
+  if(score >= 850){ state.skillUpgrades += 1; pushReward("Skill upgrade core earned"); }
+  save();
 }
 
-async function logout(){ if(firebaseReady){ try{await signOut(auth);}catch(_e){} } state.currentUserId=null; save(); render(); }
-
-async function persistMissionRun(run,svg){
-  const user=currentUser(); if(!user) return;
-  if(firebaseReady){
-    await addDoc(collection(db,'missionRuns'),{playerId:user.id,missionId:run.missionId,decisions:run.decisions,score:run.successScore,skillDelta:run.skillDelta,timestamp:serverTimestamp()});
-    await addDoc(collection(db,'proofVault'),{playerId:user.id,missionId:run.missionId,svgProof:svg,timestamp:serverTimestamp(),score:run.successScore});
-    await setDoc(doc(db,'skillProfiles',user.id),{playerId:user.id,skills:user.skills,totalSkillScore:totalSkillScore(user.skills),updatedAt:serverTimestamp()},{merge:true});
-    await updateDoc(doc(db,'players',user.id),{skills:user.skills,missionsPlayed:user.missionsPlayed,missionsCompleted:user.missionsCompleted});
-  }
+function registerLogin(){
+  const today = dayStamp();
+  const prev = state.streak.lastLogin;
+  if(prev === today) return;
+  const yesterday = dayStamp(now()-86400000);
+  state.streak.count = prev===yesterday ? state.streak.count+1 : 1;
+  state.streak.lastLogin = today;
+  if(state.streak.count===3){ state.tokens += 35; pushReward("3-day streak: bonus tokens (+35)"); }
+  if(state.streak.count===7){ state.badges.push("Rare Mission Voucher"); pushReward("7-day streak: rare mission unlocked"); }
+  if(state.streak.count===30){ state.badges.push("Elite Consistency Badge"); pushReward("30-day streak: elite badge unlocked"); }
+  save(); render();
 }
 
-function renderTabs(){
-  el.tabs.innerHTML=tabs.map(t=>`<button class="${state.tab===t?'active':''}" data-tab="${t}">${t}</button>`).join('');
-  el.tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab; render();});
+function currentEvent(){
+  const cycle = 12*60*60*1000;
+  const idx = Math.floor(now()/cycle)%events.length;
+  const end = (Math.floor(now()/cycle)+1)*cycle;
+  return {event:events[idx], end};
 }
 
-function renderAuth(){
-  const u=currentUser();
-  if(u){ el.authBox.innerHTML=`<b>${u.name||u.email}</b><div class='mini'>Mode: ${u.mode}</div><div class='mini'>Total Skill Score: ${totalSkillScore(u.skills)}</div>`; return; }
-  el.authBox.innerHTML=`<div class='grid'>
-    <input id='name' placeholder='Name'><input id='email' placeholder='Email'>
-    <input id='pass' type='password' placeholder='Password'><select id='mode'><option value='player'>Player</option><option value='recruiter'>Recruiter</option></select>
-    <div class='row'><button id='signup'>Sign up</button><button id='login'>Login</button></div></div>`;
-  document.getElementById('signup').onclick=async()=>{
-    try{
-      const user=await signup(v('email'),v('pass'),v('name')||'Player',v('mode'));
-      state.users=state.users.filter(x=>x.id!==user.id); state.users.push(user); state.currentUserId=user.id; save(); render();
-    }catch(e){ alert(e.message||'Signup failed'); }
-
-  function render(){
-    setupTabs();
-    el.panes.forEach(p=>p.classList.toggle("active",p.dataset.pane===state.mode));
-
-    renderAuth();
-    renderSkills();
-    renderTelemetry();
-    renderTutorial();
-    renderChips();
-
-    // Always required shared content
-    buildMap();
-    renderMissionPanel();
-    renderRoom();
-
-    // Pane-specific renders to avoid side effects when hidden
-    if(state.mode==="Recruiter View") renderRecruiter();
-    if(state.mode==="Proof Vault") renderVault();
-    if(state.mode==="Skill Dashboard") renderSkillDashboard();
-    if(state.mode==="Analytics") renderAnalytics();
-    if(state.mode==="Settings") renderSettings();
-
-    // Keep content fresh without side effects
-    if(state.mode!=="Proof Vault") el.vaultBox.innerHTML = "Proof vault ready. Open this mode to inspect artifacts.";
-    if(state.mode!=="Recruiter View") el.recruiterBox.innerHTML = "Recruiter view ready. Open this mode to inspect candidate evidence.";
-    if(state.mode!=="Skill Dashboard") el.skillDashboardBox.innerHTML = "Skill dashboard ready. Open this mode to inspect growth.";
-    if(state.mode!=="Analytics") el.analyticsBox.innerHTML = "Analytics dashboard ready. Open this mode to inspect platform metrics.";
-
-    buildWheel();
-    saveState();
-  }
-
-  function val(id){ const n=document.getElementById(id); return n?n.value.trim():""; }
-  function escapeXml(str){ return String(str||"").replace(/[<>&'\"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;","\"":"&quot;"}[c])); }
-
-  // Event bindings
-  el.createRoomBtn.onclick=()=>{
-    const n=el.roomName.value.trim()||"Mission Room";
-    const c=Math.random().toString(36).slice(2,7).toUpperCase();
-    const u=currentUser();
-    state.rooms.push({name:n,code:c,members:[u?u.displayName:"Guest"]});
-    saveState(); renderRoom();
-  };
-  document.getElementById('login').onclick=async()=>{
-    try{
-      const user=await login(v('email'),v('pass')); if(!user){ alert('Invalid credentials'); return; }
-      state.users=state.users.filter(x=>x.id!==user.id); state.users.push(user); state.currentUserId=user.id; save(); render();
-    }catch(e){ alert(e.message||'Login failed'); }
-  };
+function createSquadRoom(){
+  const name = document.getElementById('roomName').value.trim();
+  if(!name) return;
+  state.squad.room = name;
+  state.squad.members = ["You"];
+  save(); render();
+}
+function addSquadMember(){
+  const m = document.getElementById('memberName').value.trim();
+  if(!m || !state.squad.room || state.squad.members.length>=3) return;
+  if(!state.squad.members.includes(m)) state.squad.members.push(m);
+  if(state.squad.members.length===3) pushReward(`Squad mission ready in room ${state.squad.room}`);
+  save(); render();
 }
 
-function renderMissionPane(){
-  const user=currentUser();
-  const cards = missions.map(m=>`<div class='mission'><b>${m.title}</b><div class='mini'>${m.scenario}</div><div class='mini'>Category: ${m.category}</div><button data-start='${m.id}' ${!user?'disabled':''}>Start Mission</button></div>`).join('');
-  const active = missions.find(m=>m.id===state.activeMissionId);
-  let runUI='';
-  if(active){
-    const idx=state.decisionStep;
-    if(idx<active.decisions.length){
-      const d=active.decisions[idx];
-      runUI=`<div class='mission'><b>${active.title} · Decision ${idx+1}/${active.decisions.length}</b><div class='mini'>Choose your step:</div><button id='choose'>${d.text}</button></div>`;
-    } else {
-      runUI=`<div class='mission'><b>${active.title}</b><div class='mini'>All decisions complete. Run simulation.</div><button id='simulate'>Simulate Result</button></div>`;
-    }
-  }
-  el.missionPane.innerHTML=`<h3>Mission Engine</h3>${runUI}<div class='grid'>${cards}</div>`;
-  el.missionPane.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>{state.activeMissionId=b.dataset.start;state.decisionStep=0;state.currentRun=[];logEvent('mission_started',{missionId:state.activeMissionId});save();render();});
-  document.getElementById('choose')?.addEventListener('click',()=>{
-    const m=missions.find(x=>x.id===state.activeMissionId); const d=m.decisions[state.decisionStep]; state.currentRun.push(d); state.decisionStep++; logEvent('decision_made',{missionId:m.id,step:state.decisionStep}); save(); render();
-  });
-  document.getElementById('simulate')?.addEventListener('click',runSimulation);
+function missionActions(){
+  const html = state.daily.missions.map(m=>`<div class="mission"><strong>${m.title}</strong><div class="mini">Progress ${m.progress}/${m.target} · Reward ${m.reward} tokens</div>${m.done?'<span class="badge">Completed</span>':'<button data-score="'+(m.type==='score'?760:710)+'">Simulate Completion</button>'}</div>`).join('');
+  document.getElementById('dailyList').innerHTML = html;
+  document.querySelectorAll('#dailyList button').forEach(btn=>btn.onclick=()=>{ applyMissionResult(Number(btn.dataset.score)); render(); });
 }
 
-function runSimulation(){
-  const user=currentUser(); if(!user) return;
-  const mission=missions.find(m=>m.id===state.activeMissionId); if(!mission) return;
-  const skillDelta=cloneSkills(); state.currentRun.forEach(d=>Object.entries(d.impact).forEach(([k,v])=>{skillDelta[k]+=v;user.skills[k]=(user.skills[k]||0)+v;}));
-  const efficiency=Math.min(100,45+totalSkillScore(skillDelta)*3);
-  const risk=Math.max(5,60-Math.round((skillDelta.riskManagement+skillDelta.prioritization+skillDelta.logic)*8));
-  const cost=Math.max(10,70-Math.round((skillDelta.resourceOptimization+skillDelta.strategicThinking)*7));
-  const successScore=Math.round((efficiency*0.5)+((100-risk)*0.3)+((100-cost)*0.2));
-  const run={playerId:user.id,missionId:mission.id,missionName:mission.title,decisions:state.currentRun.map(x=>x.text),score:successScore,skillDelta,timestamp:new Date().toISOString(),efficiency,risk,cost,successScore};
-  user.missionsPlayed++; user.missionsCompleted++; user.history.unshift(run);
-  state.missionRuns.unshift(run); state.latestResult=run;
-  captureHex(mission.id);
-  const svg=buildProofSvg(user,run);
-  user.proofs.unshift({missionId:run.missionId,svgProof:svg,timestamp:run.timestamp,score:run.successScore});
-  state.proofs.unshift({playerId:user.id,missionId:run.missionId,svgProof:svg,timestamp:run.timestamp,score:run.successScore});
-  persistMissionRun(run,svg).catch(()=>{});
-  logEvent('mission_completed',{missionId:mission.id,score:run.successScore});
-  state.activeMissionId=null; state.decisionStep=0; state.currentRun=[]; save(); render();
+function renderShareCard(){
+  const svg = `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#4ea1ff"/><stop offset="1" stop-color="#55d38a"/></linearGradient></defs><rect width="480" height="240" fill="#0f1730"/><rect x="14" y="14" width="452" height="212" rx="16" fill="#131f42" stroke="#335090"/><text x="30" y="48" fill="#eef3ff" font-size="22" font-family="Inter">SkillHex Result Card</text><text x="30" y="84" fill="#9db0df" font-size="15">SR: ${state.sr}  •  Pass Lvl: ${state.passLevel}  •  Tokens: ${state.tokens}</text><text x="30" y="112" fill="#9db0df" font-size="15">Streak: ${state.streak.count} days  •  Last Score: ${state.lastMissionScore}</text><rect x="30" y="140" width="320" height="12" rx="6" fill="#091125" stroke="#335090"/><rect x="30" y="140" width="${Math.min(320,(state.xp/(state.passLevel*100))*320)}" height="12" rx="6" fill="url(#g)"/><text x="30" y="177" fill="#eef3ff" font-size="14">Badges: ${(state.badges.slice(-3).join(', ') || 'None yet')}</text><text x="30" y="204" fill="#f4c35d" font-size="14">#SkillHex #MissionControl</text></svg>`;
+  document.getElementById('shareCard').innerHTML = svg;
+  const shareText = encodeURIComponent(`My SkillHex SR is ${state.sr}, Pass Level ${state.passLevel}, and ${state.streak.count}-day streak.`);
+  document.getElementById('shareLinkedIn').href = `https://www.linkedin.com/sharing/share-offsite/?url=https://skillhex.app&summary=${shareText}`;
+  document.getElementById('shareWhatsApp').href = `https://wa.me/?text=${shareText}`;
+  document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?text=${shareText}`;
 }
 
-function captureHex(missionId){
-  const idx=state.hexes.findIndex(h=>h.id===missionId); if(idx<0) return;
-  state.hexes[idx].captured=true;
-  if(state.hexes[idx+1]) state.hexes[idx+1].unlocked=true;
+function render(){
+  resetDailyIfNeeded();
+  const {event,end} = currentEvent();
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  document.getElementById('seasonChip').textContent = `Season ${new Date().getFullYear()}.${new Date().getMonth()+1}`;
+  document.getElementById('dailyReset').textContent = `Daily reset stamp: ${state.daily.stamp}`;
+  document.getElementById('tokenBank').textContent = `Tokens: ${state.tokens}`;
+  document.getElementById('passLevel').textContent = state.passLevel;
+  document.getElementById('passXp').textContent = `${state.xp}/${state.passLevel*100}`;
+  document.getElementById('passBar').style.width = `${Math.min(100,(state.xp/(state.passLevel*100))*100)}%`;
+  document.getElementById('passUnlocks').textContent = passLevels.map(p=>`L${p.level}: ${p.unlock}`).join(' • ');
+
+  document.getElementById('playerSr').textContent = `Your SR: ${state.sr}`;
+  const board = [...state.leaderboardBots].sort((a,b)=>b.sr-a.sr).map((p,i)=>`<div class="mission"><div class="row"><strong>#${i+1} ${p.name}</strong><span class="grow"></span><span>${p.sr} SR</span></div></div>`).join('');
+  document.getElementById('leaderboard').innerHTML = board;
+
+  document.getElementById('streakCount').textContent = state.streak.count;
+  document.getElementById('streakRewards').innerHTML = `3 day → bonus tokens · 7 day → rare mission · 30 day → elite badge`;
+
+  document.getElementById('eventInfo').innerHTML = `<strong>${event.name}</strong><div class="mini">${event.desc}<br/>Reward: ${event.reward}</div>`;
+  const sec = Math.max(0, Math.floor((end-now())/1000));
+  const hh = String(Math.floor(sec/3600)).padStart(2,'0');
+  const mm = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+  const ss = String(sec%60).padStart(2,'0');
+  document.getElementById('eventTimer').textContent = `Ends in ${hh}:${mm}:${ss}`;
+
+  document.getElementById('roomState').innerHTML = state.squad.room
+    ? `Room <strong>${state.squad.room}</strong> · Members (${state.squad.members.length}/3): ${state.squad.members.join(', ')}`
+    : 'No active room';
+
+  document.getElementById('rewardLog').innerHTML = state.rewardLog.map(r=>`<div class="mission mini">${r}</div>`).join('') || '<div class="mini">No rewards yet.</div>';
+
+  missionActions();
+  renderShareCard();
+  save();
 }
 
-function renderMap(){
-  const hexes = state.hexes.map((h,i)=>{
-    const cx=90+(i%3)*140+(Math.floor(i/3)%2?70:0), cy=90+Math.floor(i/3)*120, r=42;
-    const pts=[0,60,120,180,240,300].map(a=>{const rad=Math.PI*a/180; return `${cx+r*Math.cos(rad)},${cy+r*Math.sin(rad)}`}).join(' ');
-    const cls=`hex ${h.cat} ${h.unlocked?'':'locked'} ${h.captured?'captured':''}`;
-    return `<polygon class='${cls}' points='${pts}'></polygon><text x='${cx-18}' y='${cy+4}' fill='#fff' font-size='10'>${h.label}</text>`;
-  }).join('');
-  el.mapPane.innerHTML=`<h3>Hex Map Progression</h3><svg class='hex-map' viewBox='0 0 520 360'>${hexes}</svg><div class='mini'>science blue · business gold · security red · engineering green · leadership purple</div>`;
-}
+document.getElementById('loginBtn').onclick = registerLogin;
+document.getElementById('createRoom').onclick = createSquadRoom;
+document.getElementById('addMember').onclick = addSquadMember;
 
-function renderResults(){
-  const r=state.latestResult;
-  if(!r){ el.resultsPane.innerHTML='<h3>Result Simulation</h3><div class="mini">Complete a mission to view animated simulation metrics.</div>'; return; }
-  el.resultsPane.innerHTML=`<h3>Result Simulation</h3><div class='result'>
-    <div><b>${r.missionName}</b> · Success ${r.successScore}</div>
-    ${metric('Efficiency',r.efficiency)}${metric('Risk',100-r.risk)}${metric('Cost',100-r.cost)}${metric('Success Score',r.successScore)}
-  </div>`;
-  setTimeout(()=>{document.querySelectorAll('.anim').forEach(n=>n.style.width=n.dataset.w+'%');},40);
-}
-function metric(label,val){ return `<div class='skill'><div class='mini'>${label}</div><div class='bar'><span class='anim' data-w='${val}' style='width:0%'></span></div><div>${Math.round(val)}</div></div>`; }
-
-function topSkills(sk){return Object.entries(sk).sort((a,b)=>b[1]-a[1]).slice(0,3);}
-function buildProofSvg(user,run){
-  const top=topSkills(user.skills).map(([k,v],i)=>`<text x='20' y='${130+i*22}' fill='#cbd9ff' font-size='13'>${k}: ${v}</text>`).join('');
-  const tl=run.decisions.map((d,i)=>`<text x='20' y='${220+i*18}' fill='#9db0df' font-size='12'>${i+1}. ${escapeXml(d)}</text>`).join('');
-  return `<svg xmlns='http://www.w3.org/2000/svg' width='720' height='340' viewBox='0 0 720 340'><rect width='720' height='340' fill='#0f1730'/><rect x='12' y='12' width='696' height='316' rx='12' fill='none' stroke='#324a7b'/><text x='20' y='36' fill='#f3f7ff' font-size='22' font-family='sans-serif'>SkillHex Proof Card</text><text x='20' y='64' fill='#8fb6ff' font-size='15'>Player: ${escapeXml(user.name||user.email)}</text><text x='20' y='86' fill='#8fb6ff' font-size='15'>Mission: ${escapeXml(run.missionName)}</text><text x='20' y='108' fill='#ffd27a' font-size='15'>Score: ${run.successScore}</text><text x='20' y='180' fill='#f3f7ff' font-size='15'>Top 3 Skills</text>${top}<text x='20' y='202' fill='#f3f7ff' font-size='15'>Decision Timeline</text>${tl}</svg>`;
-}
-
-function downloadSvg(svg,id){const b=new Blob([svg],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`proof-${id}.svg`;a.click();URL.revokeObjectURL(u);}
-
-function renderProof(){
-  const u=currentUser(); if(!u){ el.proofPane.innerHTML='<h3>SVG Proof Vault</h3><div class="mini">Login required.</div>'; return; }
-  const list=(u.proofs||[]).map((p,i)=>`<div class='mission'><b>${p.missionId}</b><div class='mini'>Score ${p.score}</div><div class='row'><button data-open='${i}'>View Result</button><button data-dl='${i}'>Export SVG</button></div><div id='pv-${i}' class='proof'></div></div>`).join('')||"<div class='mini'>No proofs yet.</div>";
-  el.proofPane.innerHTML=`<h3>SVG Proof Generator / Vault</h3>${list}`;
-  el.proofPane.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const i=+b.dataset.open; document.getElementById(`pv-${i}`).innerHTML=u.proofs[i].svgProof; logEvent('result_viewed',{missionId:u.proofs[i].missionId});});
-  el.proofPane.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dl; downloadSvg(u.proofs[i].svgProof,u.proofs[i].missionId);});
-}
-
-async function renderLeaderboard(){
-  let players=[...state.users];
-  if(firebaseReady){
-    try{
-      const snaps=await getDocs(query(collection(db,'skillProfiles'),orderBy('totalSkillScore','desc'),limit(10)));
-      const cloud=[];
-      for(const d of snaps.docs){ const x=d.data(); const p=await getDoc(doc(db,'players',x.playerId)); cloud.push({name:p.data()?.name||x.playerId,total:x.totalSkillScore||0}); }
-      el.leaderboardPane.innerHTML=`<h3>Leaderboard</h3>${cloud.map((p,i)=>`<div class='mission'>#${i+1} ${p.name} · ${p.total}</div>`).join('')||'<div class="mini">No data</div>'}`;
-      return;
-    }catch(_e){}
-  }
-  players.sort((a,b)=>totalSkillScore(b.skills)-totalSkillScore(a.skills));
-  el.leaderboardPane.innerHTML=`<h3>Leaderboard</h3>${players.map((p,i)=>`<div class='mission'>#${i+1} ${p.name||p.email} · ${totalSkillScore(p.skills)}</div>`).join('')||'<div class="mini">No players yet</div>'}`;
-}
-
-function renderRecruiter(){
-  const u=currentUser();
-  if(!u || u.mode!=='recruiter'){ el.recruiterPane.innerHTML='<h3>Recruiter View</h3><div class="mini">Login as recruiter to inspect candidates.</div>'; return; }
-  const candidates=state.users.filter(x=>x.mode==='player');
-  const target = candidates.find(x=>x.id===state.recruiterTarget) || candidates[0];
-  const options=candidates.map(c=>`<option value='${c.id}' ${target&&c.id===target.id?'selected':''}>${c.name||c.email}</option>`).join('');
-  const graph = target ? Object.entries(target.skills).map(([k,v])=>`<div class='skill'><div class='mini'>${k}</div><div class='bar'><span style='width:${Math.min(100,v*8)}%'></span></div><div>${v}</div></div>`).join('') : '';
-  const history = target ? (target.history||[]).map(h=>`<li>${h.missionId} · ${h.score}</li>`).join('') : '';
-  const proofs = target ? (target.proofs||[]).map((p,i)=>`<button data-cpv='${i}'>${p.missionId} Proof</button>`).join(' ') : '';
-  el.recruiterPane.innerHTML=`<h3>Recruiter View</h3>${target?`<div class='row'><select id='cand'>${options}</select><button id='load'>Load</button></div><div class='mini'>Candidate: ${target.name||target.email}</div><h4>Skill Graph</h4>${graph}<h4>Mission History</h4><ul>${history||'<li>none</li>'}</ul><h4>SVG Proofs</h4><div id='proofView' class='proof'></div>${proofs}`:'<div class="mini">No candidates available.</div>'}`;
-  document.getElementById('load')?.addEventListener('click',()=>{state.recruiterTarget=document.getElementById('cand').value;save();render();});
-  el.recruiterPane.querySelectorAll('[data-cpv]').forEach(b=>b.onclick=()=>{document.getElementById('proofView').innerHTML=target.proofs[+b.dataset.cpv].svgProof;});
-}
-
-function renderTutorial(){
-  const steps=[
-    "1. Introduction — Enter Mission Engine and choose a scenario.",
-    "2. Decision Steps — Execute decisions sequentially for each mission.",
-    "3. Simulation Results — Run efficiency/risk/cost/success simulation.",
-    "4. Skill Upgrades — See skill deltas and graph growth.",
-    "5. Hex Map Expansion — Captured missions unlock new hexes."
-  ];
-  el.tutorialPane.innerHTML=`<h3>Mission Tutorial</h3>${steps.map(s=>`<div class='mission'>${s}</div>`).join('')}`;
-}
-
-function renderSkillGraph(){
-  const u=currentUser(); const sk=u?u.skills:skillsTemplate;
-  el.skillGraph.innerHTML=Object.entries(sk).map(([k,v])=>`<div class='skill'><div class='mini'>${k}</div><div class='bar'><span style='width:${Math.min(100,v*8)}%'></span></div><div>${v}</div></div>`).join('');
-}
-
-function renderTimeline(){
-  const u=currentUser();
-  if(!u){el.timeline.textContent='No session.';return;}
-  el.timeline.innerHTML=(u.history||[]).slice(0,8).map(h=>`<div class='mini'>${h.missionId} · score ${h.score} · ${new Date(h.timestamp).toLocaleString()}</div>`).join('')||'No mission history.';
-}
-
-function renderPanes(){
-  [el.missionPane,el.mapPane,el.resultsPane,el.proofPane,el.leaderboardPane,el.recruiterPane,el.tutorialPane].forEach(p=>p.classList.remove('active'));
-  ({"Mission Engine":el.missionPane,"Hex Map":el.mapPane,"Results":el.resultsPane,"Proof Vault":el.proofPane,"Leaderboard":el.leaderboardPane,"Recruiter View":el.recruiterPane,"Tutorial":el.tutorialPane}[state.tab]).classList.add('active');
-}
-
-async function render(){
-  renderTabs(); renderPanes(); renderAuth(); renderSkillGraph(); renderTimeline();
-  renderMissionPane(); renderMap(); renderResults(); renderProof(); await renderLeaderboard(); renderRecruiter(); renderTutorial();
-  const u=currentUser(); el.userChip.textContent=u?`${u.name||u.email} (${u.mode})`:'Guest'; save();
-}
-
-function v(id){return document.getElementById(id)?.value?.trim()||'';}
-function escapeXml(s){return String(s||'').replace(/[<>&'\"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;","\"":"&quot;"}[c]));}
-
-el.logoutBtn.onclick=logout;
-if(firebaseReady){ onAuthStateChanged(auth, async (u)=>{ if(u && !state.currentUserId){ try{const me=await login(u.email,''); if(me){state.users=state.users.filter(x=>x.id!==me.id);state.users.push(me);state.currentUserId=me.id; save(); render();}}catch(_e){} } }); }
+setInterval(render, 1000);
 render();
-  };
-  el.tSkip.onclick=()=>{ state.tutorial.active=false; state.tutorial.seen=true; render(); };
-
-  el.replayTutorialBtn.onclick=openTutorial;
-  el.toggleInputBtn.onclick=()=>{ state.inputMode=state.inputMode==="thread"?"standard":"thread"; logEvent("input_mode_selected",{mode:state.inputMode}); render(); };
-  el.toggleWheelBtn.onclick=()=>{ state.wheelDocked=!state.wheelDocked; saveState(); renderChips(); };
-  el.logoutBtn.onclick=()=>{ logout(); };
-
-  document.addEventListener("keydown",(e)=>{
-    if(e.key==="ArrowRight") { cycleTab(1); render(); }
-    if(e.key==="ArrowLeft") { cycleTab(-1); render(); }
-    if(e.key==="Enter" && state.inputMode==="thread") dispatchThread((wheelState.active+12)%12,1,true);
-    if(e.key.toLowerCase()==="t") { state.inputMode=state.inputMode==="thread"?"standard":"thread"; logEvent("input_mode_selected",{mode:state.inputMode}); render(); }
-  });
-
-  if(hasFirebase && auth){
-    onAuthStateChanged(auth, async (fbUser)=>{
-      if(fbUser){
-        const cloudUser = await hydrateUserFromCloud(fbUser.uid);
-        if(cloudUser){
-          state.users = state.users.filter(u=>u.id!==cloudUser.id);
-          state.users.push(cloudUser);
-          state.currentUserId=cloudUser.id;
-          state.session={id:cloudUser.id};
-          saveState();
-          render();
-        }
-      }
-    });
-  }
-
-  bindWheelPointer();
-  if(!state.tutorial.seen) openTutorial();
-  render();
-  logEvent("app_loaded",{firebase:hasFirebase});
-})();
 </script>
 </body>
 </html>
