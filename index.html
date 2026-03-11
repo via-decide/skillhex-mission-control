@@ -1,1 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkillHex Mission Control - Firebase Data Model</title>
+    <style>
+      body {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        margin: 2rem;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      h1 {
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: #cbd5e1;
+      }
+      pre {
+        background: #111827;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1rem;
+        overflow: auto;
+        line-height: 1.35;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono,
+          Courier New, monospace;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Firebase-Friendly Data Model</h1>
+    <p>Canonical Firestore collections and document fields for SkillHex Mission Control.</p>
+    <pre><code id="model"></code></pre>
 
+    <script>
+      const firebaseDataModel = {
+        users: {
+          path: 'users/{userId}',
+          fields: {
+            id: 'string',
+            type: 'player | recruiter',
+            displayName: 'string',
+            companyName: 'string | null',
+            rolePath: 'string',
+            createdAt: 'Timestamp',
+            skills: 'Record&lt;string, number&gt;',
+            territoryCount: 'number',
+            capturedHexes: 'string[]',
+            recentSkillVelocity: 'Record&lt;string, number&gt;',
+            shortlisted: 'string[]'
+          }
+        },
+        rooms: {
+          path: 'rooms/{roomId}',
+          fields: {
+            id: 'string',
+            code: 'string',
+            hostId: 'string',
+            mode: 'string',
+            status: 'waiting | active | completed',
+            createdAt: 'Timestamp',
+            playerIds: 'string[]',
+            currentMissionId: 'string | null',
+            selectedHexId: 'string | null',
+            scores: 'Record&lt;string, number&gt;'
+          }
+        },
+        missions: {
+          path: 'missions/{missionId}',
+          fields: {
+            id: 'string',
+            type: 'tactical | simulation | competitive',
+            zoneType: 'string',
+            title: 'string',
+            description: 'string',
+            difficulty: 'number',
+            targetSkills: 'string[]'
+          }
+        },
+        missionRuns: {
+          path: 'missionRuns/{runId}',
+          fields: {
+            id: 'string',
+            missionId: 'string',
+            roomId: 'string',
+            userId: 'string',
+            startedAt: 'Timestamp',
+            completedAt: 'Timestamp | null',
+            decisions: 'Array&lt;Record&lt;string, unknown&gt;&gt;',
+            score: 'number',
+            skillDeltas: 'Record&lt;string, number&gt;',
+            tradeoffs: 'Array&lt;Record&lt;string, unknown&gt;&gt;',
+            territoryDelta: 'number',
+            outcomeSummary: 'string'
+          }
+        },
+        mapState: {
+          path: 'mapState/{mapId}',
+          fields: {
+            id: 'string',
+            zones: 'Array&lt;{ owner: string, control: number, missionType: string, targetSkill: string }&gt;'
+          }
+        },
+        recruiterActions: {
+          path: 'recruiterActions/{actionId}',
+          fields: {
+            recruiterId: 'string',
+            playerId: 'string',
+            actionType: 'viewed | shortlisted | tagged | contacted',
+            timestamp: 'Timestamp'
+          }
+        },
+        analyticsEvents: {
+          path: 'analyticsEvents/{eventId}',
+          fields: {
+            type: 'string',
+            userId: 'string',
+            roomId: 'string | null',
+            missionId: 'string | null',
+            payload: 'Record&lt;string, unknown&gt;',
+            timestamp: 'Timestamp'
+          }
+        }
+      };
+
+      document.getElementById('model').textContent = JSON.stringify(firebaseDataModel, null, 2);
+    </script>
+  </body>
+</html>
