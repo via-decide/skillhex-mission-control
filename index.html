@@ -1,988 +1,766 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SkillHex: Mission Control</title>
-    <style>
-      :root {
-        --bg: #0b1020;
-        --panel: #121a30;
-        --panel-2: #17213b;
-        --text: #ebefff;
-        --muted: #a9b5da;
-        --accent: #69b6ff;
-        --accent-2: #00d3b8;
-        --danger: #ff6f7d;
-        --line: #2c385f;
-        --gold: #f2d88a;
-        --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        color: var(--text);
-        background: radial-gradient(circle at 80% -20%, #2d355e 0%, #10172b 40%, #0b1020 80%);
-        min-height: 100vh;
-      }
-      .shell { max-width: 1280px; margin: 0 auto; padding: 20px; }
-      .hero {
-        border: 1px solid var(--line); background: linear-gradient(160deg, rgba(120,152,255,.18), rgba(0,0,0,.2));
-        border-radius: 18px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px;
-      }
-      .hero h1 { margin: 0 0 6px; font-size: 1.8rem; }
-      .tagline { color: var(--gold); font-weight: 600; margin-bottom: 10px; }
-      .meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: .92rem; }
-      .badge { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; background: rgba(0,0,0,.2); }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SKILLHEX / SKILL HACKS: MISSION CONTROL</title>
+  <style>
+    :root {
+      --bg:#070b16; --panel:#111a2e; --panel2:#152340; --line:#2f4168; --txt:#eaf0ff; --muted:#9fb0d9;
+      --accent:#63b6ff; --accent2:#00d1b0; --warn:#ffb266; --bad:#ff7185; --good:#69e0a2;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--txt);background:radial-gradient(circle at 80% -15%,#27396d 0,#0f1730 33%,var(--bg) 72%);}
+    button,input,select{font:inherit}
+    .app{max-width:1400px;margin:auto;padding:12px}
+    .hero,.card{background:rgba(16,26,46,.92);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.35)}
+    .hero{padding:14px;margin-bottom:10px}.hero h1{margin:0 0 6px;font-size:1.15rem}
+    .tagline{color:#ffd88f;font-weight:600}.trust{color:var(--muted);font-size:.86rem;margin-top:4px}
+    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.grow{flex:1}
+    .chip{padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:#0c1428;color:var(--muted);font-size:.8rem}
+    .layout{display:grid;grid-template-columns:1.35fr .85fr;gap:10px}
+    .tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:8px}
+    .tabs button,.btn{border:1px solid var(--line);border-radius:10px;background:linear-gradient(180deg,#1c2e55,#162544);color:var(--txt);padding:8px;cursor:pointer}
+    .tabs button.active{border-color:var(--accent)} .ghost{background:#0f182f}
+    .pane{display:none}.pane.active{display:block}
+    .grid2{display:grid;grid-template-columns:1fr 290px;gap:8px}
+    .map-wrap{position:relative}
+    .map{width:100%;height:min(68vh,580px);background:radial-gradient(circle at 30% 15%,#4a2822,#311a16 48%,#1b1110);border-radius:12px;border:1px solid #5f3630;touch-action:manipulation}
+    .hex{cursor:pointer;stroke:#8d6f63;stroke-width:1.2}.hex.neutral{fill:#3f4048}.hex.player{fill:#0f6c8f}.hex.rivalA{fill:#83542c}.hex.rivalB{fill:#5a3f85}.hex.selected{stroke:#fff;stroke-width:2.1}
+    .zone-label{font-size:8px;fill:#f9f6ef;pointer-events:none}
+    .stack{display:grid;gap:8px}.mini{font-size:.82rem;color:var(--muted)}
+    .box{padding:8px;border:1px solid var(--line);border-radius:10px;background:#0d1832}
+    .skills .r{display:grid;grid-template-columns:140px 1fr 44px;gap:8px;align-items:center}.bar{height:9px;border:1px solid #345;background:#0b152d;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    .feed{max-height:180px;overflow:auto;display:grid;gap:6px}.evt{padding:7px;border:1px solid var(--line);border-radius:8px;background:#0c1428;font-size:.8rem}
+    .auth-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.auth-grid input,.auth-grid select,.input{width:100%;padding:8px;border-radius:9px;border:1px solid var(--line);background:#0a1328;color:var(--txt)}
+    .mission-choice{width:100%;text-align:left;margin-top:6px}
+    .overlay{position:fixed;inset:0;background:rgba(3,7,15,.8);display:none;z-index:90;align-items:center;justify-content:center;padding:10px}.overlay.show{display:flex}
+    .tutorial{max-width:850px;width:min(95vw,850px);padding:12px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(165deg,#1a274a,#101a31)}
+    .tutorial .viz{height:130px;border-radius:10px;border:1px solid #334d7d;background:radial-gradient(circle at 38% 35%,rgba(99,182,255,.25),rgba(0,0,0,.1));display:grid;place-items:center;margin:8px 0}
+    .wheel-wrap{position:fixed;right:10px;bottom:10px;z-index:70}
+    .wheel{width:min(250px,60vw);height:min(250px,60vw);border-radius:50%;position:relative;border:1px solid var(--line);background:radial-gradient(circle at 40% 30%,rgba(99,182,255,.15),rgba(0,0,0,.2));touch-action:none;user-select:none}
+    .seg{position:absolute;width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:#152a4c;display:grid;place-items:center;color:var(--muted);font-size:.66rem;transform:translate(-50%,-50%)}
+    .seg.a{background:#1f534b;color:#fff;border-color:var(--accent2)}
+    .center{position:absolute;inset:35%;border-radius:50%;border:1px solid var(--line);background:#0c1631;display:grid;place-items:center;text-align:center;padding:6px;font-size:.7rem;color:var(--muted)}
+    .dock{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .activity{display:grid;gap:4px}.agent{font-size:.72rem;padding:5px;border:1px dashed #36527f;border-radius:8px;color:#a8c6ff;background:#0d1935}
+    .hidden{display:none!important}
+    @media (max-width:1040px){.layout{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <section class="hero">
+    <h1>SKILLHEX / SKILL HACKS: MISSION CONTROL</h1>
+    <div class="tagline">Not a resume. Not a leaderboard. A living proof-of-skill map.</div>
+    <div class="trust">Gameplay does not guarantee employment. It reveals evidence of fit and growth.</div>
+    <div class="row" style="margin-top:8px">
+      <span class="chip" id="persistChip"></span><span class="chip" id="userChip"></span><span class="chip" id="inputChip"></span>
+      <button class="btn ghost" id="replayTutorialBtn">Replay Tutorial</button>
+      <button class="btn ghost" id="logoutBtn">Log out</button>
+    </div>
+  </section>
 
-      .layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; }
-      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
-      .panel h2 { margin: 0 0 10px; font-size: 1.02rem; }
-      .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-      .tab {
-        border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--muted);
-        padding: 8px 10px; cursor: pointer; font-weight: 600;
-      }
-      .tab.active { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(105,182,255,.25); }
-      .mode-view { display: none; }
-      .mode-view.active { display: block; }
+  <div class="layout">
+    <section class="card" style="padding:10px">
+      <div class="tabs" id="tabs"></div>
 
-      .map-wrap { display: grid; grid-template-columns: 1fr 280px; gap: 12px; align-items: start; }
-      canvas { width: 100%; background: radial-gradient(circle at 30% 15%, #3c1f1e, #2a1615 50%, #1f1212 100%); border-radius: 14px; border: 1px solid #573432; }
-      .stat-grid { display: grid; gap: 8px; }
-      .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px; }
-      .label { color: var(--muted); font-size: .82rem; }
-      .value { font-weight: 700; margin-top: 2px; }
-
-      .mission-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--panel-2); margin-bottom: 10px; }
-      .mission-type { font-size: .78rem; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
-      .choices { display: grid; gap: 8px; margin-top: 8px; }
-      button, .btn {
-        border: 1px solid var(--line); background: linear-gradient(180deg, #223053, #172342); color: var(--text);
-        padding: 8px 10px; border-radius: 10px; cursor: pointer;
-      }
-      button:hover { border-color: var(--accent); }
-      .ghost { background: transparent; }
-      .primary { border-color: #4d8fde; background: linear-gradient(180deg, #2b4c7a, #203b62); }
-      .good { color: var(--accent-2); }
-      .bad { color: var(--danger); }
-      .flex { display: flex; gap: 8px; flex-wrap: wrap; }
-      input, select {
-        width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #0d1428; color: var(--text); padding: 8px;
-      }
-
-      .skills { display: grid; gap: 8px; }
-      .skill-row { display: grid; grid-template-columns: 120px 1fr 44px; gap: 8px; align-items: center; }
-      .bar { background: #101932; height: 9px; border-radius: 20px; overflow: hidden; border: 1px solid #2e3d6d; }
-      .bar > span { display: block; height: 100%; background: linear-gradient(90deg, #4d8fde, #00d3b8); }
-
-      .feed { max-height: 220px; overflow: auto; display: grid; gap: 8px; }
-      .event { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #0d1529; font-size: .87rem; }
-      .tiny { font-size: .78rem; color: var(--muted); }
-      .status-line { margin-top: 6px; }
-      .thread-panel { margin-top: 14px; }
-      .thread-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-      .thread-wheel {
-        position: relative;
-        width: min(280px, 82vw);
-        height: min(280px, 82vw);
-        margin: 10px auto;
-        border-radius: 50%;
-        border: 1px solid var(--line);
-        background: radial-gradient(circle at 45% 30%, rgba(105,182,255,.12), rgba(0,0,0,.3));
-        touch-action: none;
-        user-select: none;
-      }
-      .thread-center {
-        position: absolute;
-        inset: 35% 35%;
-        border-radius: 50%;
-        border: 1px solid var(--line);
-        background: rgba(10,17,35,.9);
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 8px;
-        font-size: .72rem;
-        color: var(--muted);
-      }
-      .thread-segment {
-        position: absolute;
-        width: 38px;
-        height: 38px;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        background: #162443;
-        color: var(--muted);
-        display: grid;
-        place-items: center;
-        font-size: .66rem;
-        transform: translate(-50%, -50%);
-      }
-      .thread-segment.active { border-color: var(--accent-2); color: var(--text); background: #1d3f4f; }
-      .thread-segment.dim { opacity: .5; }
-
-      @media (max-width: 980px) {
-        .layout { grid-template-columns: 1fr; }
-        .map-wrap { grid-template-columns: 1fr; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="shell">
-      <section class="hero">
-        <h1>SkillHex: Mission Control</h1>
-        <div class="tagline">“Not a resume. Not a leaderboard. A living proof-of-skill map.”</div>
-        <div class="meta">
-          <div class="badge" id="persistenceBadge"></div>
-          <div class="badge" id="playerBadge"></div>
-          <div class="badge" id="territoryBadge"></div>
+      <div class="pane active" data-pane="Demo Mode">
+        <div class="grid2">
+          <div class="map-wrap"><svg id="mapSvg" class="map" viewBox="0 0 900 620" role="img" aria-label="Mars hex territory map"></svg></div>
+          <div class="stack">
+            <div class="box" id="zoneBox">Select a zone to inspect and launch missions.</div>
+            <div class="box" id="missionBox"></div>
+          </div>
         </div>
-      </section>
+      </div>
 
-      <div class="layout">
-        <section class="panel">
-          <div class="tabs" id="modeTabs"></div>
+      <div class="pane" data-pane="Solo Mission Mode"><div class="box" id="soloBox"></div></div>
+      <div class="pane" data-pane="Room Mode">
+        <div class="box">
+          <div class="row"><input id="roomName" class="input grow" placeholder="Room name"/><button class="btn" id="createRoomBtn">Create Room</button></div>
+          <div class="row" style="margin-top:8px"><input id="roomCode" class="input grow" placeholder="Room code"/><button class="btn" id="joinRoomBtn">Join</button></div>
+          <div id="roomBox" class="mini" style="margin-top:8px"></div>
+        </div>
+      </div>
 
-          <div class="mode-view active" data-mode="Demo">
-            <h2>Demo Command Deck</h2>
-            <p class="tiny">Explore all systems quickly: run missions, claim hexes, and inspect recruiter fit.</p>
-            <div class="map-wrap">
-              <div>
-                <canvas id="mapCanvas" width="740" height="520"></canvas>
-                <div class="tiny">Click a hex to focus it. Hex owner color: you (cyan), AI rivals (orange/purple), neutral (slate).</div>
-              </div>
-              <div class="stat-grid" id="demoStats"></div>
-            </div>
-          </div>
+      <div class="pane" data-pane="Recruiter View"><div class="box" id="recruiterBox"></div></div>
+      <div class="pane" data-pane="Proof Vault"><div class="box" id="vaultBox"></div></div>
+      <div class="pane" data-pane="Settings"><div class="box" id="settingsBox"></div></div>
+    </section>
 
-          <div class="mode-view" data-mode="Solo Missions">
-            <h2>Solo Missions</h2>
-            <div id="soloMission"></div>
-          </div>
+    <aside class="card" style="padding:10px">
+      <div id="authCard" class="box"></div>
+      <h3>Skill Profile</h3>
+      <div id="skills" class="skills"></div>
+      <h3>System Activity Lane</h3>
+      <div class="activity" id="activity"></div>
+      <h3>Telemetry</h3>
+      <div class="feed" id="telemetry"></div>
+    </aside>
+  </div>
+</div>
 
-          <div class="mode-view" data-mode="Room Mode">
-            <h2>Room Mode</h2>
-            <div class="flex">
-              <input id="roomName" placeholder="Room name (e.g., GTM-Alpha)" />
-              <button class="primary" id="createRoomBtn">Create Room</button>
-            </div>
-            <div class="flex" style="margin-top:8px;">
-              <input id="roomCode" placeholder="Enter room code" />
-              <button id="joinRoomBtn">Join</button>
-            </div>
-            <div id="roomState" class="mission-card" style="margin-top:10px;"></div>
-          </div>
-
-          <div class="mode-view" data-mode="Recruiter View">
-            <h2>Recruiter Lens</h2>
-            <div class="mission-card">
-              <div class="label">Role Target</div>
-              <select id="roleTarget"></select>
-              <div id="fitSummary" style="margin-top:8px;"></div>
-              <div class="flex" style="margin-top:8px;">
-                <button id="shortlistBtn" class="primary">Add to Shortlist</button>
-                <button id="replayBtn">Replay Last Mission</button>
-              </div>
-            </div>
-            <div id="shortlist" class="feed"></div>
-          </div>
-        </section>
-
-        <aside class="panel">
-          <h2>Player Profile</h2>
-          <div class="mission-card">
-            <div class="label">Player</div>
-            <div class="value" id="playerName"></div>
-            <div class="tiny" id="growthText"></div>
-          </div>
-          <div class="skills" id="skills"></div>
-          <h2 style="margin-top:14px;">Telemetry Feed</h2>
-          <div class="feed" id="telemetry"></div>
-          <h2 style="margin-top:14px;">Proof Artifact</h2>
-          <div class="mission-card">
-            <div class="tiny">Export your skill proof report, print a PDF summary, or recover prior artifacts.</div>
-            <div class="flex" style="margin-top:8px;">
-              <button id="exportProofBtn" class="primary">Export Proof JSON</button>
-              <button id="printProofBtn">Print Proof Summary</button>
-            </div>
-            <div class="flex" style="margin-top:8px;">
-              <input id="recoverProofInput" type="file" accept="application/json" />
-              <button id="recoverProofBtn">Recover Artifact</button>
-            </div>
-            <div id="proofStatus" class="tiny status-line">No export/recovery activity yet.</div>
-          </div>
-          <div class="flex" style="margin-top:10px;">
-            <button id="resetBtn" class="ghost">Reset Local Data</button>
-          </div>
-          <div class="thread-panel mission-card">
-            <h2>Adaptive Thread Input</h2>
-            <div class="thread-toolbar">
-              <button id="inputModeBtn">Mode: Standard</button>
-              <button id="replayThreadHintBtn" class="ghost">Replay Hint</button>
-            </div>
-            <div id="threadHint" class="tiny">Thread Mode: press/hold, drag toward a command, release to dispatch.</div>
-            <div id="threadWheel" class="thread-wheel" aria-label="Thread command wheel" role="application">
-              <div id="threadCenter" class="thread-center">Idle</div>
-            </div>
-          </div>
-        </aside>
+<div class="overlay" id="tutorialOverlay" aria-modal="true" role="dialog">
+  <div class="tutorial">
+    <h3 id="tTitle"></h3>
+    <div class="viz" id="tViz"></div>
+    <div id="tBody"></div>
+    <div class="dock" style="margin-top:8px">
+      <div class="mini" id="tCount"></div>
+      <div class="row">
+        <button class="btn ghost" id="tBack">Back</button>
+        <button class="btn" id="tNext">Next</button>
+        <button class="btn ghost" id="tSkip">Skip</button>
       </div>
     </div>
+  </div>
+</div>
 
-    <script>
-      (() => {
-        const STORAGE_KEY = "skillhex-mission-control-v1";
-        const PROOF_REPORT_VERSION = "1.0.0";
-        const PROOF_REPORT_SCHEMA = "skillhex-proof-report";
-        const MODES = ["Demo", "Solo Missions", "Room Mode", "Recruiter View"];
-        const SKILLS = ["Systems Thinking", "Communication", "Execution", "Adaptability", "Leadership"];
-        const ROLE_PROFILES = {
-          "Product Manager": { "Systems Thinking": 75, Communication: 80, Execution: 70, Adaptability: 68, Leadership: 72 },
-          "Operations Lead": { "Systems Thinking": 65, Communication: 62, Execution: 84, Adaptability: 70, Leadership: 65 },
-          "Strategy Analyst": { "Systems Thinking": 83, Communication: 66, Execution: 60, Adaptability: 72, Leadership: 55 }
-        };
+<div class="wheel-wrap">
+  <div class="row" style="justify-content:flex-end;margin-bottom:6px">
+    <button class="btn" id="toggleInputBtn">Mode: Standard</button>
+    <button class="btn ghost" id="toggleWheelBtn">Dock</button>
+  </div>
+  <div id="threadWheel" class="wheel" role="application" aria-label="Thread command wheel"><div id="wheelCenter" class="center">Idle</div></div>
+</div>
 
-        const missionTemplates = {
-          tactical: {
-            title: "Breach Logistics Grid",
-            prompt: "A supply corridor is disrupted. Choose a response pattern.",
-            choices: [
-              { text: "Rapid reroute through untested lane", delta: { Execution: 8, Adaptability: 5, Communication: -2 }, territory: 2 },
-              { text: "Cross-team sync before movement", delta: { Communication: 7, Leadership: 4, Execution: -1 }, territory: 1 },
-              { text: "Hold and model probable outcomes", delta: { "Systems Thinking": 8, Execution: -2 }, territory: 0 }
-            ]
-          },
-          simulation: {
-            title: "Market Shock Simulation",
-            prompt: "Demand collapses in one region and spikes in another.",
-            choices: [
-              { text: "Rebalance resources immediately", delta: { Adaptability: 8, Execution: 4, Leadership: -2 }, territory: 1 },
-              { text: "Build scenario stack with confidence ranges", delta: { "Systems Thinking": 9, Communication: 2, Execution: -1 }, territory: 1 },
-              { text: "Assign squad captains with local autonomy", delta: { Leadership: 7, Communication: 5, "Systems Thinking": -2 }, territory: 2 }
-            ]
-          },
-          competitive: {
-            title: "Rival Team Negotiation",
-            prompt: "A rival room challenges your claim on strategic hexes.",
-            choices: [
-              { text: "Outbid with data-backed concession", delta: { Communication: 6, "Systems Thinking": 4, Execution: -1 }, territory: 1 },
-              { text: "Bluff confidence and force timeline", delta: { Leadership: 6, Execution: 3, Communication: -3 }, territory: 2 },
-              { text: "Split-zone treaty for long-term edge", delta: { Adaptability: 5, Leadership: 3, "Systems Thinking": 4 }, territory: 1 }
-            ]
-          }
-        };
+<script>
+(() => {
+  "use strict";
 
-        const firebaseHooks = {
-          enabled: !!(window.firebaseConfig && window.firebase),
-          async saveState(state) {
-            if (!this.enabled) return false;
-            try { console.info("Firebase hook: saveState", state); return true; } catch { return false; }
-          },
-          async logEvent(event) {
-            if (!this.enabled) return false;
-            try { console.info("Firebase hook: logEvent", event); return true; } catch { return false; }
-          }
-        };
+  // Firebase readiness placeholders
+  const enableFirebase = false;
+  const firebaseConfig = { apiKey:"", authDomain:"", projectId:"", appId:"" };
+  const hasFirebase = enableFirebase && window.firebase && firebaseConfig.apiKey;
 
-        const makeDefaultState = () => ({
-          player: {
-            name: "Pilot-01",
-            skills: { "Systems Thinking": 52, Communication: 48, Execution: 55, Adaptability: 50, Leadership: 45 },
-            growth: [], territory: 2, shortlistCount: 0
-          },
-          map: Array.from({ length: 37 }, (_, i) => ({ id: i, owner: i % 9 === 0 ? "rivalA" : i % 7 === 0 ? "rivalB" : i % 5 === 0 ? "player" : "neutral", control: 40 + (i * 9) % 55, missionType: ["tactical", "simulation", "competitive"][i % 3] })),
-          telemetry: [],
-          rooms: {},
-          activeRoom: null,
-          lastMission: null,
-          mode: "Demo",
-          selectedHex: 0,
-          shortlist: [],
-          proofVault: [],
-          exportedReports: [],
-          recoveryMetadata: { status: "idle", events: [], lastError: null },
-          input: { mode: "standard", tutorialSeen: false, lastCommand: null },
-          threadTelemetry: []
-          recoveryMetadata: { status: "idle", events: [], lastError: null }
-        });
+  const STORAGE_KEY = "skillhex-mission-control-v3";
+  const tabs = ["Demo Mode","Solo Mission Mode","Room Mode","Recruiter View","Proof Vault","Settings"];
+  const skillsList = ["Analytical Thinking","Systems Thinking","Prioritization","Adaptability","Leadership","Collaboration","Negotiation","Resource Efficiency","Crisis Response","Execution Reliability"];
+  const roleFamilies = ["Software Engineering","Data / Analytics","Finance / Analyst","Operations","Product / Strategy","Research / Science"];
 
-        const loadState = () => {
-          try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : makeDefaultState(); }
-          catch { return makeDefaultState(); }
-        };
+  const seededJobs = [
+    {company:"Google",role:"Associate Product Analyst",location:"Bengaluru",sourceType:"source-backed",sourceUrl:"https://careers.google.com",requiredSkills:["Systems Thinking","Prioritization"],preferredSkills:["Collaboration"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹14L-28L",lastUpdated:"2026-01-03",active:true,confidenceLevel:0.82},
+    {company:"Microsoft",role:"Program Manager I",location:"Hyderabad",sourceType:"source-backed",sourceUrl:"https://careers.microsoft.com",requiredSkills:["Leadership","Execution Reliability"],preferredSkills:["Negotiation"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹18L-34L",lastUpdated:"2026-01-04",active:true,confidenceLevel:0.8},
+    {company:"TCS",role:"Operations Analyst",location:"Mumbai",sourceType:"source-backed",sourceUrl:"https://www.tcs.com/careers",requiredSkills:["Resource Efficiency","Collaboration"],preferredSkills:["Adaptability"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹5L-9L",lastUpdated:"2026-01-04",active:true,confidenceLevel:0.76},
+    {company:"Infosys",role:"Business Process Lead",location:"Pune",sourceType:"source-backed",sourceUrl:"https://www.infosys.com/careers",requiredSkills:["Execution Reliability","Prioritization"],preferredSkills:["Leadership"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹7L-13L",lastUpdated:"2026-01-02",active:true,confidenceLevel:0.74},
+    {company:"JPMorgan",role:"Risk Operations Analyst",location:"Mumbai",sourceType:"source-backed",sourceUrl:"https://careers.jpmorgan.com",requiredSkills:["Analytical Thinking","Crisis Response"],preferredSkills:["Systems Thinking"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹14L-24L",lastUpdated:"2026-01-02",active:true,confidenceLevel:0.79},
+    {company:"Goldman Sachs",role:"Analyst",location:"Bengaluru",sourceType:"source-backed",sourceUrl:"https://higher.gs.com",requiredSkills:["Analytical Thinking","Execution Reliability"],preferredSkills:["Negotiation"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹20L-35L",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.81},
+    ...Array.from({length:5},(_,i)=>({company:`India Local Firm ${i+1}`,role:"Growth Ops Associate",location:"India",sourceType:"mock-placeholder",sourceUrl:"n/a",requiredSkills:["Adaptability"],preferredSkills:["Collaboration"],minEducation:"Open",ageEligibilityNote:"18+",compensationType:"range",compensationRange:"₹4L-10L",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.4})),
+    ...Array.from({length:5},(_,i)=>({company:`Global Startup ${i+1}`,role:"Product Ops Generalist",location:"Remote",sourceType:"mock-placeholder",sourceUrl:"n/a",requiredSkills:["Systems Thinking"],preferredSkills:["Leadership"],minEducation:"Open",ageEligibilityNote:"18+",compensationType:"range",compensationRange:"$35k-$85k",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.38}))
+  ];
 
-        let state = loadState();
-        state.proofVault = Array.isArray(state.proofVault) ? state.proofVault : [];
-        state.exportedReports = Array.isArray(state.exportedReports) ? state.exportedReports : [];
-        state.recoveryMetadata = state.recoveryMetadata && typeof state.recoveryMetadata === "object"
-          ? {
-              status: state.recoveryMetadata.status || "idle",
-              events: Array.isArray(state.recoveryMetadata.events) ? state.recoveryMetadata.events : [],
-              lastError: state.recoveryMetadata.lastError || null
-            }
-          : { status: "idle", events: [], lastError: null };
-        state.input = state.input && typeof state.input === "object"
-          ? { mode: state.input.mode || "standard", tutorialSeen: !!state.input.tutorialSeen, lastCommand: state.input.lastCommand || null }
-          : { mode: "standard", tutorialSeen: false, lastCommand: null };
-        state.threadTelemetry = Array.isArray(state.threadTelemetry) ? state.threadTelemetry : [];
+  const missionArchetypes = {
+    tactical: { title:"Tactical: Corridor Pressure", scenario:"Supply lane unstable. Commit one tactical action.", choices:[
+      {id:"reroute",txt:"Fast reroute",d:{"Execution Reliability":8,"Resource Efficiency":-2,"Adaptability":4},territory:4,resource:-6},
+      {id:"sync",txt:"Cross-team synchronization",d:{"Collaboration":7,"Leadership":5,"Execution Reliability":-1},territory:3,resource:-4},
+      {id:"model",txt:"Model before movement",d:{"Analytical Thinking":8,"Systems Thinking":5,"Crisis Response":-2},territory:2,resource:-2}
+    ]},
+    simulation: { title:"Simulation: Market Shock", scenario:"Demand shifts by 38% in two regions.", choices:[
+      {id:"focus",txt:"Protect margin first",d:{"Prioritization":7,"Negotiation":3,"Collaboration":-2},territory:2,resource:-3},
+      {id:"rebalance",txt:"Rebalance with shared constraints",d:{"Systems Thinking":7,"Resource Efficiency":6,"Execution Reliability":-1},territory:3,resource:-5},
+      {id:"signal",txt:"Signal transparency early",d:{"Leadership":5,"Collaboration":5,"Crisis Response":3},territory:2,resource:-4}
+    ]},
+    contested: { title:"Contested Territory", scenario:"Rival claims your hex. Win confidence through trade-offs.", choices:[
+      {id:"aggressive",txt:"Aggressive push",d:{"Crisis Response":8,"Negotiation":-3,"Execution Reliability":3},territory:6,resource:-7},
+      {id:"treaty",txt:"Temporary treaty",d:{"Negotiation":7,"Collaboration":4,"Leadership":2},territory:4,resource:-4},
+      {id:"delay",txt:"Delay and reinforce",d:{"Resource Efficiency":5,"Systems Thinking":4,"Crisis Response":-2},territory:3,resource:-2}
+    ]}
+  };
 
-        const el = {
-          modeTabs: document.getElementById("modeTabs"),
-          modeViews: () => Array.from(document.querySelectorAll(".mode-view")),
-          mapCanvas: document.getElementById("mapCanvas"),
-          demoStats: document.getElementById("demoStats"),
-          soloMission: document.getElementById("soloMission"),
-          roomState: document.getElementById("roomState"),
-          roomName: document.getElementById("roomName"),
-          roomCode: document.getElementById("roomCode"),
-          createRoomBtn: document.getElementById("createRoomBtn"),
-          joinRoomBtn: document.getElementById("joinRoomBtn"),
-          roleTarget: document.getElementById("roleTarget"),
-          fitSummary: document.getElementById("fitSummary"),
-          shortlistBtn: document.getElementById("shortlistBtn"),
-          replayBtn: document.getElementById("replayBtn"),
-          shortlist: document.getElementById("shortlist"),
-          skills: document.getElementById("skills"),
-          telemetry: document.getElementById("telemetry"),
-          playerName: document.getElementById("playerName"),
-          growthText: document.getElementById("growthText"),
-          persistenceBadge: document.getElementById("persistenceBadge"),
-          playerBadge: document.getElementById("playerBadge"),
-          territoryBadge: document.getElementById("territoryBadge"),
-          resetBtn: document.getElementById("resetBtn"),
-          exportProofBtn: document.getElementById("exportProofBtn"),
-          printProofBtn: document.getElementById("printProofBtn"),
-          recoverProofInput: document.getElementById("recoverProofInput"),
-          recoverProofBtn: document.getElementById("recoverProofBtn"),
-          proofStatus: document.getElementById("proofStatus"),
-          inputModeBtn: document.getElementById("inputModeBtn"),
-          replayThreadHintBtn: document.getElementById("replayThreadHintBtn"),
-          threadHint: document.getElementById("threadHint"),
-          threadWheel: document.getElementById("threadWheel"),
-          threadCenter: document.getElementById("threadCenter")
-          proofStatus: document.getElementById("proofStatus")
-        };
+  const tutorialSteps = [
+    ["Mission Control Map","This Mars-style hex grid is your living proof terrain. Each zone represents a capability domain and mission opportunity."],
+    ["Hex Control","Tap/click a hex to inspect. Completing missions increases control percentage and can change ownership."],
+    ["Mission Engine","Tactical, simulation, and contested missions generate decisions, deltas, and timeline evidence."],
+    ["Skill Dynamics","Skill growth includes trade-offs. Gains in speed may reduce efficiency or collaboration."],
+    ["Role-Fit Mapping","Mission evidence maps to role families using confidence and consistency—not profile claims."],
+    ["Proof Vault","Every run stores canonical payload + SVG evidence + fallback summary for replay and recruiter review."],
+    ["Thread Input","Thread mode uses a 12-command wheel with drag/pull gestures and confidence checks for low-certainty input."]
+  ];
 
-        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-        const code = () => Math.random().toString(36).slice(2, 7).toUpperCase();
+  function seedZones(){
+    const domains=["Strategy","Operations","Product","Analytics","Leadership","Systems","Negotiation","Crisis"];
+    return Array.from({length:25},(_,i)=>({id:`Z${i+1}`,name:`Ares-${i+1}`,domain:domains[i%domains.length],owner:"neutral",control:20+((i*7)%45),missionType:Object.keys(missionArchetypes)[i%3],targetSkill:skillsList[i%skillsList.length],difficulty:1+(i%5),status:"open"}));
+  }
 
-        function logEvent(type, payload = {}) {
-          const entry = { t: new Date().toISOString(), type, payload };
-          state.telemetry.unshift(entry);
-          state.telemetry = state.telemetry.slice(0, 50);
-          if (type.startsWith("thread_") || type.includes("input_mode")) {
-            state.threadTelemetry.unshift(entry);
-            state.threadTelemetry = state.threadTelemetry.slice(0, 100);
-          }
-          firebaseHooks.logEvent(entry);
-        }
+  function baseUser(){ const s={}; skillsList.forEach(k=>s[k]=50); return s; }
 
-        const log = logEvent;
+  function defaultState(){
+    return {
+      mode:"Demo Mode", inputMode:"standard", wheelDocked:false, tutorial:{seen:false,step:0,active:false}, agents:true,
+      users:[], currentUserId:null, session:null, zones:seedZones(), selectedZone:null, missions:[], timeline:[],
+      proofVault:[], roleFitHistory:[], recruiterActions:[], savedReports:[], rooms:[{code:"ALPHA7",name:"Demo Room",members:[]}],
+      telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false
+    };
+  }
 
-        function save() {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          firebaseHooks.saveState(state);
-        }
+  function loadState(){
+    let parsed=null; try { parsed = JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"); } catch(_e){}
+    const s=Object.assign(defaultState(), parsed||{});
+    s.zones = Array.isArray(s.zones) && s.zones.length>=25 ? s.zones : seedZones();
+    s.users = Array.isArray(s.users) ? s.users : [];
+    if (!s.currentUserId && s.currentUser && s.currentUser.id) s.currentUserId = s.currentUser.id; // migration
+    delete s.currentUser;
+    return s;
+  }
 
-        function exportProofReport() {
-          const now = new Date();
-          const owned = state.map.filter(h => h.owner === "player").length;
-          return {
-            schema: PROOF_REPORT_SCHEMA,
-            version: PROOF_REPORT_VERSION,
-            exportedAtIso: now.toISOString(),
-            exportedAtLocale: now.toLocaleString(),
-            metadata: {
-              mode: state.mode,
-              telemetryCount: state.telemetry.length,
-              shortlistCount: state.shortlist.length,
-              firebaseEnabled: firebaseHooks.enabled,
-              source: "skillhex-mission-control"
-            },
-            user: {
-              name: state.player.name,
-              growthPath: state.player.growth.slice(-5),
-              shortlistCount: state.player.shortlistCount || state.shortlist.length
-            },
-            skills: { ...state.player.skills },
-            territory: {
-              owned,
-              total: state.map.length,
-              selectedHex: state.selectedHex + 1,
-              mapSnapshot: state.map.map(({ id, owner, control, missionType }) => ({ id, owner, control, missionType }))
-            },
-            missions: {
-              lastMission: state.lastMission,
-              growthEvents: state.player.growth,
-              telemetry: state.telemetry.slice(0, 25)
-            }
-          };
-        }
+  const state = loadState();
 
-        function downloadProofReport(report) {
-          const stamp = report.exportedAtIso.replace(/[:.]/g, "-");
-          const filename = `skillhex-proof-${report.version}-${stamp}.json`;
-          const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const anchor = document.createElement("a");
-          anchor.href = url;
-          anchor.download = filename;
-          document.body.appendChild(anchor);
-          anchor.click();
-          document.body.removeChild(anchor);
-          URL.revokeObjectURL(url);
-        }
+  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function currentUser(){ return state.users.find(u=>u.id===state.currentUserId) || null; }
 
-        function openPrintSummary(report) {
-          const rows = SKILLS.map(skill => `<tr><td>${skill}</td><td>${state.player.skills[skill]}</td></tr>`).join("");
-          const win = window.open("", "_blank", "width=900,height=700");
-          if (!win) return false;
-          win.document.write(`<!doctype html><html><head><title>SkillHex Proof Summary</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}h1{margin:0 0 4px;}small{color:#555;}</style></head><body><h1>SkillHex Proof-of-Skill Summary</h1><small>Version ${report.version} · ${report.exportedAtLocale}</small><h2>Player</h2><p>${report.user.name}</p><h2>Territory</h2><p>${report.territory.owned}/${report.territory.total}</p><h2>Skills</h2><table><thead><tr><th>Skill</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table><h2>Last Mission</h2><p>${report.missions.lastMission ? `${report.missions.lastMission.missionType} · ${report.missions.lastMission.choice}` : "No mission recorded"}</p></body></html>`);
-          win.document.close();
-          win.focus();
-          win.print();
-          return true;
-        }
+  const el = {
+    tabs:document.getElementById("tabs"), panes:[...document.querySelectorAll(".pane")], mapSvg:document.getElementById("mapSvg"),
+    zoneBox:document.getElementById("zoneBox"), missionBox:document.getElementById("missionBox"), soloBox:document.getElementById("soloBox"),
+    recruiterBox:document.getElementById("recruiterBox"), vaultBox:document.getElementById("vaultBox"), settingsBox:document.getElementById("settingsBox"),
+    authCard:document.getElementById("authCard"), skills:document.getElementById("skills"), telemetry:document.getElementById("telemetry"), activity:document.getElementById("activity"),
+    persistChip:document.getElementById("persistChip"), userChip:document.getElementById("userChip"), inputChip:document.getElementById("inputChip"), logoutBtn:document.getElementById("logoutBtn"),
+    replayTutorialBtn:document.getElementById("replayTutorialBtn"), tOverlay:document.getElementById("tutorialOverlay"), tTitle:document.getElementById("tTitle"), tBody:document.getElementById("tBody"),
+    tViz:document.getElementById("tViz"), tCount:document.getElementById("tCount"), tBack:document.getElementById("tBack"), tNext:document.getElementById("tNext"), tSkip:document.getElementById("tSkip"),
+    toggleInputBtn:document.getElementById("toggleInputBtn"), toggleWheelBtn:document.getElementById("toggleWheelBtn"), wheel:document.getElementById("threadWheel"), wheelCenter:document.getElementById("wheelCenter"),
+    createRoomBtn:document.getElementById("createRoomBtn"), joinRoomBtn:document.getElementById("joinRoomBtn"), roomName:document.getElementById("roomName"), roomCode:document.getElementById("roomCode"), roomBox:document.getElementById("roomBox")
+  };
 
-        function validateProofPayload(payload) {
-          if (!payload || typeof payload !== "object") return "Invalid JSON payload.";
-          if (payload.schema !== PROOF_REPORT_SCHEMA) return "Unsupported proof schema.";
-          if (payload.version !== PROOF_REPORT_VERSION) return `Unsupported version: ${payload.version || "unknown"}.`;
-          if (!payload.user || !payload.skills || !payload.territory || !payload.missions || !payload.metadata) {
-            return "Proof report is missing required sections.";
-          }
-          return null;
-        }
+  function logEvent(type,payload={}){
+    const evt={type,payload,at:new Date().toISOString()};
+    state.telemetry.unshift(evt); state.telemetry=state.telemetry.slice(0,300);
+    if(hasFirebase){ /* Firebase analytics hook */ }
+    saveState();
+    renderTelemetry();
+  }
 
-        function recoverProofArtifact(file) {
-          return new Promise((resolve, reject) => {
-            if (!file) { reject(new Error("Choose a JSON artifact file first.")); return; }
-            const reader = new FileReader();
-            reader.onload = () => {
-              try {
-                const payload = JSON.parse(reader.result);
-                const validationError = validateProofPayload(payload);
-                if (validationError) throw new Error(validationError);
+  function markAgent(label){
+    if(!state.agents) return;
+    const d=document.createElement("div");
+    d.className="agent";
+    d.textContent=`${new Date().toLocaleTimeString()} · ${label}`;
+    el.activity.prepend(d);
+    [...el.activity.children].slice(10).forEach(x=>x.remove());
+  }
 
-                const recoveredAt = new Date().toISOString();
-                const reportRecord = { ...payload, recoveredAt };
-                state.proofVault.unshift(reportRecord);
-                state.proofVault = state.proofVault.slice(0, 20);
-                state.exportedReports.unshift({
-                  exportedAtIso: payload.exportedAtIso,
-                  version: payload.version,
-                  source: "recovered"
-                });
-                state.exportedReports = state.exportedReports.slice(0, 50);
+  function setupTabs(){
+    el.tabs.innerHTML="";
+    tabs.forEach(name=>{
+      const b=document.createElement("button");
+      b.textContent=name;
+      b.className=name===state.mode?"active":"";
+      b.onclick=()=>{ state.mode=name; state.recruiterViewed=false; logEvent("mode_selected",{mode:name}); render(); };
+      el.tabs.appendChild(b);
+    });
+  }
 
-                const event = {
-                  recoveredAt,
-                  fileName: file.name,
-                  version: payload.version,
-                  exportTimestamp: payload.exportedAtIso,
-                  status: "success"
-                };
-                state.recoveryMetadata.events.unshift(event);
-                state.recoveryMetadata.events = state.recoveryMetadata.events.slice(0, 15);
-                state.recoveryMetadata.status = "success";
-                state.recoveryMetadata.lastError = null;
-                log("proof.recovered", event);
-                save();
-                render();
-                resolve(event);
-              } catch (error) {
-                const failure = {
-                  recoveredAt: new Date().toISOString(),
-                  fileName: file.name,
-                  status: "error",
-                  error: error.message
-                };
-                state.recoveryMetadata.events.unshift(failure);
-                state.recoveryMetadata.events = state.recoveryMetadata.events.slice(0, 15);
-                state.recoveryMetadata.status = "error";
-                state.recoveryMetadata.lastError = error.message;
-                log("proof.recovery_failed", failure);
-                save();
-                render();
-                reject(error);
-              }
-            };
-            reader.onerror = () => reject(new Error("Unable to read selected file."));
-            reader.readAsText(file);
-          });
-        }
+  function renderAuth(){
+    const u=currentUser();
+    if(u){
+      el.authCard.innerHTML=`<div><b>${u.displayName}</b> · ${u.userType}</div><div class='mini'>${u.rolePath} · ${u.ageGroup} · ${u.region}</div>`;
+      return;
+    }
+    el.authCard.innerHTML=`
+      <div class='mini'>Sign up / log in (mock mode + Firebase-ready hooks)</div>
+      <div class='auth-grid' style='margin-top:8px'>
+        <input id='suName' placeholder='Display name' />
+        <select id='suType'><option value='player'>Player</option><option value='recruiter'>Recruiter</option></select>
+        <input id='suRole' placeholder='Role path' />
+        <select id='suAge'><option>under 14</option><option>14-17</option><option selected>18+</option></select>
+        <input id='suRegion' placeholder='Country/Region' />
+        <input id='suPass' type='password' placeholder='Password' />
+      </div>
+      <div class='row' style='margin-top:8px'><button class='btn' id='signupBtn'>Sign up</button><button class='btn ghost' id='loginBtn'>Log in</button></div>`;
 
-        function applyChoice(missionType, choice) {
-          Object.entries(choice.delta).forEach(([k, v]) => { state.player.skills[k] = clamp((state.player.skills[k] || 0) + v, 0, 100); });
-          state.player.territory += choice.territory;
-          state.player.growth.push({ at: Date.now(), missionType, delta: choice.delta });
+    document.getElementById("signupBtn").onclick = () => {
+      logEvent("signup_started",{});
+      const user={
+        id:crypto.randomUUID(),
+        displayName:val("suName")||"Player",
+        userType:val("suType")||"player",
+        rolePath:val("suRole")||"Explorer",
+        ageGroup:val("suAge")||"18+",
+        region:val("suRegion")||"Unknown",
+        password:val("suPass")||"1234",
+        skills:baseUser(), tutorialCompleted:false
+      };
+      state.users.push(user);
+      state.currentUserId=user.id;
+      state.session={id:user.id};
+      saveState();
+      logEvent("signup_completed",{id:user.id});
+      render();
+    };
 
-          for (let i = 0; i < choice.territory; i++) {
-            const neutral = state.map.find(h => h.owner !== "player");
-            if (neutral) neutral.owner = "player";
-          }
+    document.getElementById("loginBtn").onclick = () => {
+      const n=val("suName"), p=val("suPass");
+      const u=state.users.find(x=>x.displayName===n && x.password===p);
+      if(!u){ alert("Invalid credentials in local mock mode."); return; }
+      state.currentUserId=u.id;
+      state.session={id:u.id};
+      saveState();
+      logEvent("login_completed",{id:u.id});
+      render();
+    };
+  }
 
-          state.lastMission = { missionType, choice: choice.text, delta: choice.delta, at: new Date().toLocaleString() };
-          log("mission.completed", { missionType, choice: choice.text, delta: choice.delta, territoryGain: choice.territory });
-          save();
-          render();
-        }
+  function renderSkills(){
+    const u=currentUser();
+    const skills=(u && u.skills) || baseUser();
+    el.skills.innerHTML=skillsList.map(k=>`<div class='r'><div class='mini'>${k}</div><div class='bar'><span style='width:${Math.max(0,Math.min(100,skills[k]||0))}%'></span></div><div>${Math.round(skills[k]||0)}</div></div>`).join("");
+  }
 
-        function currentMission() {
-          const selected = state.map[state.selectedHex] || state.map[0];
-          return missionTemplates[selected.missionType];
-        }
+  function topSkills(s){ return [...Object.entries(s)].sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]); }
+  function lowSkills(s){ return [...Object.entries(s)].sort((a,b)=>a[1]-b[1]).slice(0,2).map(x=>x[0]); }
 
-        function renderModeTabs() {
-          el.modeTabs.innerHTML = "";
-          MODES.forEach(mode => {
-            const b = document.createElement("button");
-            b.className = `tab ${state.mode === mode ? "active" : ""}`;
-            b.textContent = mode;
-            b.onclick = () => { state.mode = mode; log("mode.switch", { mode }); save(); render(); };
-            el.modeTabs.appendChild(b);
-          });
+  function roleFitFromSkills(skills){
+    const profiles={
+      "Software Engineering":{"Systems Thinking":.3,"Execution Reliability":.2,"Analytical Thinking":.2,"Adaptability":.1,"Collaboration":.2},
+      "Data / Analytics":{"Analytical Thinking":.35,"Systems Thinking":.25,"Prioritization":.2,"Execution Reliability":.2},
+      "Finance / Analyst":{"Analytical Thinking":.35,"Prioritization":.2,"Negotiation":.15,"Execution Reliability":.3},
+      "Operations":{"Resource Efficiency":.3,"Execution Reliability":.3,"Collaboration":.2,"Crisis Response":.2},
+      "Product / Strategy":{"Systems Thinking":.25,"Prioritization":.25,"Leadership":.2,"Collaboration":.15,"Negotiation":.15},
+      "Research / Science":{"Analytical Thinking":.35,"Systems Thinking":.35,"Adaptability":.15,"Execution Reliability":.15}
+    };
+    return roleFamilies.map(r=>{
+      const w=profiles[r]; let score=0;
+      Object.keys(w).forEach(s=>score+=(skills[s]||0)*w[s]);
+      return {role:r,score:Math.round(score),reason:`Matched because of ${topSkills(skills).join(" + ")}. Gap likely in ${lowSkills(skills).join(" / ")}.`};
+    }).sort((a,b)=>b.score-a.score);
+  }
 
-          el.modeViews().forEach(v => v.classList.toggle("active", v.dataset.mode === state.mode));
-        }
+  function buildMap(){
+    const svg=el.mapSvg;
+    svg.innerHTML="";
+    const r=33, xStep=142, yStep=104;
+    let idx=0;
+    for(let row=0; row<5; row++){
+      for(let col=0; col<5; col++){
+        const z=state.zones[idx++];
+        const cx=110 + col*xStep + (row%2?68:0), cy=92 + row*yStep;
+        const pts=[0,60,120,180,240,300].map(a=>{const rad=Math.PI*a/180;return `${cx+r*Math.cos(rad)},${cy+r*Math.sin(rad)}`;}).join(" ");
+        const p=document.createElementNS("http://www.w3.org/2000/svg","polygon");
+        p.setAttribute("points",pts);
+        p.setAttribute("class",`hex ${z.owner} ${state.selectedZone===z.id?"selected":""}`);
+        p.setAttribute("tabindex","0");
+        p.onclick=()=>{ state.selectedZone=z.id; renderMissionPanel(); buildMap(); };
+        p.onkeydown=(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); p.onclick(); } };
+        const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+        t.setAttribute("x",cx-18); t.setAttribute("y",cy+3); t.setAttribute("class","zone-label"); t.textContent=z.id;
+        svg.appendChild(p); svg.appendChild(t);
+      }
+    }
+  }
 
-        function drawMap() {
-          const c = el.mapCanvas, ctx = c.getContext("2d");
-          const size = 34, rows = 6, cols = 7, h = Math.sqrt(3) * size;
-          ctx.clearRect(0, 0, c.width, c.height);
+  function renderMissionPanel(){
+    const z=state.zones.find(x=>x.id===state.selectedZone) || state.zones[0];
+    if(!state.selectedZone) state.selectedZone=z.id;
+    el.zoneBox.innerHTML=`<b>${z.name}</b> (${z.id})<br><span class='mini'>Domain: ${z.domain} · Owner: ${z.owner} · Control: ${z.control}% · Difficulty: ${z.difficulty}</span>`;
+    const m=missionArchetypes[z.missionType];
+    const html=`<b>${m.title}</b><div class='mini'>${m.scenario}</div>${m.choices.map(c=>`<button class='btn mission-choice' data-c='${c.id}'>${c.txt}</button>`).join("")}`;
+    el.missionBox.innerHTML=html;
+    el.soloBox.innerHTML=html;
+    const bind=(root)=>[...root.querySelectorAll("button")].forEach(btn=>btn.onclick=()=>runMission(z, m, m.choices.find(c=>c.id===btn.dataset.c)));
+    bind(el.missionBox); bind(el.soloBox);
+  }
 
-          state.map.forEach((hex, i) => {
-            const row = Math.floor(i / cols), col = i % cols;
-            const x = 70 + col * size * 1.5;
-            const y = 65 + row * h + (col % 2 ? h / 2 : 0);
-            hex.cx = x; hex.cy = y;
-            const color = hex.owner === "player" ? "#2f8ea8" : hex.owner === "rivalA" ? "#9b5d2d" : hex.owner === "rivalB" ? "#6d4ca6" : "#4d556a";
-            drawHex(ctx, x, y, size, color, state.selectedHex === i);
-            ctx.fillStyle = "#dbe7ff";
-            ctx.font = "11px Inter";
-            ctx.fillText(String(i + 1), x - 4, y + 4);
-          });
-        }
+  function buildAgeAware(age,fit){
+    if(age==="under 14") return {mode:"future-fit",recommendHiring:false,label:"No direct hiring recommendations.",families:fit.slice(0,3).map(f=>f.role)};
+    if(age==="14-17") return {mode:"restricted",recommendHiring:false,label:"Restricted pathway mode with caution labels.",families:fit.slice(0,3).map(f=>f.role)};
+    return {mode:"opportunity",recommendHiring:true,label:"Opportunity matching mode",families:fit.slice(0,3).map(f=>f.role)};
+  }
 
-        function drawHex(ctx, x, y, size, fill, selected) {
-          ctx.beginPath();
-          for (let i = 0; i < 6; i++) {
-            const a = Math.PI / 180 * (60 * i + 30);
-            const px = x + size * Math.cos(a), py = y + size * Math.sin(a);
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          }
-          ctx.closePath();
-          ctx.fillStyle = fill;
-          ctx.fill();
-          ctx.lineWidth = selected ? 3 : 1;
-          ctx.strokeStyle = selected ? "#fff7c0" : "rgba(255,255,255,.2)";
-          ctx.stroke();
-        }
+  function recommendationsFor(age,fit){
+    if(age==="18+") return [{type:"role_matches",items:fit.slice(0,3)},{type:"opportunities",items:seededJobs.filter(j=>j.active).slice(0,4)}];
+    return [{type:"future_fit",items:fit.slice(0,4)},{type:"learning_pathway",items:["Communication loops","Scenario prioritization","Systems mapping"]}];
+  }
 
-        function bindMapClick() {
-          el.mapCanvas.onclick = (e) => {
-            const rect = el.mapCanvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left) * (el.mapCanvas.width / rect.width);
-            const y = (e.clientY - rect.top) * (el.mapCanvas.height / rect.height);
-            let best = 0, dist = Infinity;
-            state.map.forEach((h, i) => {
-              const d = Math.hypot(h.cx - x, h.cy - y);
-              if (d < dist) { dist = d; best = i; }
-            });
-            state.selectedHex = best;
-            log("map.hex_selected", { hex: best + 1, missionType: state.map[best].missionType });
-            save(); render();
-          };
-        }
+  function normalizeResultPayload({player,zone,archetype,choice,timeline}){
+    const fit=roleFitFromSkills(player.skills);
+    const top=fit[0];
+    const confidence=Math.min(0.99,0.5+(zone.difficulty*0.05)+(choice.territory/20));
+    return {
+      type:"mission_result", version:"1.0.0", id:crypto.randomUUID(), createdAt:new Date().toISOString(),
+      player:{id:player.id,name:player.displayName,userType:player.userType,ageGroup:player.ageGroup,rolePath:player.rolePath},
+      mission:{zoneId:zone.id,zoneName:zone.name,domain:zone.domain,missionType:zone.missionType,title:archetype.title,scenario:archetype.scenario,decision:choice.txt,difficulty:zone.difficulty},
+      outcome:{status:"completed",score:Math.round(Object.values(choice.d).reduce((a,b)=>a+b,0)+65),resourceDelta:choice.resource,confidence,consistency:Math.min(1,0.45+(state.missions.length*0.02))},
+      skills:{current:{...player.skills},delta:{...choice.d}},
+      territory:{owner:zone.owner,control:zone.control,change:choice.territory},
+      roleFit:{topRole:top.role,topScore:top.score,matches:fit.slice(0,3),ageAware:buildAgeAware(player.ageGroup, fit)},
+      timeline:timeline.map((t,i)=>({t:`T+${i*2}m`,event:t})),
+      nextSteps:["Run a simulation mission for consistency.","Improve weakest skill with targeted missions."],
+      recommendations:recommendationsFor(player.ageGroup, fit),
+      sourceMeta:{mode:hasFirebase?"firebase":"local-mock",jobsVersion:"seed-v1"},
+      render:{preferredLayout:["compact","full","story"][state.missions.length%3],theme:"mars-control"},
+      exportMeta:{canSvg:true,canFallback:true,schema:"canonical-mission-result-v1"}
+    };
+  }
+  function validateResultPayload(p){ return !!(p&&p.type&&p.player&&p.mission&&p.outcome&&p.skills&&p.territory&&Array.isArray(p.timeline)); }
+  function summarizeResultPayload(p){ return `${p.player.name}: ${p.mission.title} → ${p.outcome.score} (${p.roleFit.topRole})`; }
 
-        function renderStats() {
-          const owned = state.map.filter(h => h.owner === "player").length;
-          const selected = state.map[state.selectedHex];
-          el.demoStats.innerHTML = `
-            <div class="stat"><div class="label">Focused Hex</div><div class="value">#${state.selectedHex + 1} · ${selected.missionType}</div></div>
-            <div class="stat"><div class="label">Owner</div><div class="value">${selected.owner}</div></div>
-            <div class="stat"><div class="label">Control Strength</div><div class="value">${selected.control}%</div></div>
-            <div class="stat"><div class="label">Total Territories</div><div class="value">${owned} / ${state.map.length}</div></div>
-          `;
-          el.territoryBadge.textContent = `Territory: ${owned}/${state.map.length}`;
-        }
+  function buildSvgLayout(payload,layout){
+    const w=layout==="full"?860:layout==="story"?720:500;
+    const h=layout==="full"?420:layout==="story"?320:260;
+    return [`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>`,`<rect width='100%' height='100%' rx='16' fill='#0f1832' stroke='#2f4168'/>`];
+  }
+  function renderSkillBars(payload,x,y){
+    const entries=Object.entries(payload.skills.delta).slice(0,6);
+    return entries.map(([k,v],i)=>`<text x='${x}' y='${y+i*24}' fill='#c7d6ff' font-size='12'>${escapeXml(k)}</text><rect x='${x+160}' y='${y-10+i*24}' width='120' height='10' fill='#162645' rx='4'/><rect x='${x+160}' y='${y-10+i*24}' width='${Math.min(120,Math.abs(v)*12)}' height='10' fill='${v>=0?"#00d1b0":"#ff7185"}' rx='4'/>`).join("");
+  }
+  function renderTimeline(payload,x,y,max){ return (payload.timeline||[]).slice(0,max).map((e,i)=>`<text x='${x}' y='${y+i*18}' fill='#9fb0d9' font-size='11'>${escapeXml(e.t)}: ${escapeXml(e.event)}</text>`).join(""); }
+  function renderRoleFit(payload,x,y){ return `<text x='${x}' y='${y}' fill='#63b6ff' font-size='13'>Top Role: ${escapeXml(payload.roleFit.topRole)} (${payload.roleFit.topScore})</text>`; }
+  function renderOutcomeBadge(payload,x,y){ return `<rect x='${x}' y='${y-18}' width='120' height='28' rx='8' fill='#1f3f62'/><text x='${x+8}' y='${y}' fill='#fff' font-size='13'>Score ${payload.outcome.score}</text>`; }
+  function exportSvgString(parts){ return parts.join("")+"</svg>"; }
 
-        function renderSoloMission() {
-          const key = state.map[state.selectedHex].missionType;
-          const m = missionTemplates[key];
-          el.soloMission.innerHTML = `
-            <div class="mission-card">
-              <div class="mission-type">${key}</div>
-              <h3 style="margin:6px 0;">${m.title}</h3>
-              <div class="tiny">${m.prompt}</div>
-              <div class="choices">
-                ${m.choices.map((c, idx) => `<button data-idx="${idx}">${c.text}</button>`).join("")}
-              </div>
-              <div class="tiny" style="margin-top:8px;">Each choice creates skill gains and trade-offs. Territory shifts persist across modes.</div>
-            </div>`;
-          el.soloMission.querySelectorAll("button").forEach(btn => btn.onclick = () => applyChoice(key, m.choices[Number(btn.dataset.idx)]));
-        }
+  function renderResult(payload,valid){
+    markAgent("svg_renderer: svg_render_started");
+    logEvent("svg_render_started",{id:payload.id});
+    try {
+      if(!valid) throw new Error("Invalid payload");
+      const layout=payload.render.preferredLayout||"compact";
+      const s=buildSvgLayout(payload,layout);
+      const timelineY = layout==="full" ? 300 : layout==="story" ? 224 : 190;
+      const nextY = layout==="full" ? 392 : layout==="story" ? 286 : 244;
+      const timelineCount = layout==="compact" ? 3 : 4;
+      s.push(`<text x='20' y='28' fill='#f2f5ff' font-size='16' font-weight='700'>${escapeXml(payload.mission.title)}</text>`);
+      s.push(`<text x='20' y='48' fill='#9fb0d9' font-size='12'>Player: ${escapeXml(payload.player.name)} · Zone: ${escapeXml(payload.mission.zoneId)}</text>`);
+      s.push(renderOutcomeBadge(payload,20,76));
+      s.push(renderRoleFit(payload,160,76));
+      s.push(renderSkillBars(payload,20,120));
+      s.push(renderTimeline(payload,20,timelineY,timelineCount));
+      s.push(`<text x='20' y='${nextY}' fill='#ffd88f' font-size='11'>Next: ${escapeXml(payload.nextSteps[0]||"")}</text>`);
+      const svg=exportSvgString(s);
+      markAgent("svg_renderer: svg_render_completed");
+      logEvent("svg_render_succeeded",{id:payload.id});
+      return {svg};
+    } catch(err){
+      logEvent("svg_render_failed",{id:payload.id,error:String(err)});
+      markAgent("svg_renderer: svg_render_failed");
+      const fallback={summary:summarizeResultPayload(payload),timeline:(payload.timeline||[]).slice(0,4)};
+      logEvent("fallback_render_used",{id:payload.id});
+      return {fallback};
+    }
+  }
 
-        function renderProfile() {
-          el.playerName.textContent = state.player.name;
-          const recent = state.player.growth.slice(-3).map(g => g.missionType).join(" → ") || "No missions yet";
-          el.growthText.textContent = `Growth path: ${recent}`;
-          el.skills.innerHTML = SKILLS.map(s => `
-            <div class="skill-row">
-              <div class="tiny">${s}</div>
-              <div class="bar"><span style="width:${state.player.skills[s]}%"></span></div>
-              <div class="tiny">${state.player.skills[s]}</div>
-            </div>
-          `).join("");
-          el.playerBadge.textContent = `Pilot: ${state.player.name}`;
-        }
+  function runMission(zone, archetype, choice){
+    const user=currentUser();
+    if(!user){ alert("Sign up or log in first."); return; }
+    logEvent("mission_started",{zone:zone.id,type:zone.missionType});
+    markAgent("mission_engine: mission_started");
 
-        function renderTelemetry() {
-          el.telemetry.innerHTML = state.telemetry.map(e => `
-            <div class="event">
-              <div><strong>${e.type}</strong></div>
-              <div class="tiny">${new Date(e.t).toLocaleTimeString()} · ${JSON.stringify(e.payload)}</div>
-            </div>
-          `).join("") || `<div class="tiny">No telemetry yet. Start a mission.</div>`;
-        }
+    Object.entries(choice.d).forEach(([k,v])=>{
+      user.skills[k]=Math.max(0,Math.min(100,(user.skills[k]||50)+v));
+      logEvent("mission_step_completed",{skill:k,delta:v});
+    });
 
-        function renderRoom() {
-          const room = state.activeRoom ? state.rooms[state.activeRoom] : null;
-          if (!room) {
-            el.roomState.innerHTML = `<div class="tiny">No active room. Create or join to run competitive coordination.</div>`;
-            return;
-          }
-          el.roomState.innerHTML = `
-            <div class="mission-type">Room ${room.code}</div>
-            <div><strong>${room.name}</strong></div>
-            <div class="tiny">Players: ${room.players.join(", ")}</div>
-            <div class="tiny">Status: ${room.status}</div>
-            <div class="flex" style="margin-top:8px;">
-              <button id="roomRunMission">Run Competitive Round</button>
-            </div>
-          `;
-          document.getElementById("roomRunMission").onclick = () => {
-            const m = missionTemplates.competitive;
-            const pick = m.choices[Math.floor(Math.random() * m.choices.length)];
-            applyChoice("competitive", pick);
-            room.status = "active";
-            log("room.round", { room: room.code, choice: pick.text });
-            save(); render();
-          };
-        }
+    zone.control=Math.max(0,Math.min(100,zone.control+choice.territory));
+    if(zone.control>55) zone.owner="player";
 
-        function roleFit(role) {
-          const target = ROLE_PROFILES[role];
-          let gap = 0;
-          SKILLS.forEach(s => gap += Math.abs(target[s] - state.player.skills[s]));
-          return Math.max(0, Math.round(100 - gap / SKILLS.length));
-        }
+    const timeline=[
+      `Mission launched in ${zone.name}`,
+      `Decision: ${choice.txt}`,
+      `Territory shift +${choice.territory}%`,
+      `Resource change ${choice.resource}`
+    ];
 
-        function renderRecruiter() {
-          el.roleTarget.innerHTML = Object.keys(ROLE_PROFILES).map(r => `<option>${r}</option>`).join("");
-          const selected = el.roleTarget.value || Object.keys(ROLE_PROFILES)[0];
-          el.roleTarget.value = selected;
-          const fit = roleFit(selected);
-          const strengths = SKILLS.sort((a, b) => state.player.skills[b] - state.player.skills[a]).slice(0, 2).join(", ");
-          el.fitSummary.innerHTML = `
-            <div class="value">Fit Score: ${fit}/100</div>
-            <div class="tiny">Top signals: ${strengths}. Trade-off evidence visible in mission telemetry and replay.</div>
-          `;
-          el.shortlist.innerHTML = state.shortlist.map(s => `<div class="event"><strong>${s.role}</strong><div class="tiny">${s.at} · Fit ${s.fit}</div></div>`).join("") || `<div class="tiny">No shortlist entries yet.</div>`;
-        }
+    markAgent("skill_analyzer: skill_analysis_started");
+    const result = normalizeResultPayload({player:user,zone,archetype,choice,timeline});
+    logEvent("mission_result_payload_created",{id:result.id});
+    const valid=validateResultPayload(result);
+    markAgent("skill_analyzer: skill_analysis_completed");
+    const rendered=renderResult(result, valid);
 
-        function renderTopMeta() {
-          el.persistenceBadge.textContent = firebaseHooks.enabled ? "Persistence: Firebase + Local" : "Persistence: Local Mock Mode";
-        }
+    const vaultItem={
+      id:result.id, createdAt:new Date().toISOString(),
+      raw:result, normalized:result,
+      svg:rendered.svg||null, fallback:rendered.fallback||null,
+      report:summarizeResultPayload(result), roleFit:result.roleFit
+    };
 
-        function renderProofStatus() {
-          const latest = state.recoveryMetadata.events[0];
-          const exportCount = state.exportedReports.length;
-          if (!latest) {
-            el.proofStatus.innerHTML = `Reports exported: ${exportCount}. No recovery activity yet.`;
-            return;
-          }
-          if (latest.status === "error") {
-            el.proofStatus.innerHTML = `<span class="bad">Recovery failed: ${latest.error}</span>`;
-            return;
-          }
-          el.proofStatus.innerHTML = `<span class="good">Recovered ${latest.fileName}</span> · ${new Date(latest.recoveredAt).toLocaleString()} · Reports: ${exportCount}`;
-        }
+    state.proofVault.unshift(vaultItem); state.proofVault=state.proofVault.slice(0,120);
+    state.missions.unshift(result);
+    state.roleFitHistory.unshift(result.roleFit);
+    markAgent("proof_vault: proof_saved");
+    logEvent("proof_saved",{id:result.id});
+    logEvent("mission_completed",{id:result.id});
+    render();
+  }
 
-        const THREAD_SEGMENTS = 12;
-        const threadUi = { segments: [], activeIndex: -1, gesture: null };
-        const contextCommands = {
-          Demo: ["Prev Mode", "Next Mode", "Hex -", "Hex +", "Run Mission", "Inspect", "Open Solo", "Open Room", "Recruiter", "Proof Export", "Cancel", "Confirm"],
-          "Solo Missions": ["Choice 1", "Choice 2", "Choice 3", "Replay", "Map", "Room", "Recruiter", "Proof Export", "Mode +", "Mode -", "Cancel", "Confirm"],
-          "Room Mode": ["Create Room", "Join Room", "Map", "Solo", "Recruiter", "Proof Export", "Mode +", "Mode -", "Hex +", "Hex -", "Cancel", "Confirm"],
-          "Recruiter View": ["Shortlist", "Replay", "Role Next", "Role Prev", "Map", "Solo", "Room", "Proof Export", "Mode +", "Mode -", "Cancel", "Confirm"]
-        };
+  function renderVault(){
+    if(!state.proofVault.length){
+      el.vaultBox.innerHTML="No proof entries yet. Complete a mission to save evidence.";
+      return;
+    }
+    el.vaultBox.innerHTML = state.proofVault.slice(0,8).map(v=>`<div class='evt'><b>${escapeXml(v.report)}</b><div class='mini'>${escapeXml(v.createdAt)}</div><div class='row' style='margin-top:6px'><button class='btn ghost' data-open='${v.id}'>Open</button><button class='btn ghost' data-dl='${v.id}'>Download SVG</button></div><div id='pv-${v.id}'></div></div>`).join("");
 
-        function activeContextCommands() {
-          return contextCommands[state.mode] || contextCommands.Demo;
-        }
+    el.vaultBox.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{
+      const v=state.proofVault.find(x=>x.id===b.dataset.open);
+      if(!v) return;
+      const tgt=document.getElementById(`pv-${v.id}`);
+      if(!tgt) return;
+      tgt.innerHTML = v.svg
+        ? `<div class='mini'>SVG Preview</div>${v.svg}`
+        : `<div class='mini'>Fallback summary: ${escapeXml(v.fallback?.summary||"Unavailable")}</div><div class='mini'>${(v.fallback?.timeline||[]).map(t=>escapeXml(`${t.t}: ${t.event}`)).join(" | ")}</div>`;
+    });
 
-        function buildThreadWheel() {
-          if (!el.threadWheel) return;
-          threadUi.segments.forEach(node => node.remove());
-          threadUi.segments = [];
-          for (let i = 0; i < THREAD_SEGMENTS; i += 1) {
-            const seg = document.createElement("button");
-            seg.type = "button";
-            seg.className = "thread-segment";
-            seg.dataset.index = String(i);
-            const angle = (Math.PI * 2 * i) / THREAD_SEGMENTS - Math.PI / 2;
-            const x = 50 + Math.cos(angle) * 43;
-            const y = 50 + Math.sin(angle) * 43;
-            seg.style.left = `${x}%`;
-            seg.style.top = `${y}%`;
-            seg.textContent = String(i + 1);
-            seg.onclick = () => {
-              if (state.input.mode !== "thread") return;
-              dispatchThreadCommand(i, { source: "tap-fallback", confidence: 0.64 });
-            };
-            el.threadWheel.appendChild(seg);
-            threadUi.segments.push(seg);
-          }
-          renderThreadWheel();
-        }
+    el.vaultBox.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>{
+      const v=state.proofVault.find(x=>x.id===b.dataset.dl);
+      if(!v || !v.svg){ alert("No SVG artifact available."); return; }
+      const blob=new Blob([v.svg],{type:"image/svg+xml"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=`proof-${v.id}.svg`; a.click();
+      URL.revokeObjectURL(url);
+      state.savedReports.push({id:v.id,downloadedAt:new Date().toISOString()});
+      saveState();
+    });
+  }
 
-        function segmentFromPoint(clientX, clientY) {
-          const r = el.threadWheel.getBoundingClientRect();
-          const cx = r.left + r.width / 2;
-          const cy = r.top + r.height / 2;
-          const dx = clientX - cx;
-          const dy = clientY - cy;
-          const radius = Math.sqrt(dx * dx + dy * dy);
-          const angle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
-          const shifted = (angle + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
-          const idx = Math.floor(shifted / ((Math.PI * 2) / THREAD_SEGMENTS));
-          return { idx, radius, angle, cx, cy };
-        }
+  function renderRecruiter(){
+    const user=currentUser();
+    const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist"};
+    const fit=roleFitFromSkills(candidate.skills||baseUser());
+    const recent=state.missions.slice(0,3).map(m=>`<li>${escapeXml(m.mission.title)} (${m.outcome.score})</li>`).join("") || "<li>No missions yet</li>";
+    const territory=state.zones.filter(z=>z.owner==="player").length;
+    el.recruiterBox.innerHTML=`<b>Player Card:</b> ${escapeXml(candidate.displayName)}<br><span class='mini'>${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
+      <div class='mini'>Territory holdings: ${territory}/25 · Skill velocity: ${state.missions.length?"active":"idle"}</div>
+      <div class='mini'>Potential fit tag: ${escapeXml(fit[0].role)} (${fit[0].score})</div>
+      <ul>${recent}</ul>
+      <button class='btn' id='shortlistBtn'>Shortlist</button>`;
 
-        function renderThreadWheel() {
-          const labels = activeContextCommands();
-          threadUi.segments.forEach((seg, idx) => {
-            seg.classList.toggle("active", idx === threadUi.activeIndex);
-            seg.classList.toggle("dim", labels[idx] === undefined);
-            seg.title = labels[idx] || `Command ${idx + 1}`;
-          });
-          const label = threadUi.activeIndex >= 0 ? (labels[threadUi.activeIndex] || `Command ${threadUi.activeIndex + 1}`) : "Idle";
-          el.threadCenter.textContent = `${label}${state.input.lastCommand ? `\nLast: ${state.input.lastCommand}` : ""}`;
-          el.inputModeBtn.textContent = `Mode: ${state.input.mode === "thread" ? "Thread" : "Standard"}`;
-        }
+    document.getElementById("shortlistBtn").onclick=()=>{
+      state.recruiterActions.unshift({type:"shortlist",candidate:candidate.displayName,at:new Date().toISOString()});
+      logEvent("recruiter_shortlisted_candidate",{candidate:candidate.displayName});
+      markAgent("recruiter_observer: shortlisted");
+      renderRecruiter();
+      saveState();
+    };
 
-        function setThreadHint(text) {
-          el.threadHint.textContent = text;
-        }
+    if (!state.recruiterViewed) {
+      state.recruiterViewed = true;
+      logEvent("recruiter_viewed_candidate",{candidate:candidate.displayName});
+    }
+  }
 
-        function dispatchThreadCommand(index, meta = {}) {
-          const label = activeContextCommands()[index] || `Command ${index + 1}`;
-          state.input.lastCommand = label;
-          logEvent("thread_command_dispatched", { index, label, mode: state.mode, ...meta });
-          if (label === "Next Mode" || label === "Mode +") {
-            const i = MODES.indexOf(state.mode);
-            state.mode = MODES[(i + 1) % MODES.length];
-          } else if (label === "Prev Mode" || label === "Mode -") {
-            const i = MODES.indexOf(state.mode);
-            state.mode = MODES[(i - 1 + MODES.length) % MODES.length];
-          } else if (label === "Hex +") {
-            state.selectedHex = (state.selectedHex + 1) % state.map.length;
-          } else if (label === "Hex -") {
-            state.selectedHex = (state.selectedHex - 1 + state.map.length) % state.map.length;
-          } else if (label === "Run Mission" || label.startsWith("Choice ")) {
-            const choiceIdx = label.startsWith("Choice") ? Number(label.replace("Choice ", "")) - 1 : 0;
-            const hex = state.map[state.selectedHex];
-            runMission(hex.missionType, clamp(choiceIdx, 0, 2));
-          } else if (label === "Proof Export") {
-            el.exportProofBtn.click();
-          } else if (label === "Shortlist") {
-            el.shortlistBtn.click();
-          } else if (label === "Replay") {
-            el.replayBtn.click();
-          } else if (label === "Role Next" || label === "Role Prev") {
-            const opts = Array.from(el.roleTarget.options);
-            if (opts.length) {
-              const dir = label === "Role Next" ? 1 : -1;
-              const current = Math.max(0, opts.findIndex(o => o.value === el.roleTarget.value));
-              const next = (current + dir + opts.length) % opts.length;
-              el.roleTarget.value = opts[next].value;
-              renderRecruiter();
-            }
-          }
-          save();
-          render();
-        }
+  function renderSettings(){
+    el.settingsBox.innerHTML=`<div class='row'><button class='btn' id='toggleAgents'>System Agents: ${state.agents?"On":"Off"}</button><button class='btn ghost' id='resetBtn'>Reset Local Data</button></div>
+      <div class='mini' style='margin-top:8px'>Input mode / Tutorial replay / Accessibility fallback enabled via keyboard arrows + Enter.</div>`;
+    document.getElementById("toggleAgents").onclick=()=>{ state.agents=!state.agents; saveState(); render(); };
+    document.getElementById("resetBtn").onclick=()=>{ localStorage.removeItem(STORAGE_KEY); location.reload(); };
+  }
 
-        function bindThreadWheelGestures() {
-          if (!el.threadWheel) return;
-          const pointerDown = evt => {
-            if (state.input.mode !== "thread") return;
-            evt.preventDefault();
-            const point = segmentFromPoint(evt.clientX, evt.clientY);
-            threadUi.gesture = { startedAt: performance.now(), samples: [{ idx: point.idx, r: point.radius }], pointerId: evt.pointerId };
-            threadUi.activeIndex = point.idx;
-            setThreadHint("Aim and release to dispatch.");
-            logEvent("thread_gesture_started", { idx: point.idx, mode: state.mode });
-            renderThreadWheel();
-          };
-          const pointerMove = evt => {
-            if (!threadUi.gesture || state.input.mode !== "thread") return;
-            const point = segmentFromPoint(evt.clientX, evt.clientY);
-            threadUi.gesture.samples.push({ idx: point.idx, r: point.radius });
-            threadUi.activeIndex = point.idx;
-            renderThreadWheel();
-          };
-          const pointerEnd = evt => {
-            if (!threadUi.gesture || state.input.mode !== "thread") return;
-            const point = segmentFromPoint(evt.clientX, evt.clientY);
-            const elapsed = performance.now() - threadUi.gesture.startedAt;
-            const avgRadius = threadUi.gesture.samples.reduce((a, s) => a + s.r, 0) / threadUi.gesture.samples.length;
-            const confidence = clamp((avgRadius / 110) * 0.7 + (elapsed > 180 ? 0.3 : 0.1), 0, 1);
-            threadUi.activeIndex = point.idx;
-            if (confidence < 0.35) {
-              setThreadHint("Low confidence gesture. Tap a segment to confirm.");
-              logEvent("gesture_fallback_used", { confidence: Number(confidence.toFixed(2)), mode: state.mode });
-            } else {
-              dispatchThreadCommand(point.idx, { confidence: Number(confidence.toFixed(2)), elapsedMs: Math.round(elapsed) });
-              setThreadHint(`Dispatched: ${activeContextCommands()[point.idx] || `Command ${point.idx + 1}`}`);
-              logEvent("thread_gesture_completed", { idx: point.idx, confidence: Number(confidence.toFixed(2)) });
-            }
-            threadUi.gesture = null;
-            renderThreadWheel();
-          };
-          el.threadWheel.addEventListener("pointerdown", pointerDown);
-          el.threadWheel.addEventListener("pointermove", pointerMove);
-          el.threadWheel.addEventListener("pointerup", pointerEnd);
-          el.threadWheel.addEventListener("pointercancel", pointerEnd);
-        }
+  function renderRoom(){
+    el.roomBox.textContent = `Rooms: ${state.rooms.map(r=>`${r.name} (${r.code})`).join(", ")}`;
+  }
 
-        el.createRoomBtn.onclick = () => {
-          const name = (el.roomName.value || "Untitled Room").trim();
-          const c = code();
-          state.rooms[c] = { code: c, name, status: "waiting", players: [state.player.name] };
-          state.activeRoom = c;
-          log("room.created", { code: c, name });
-          save(); render();
-        };
-        el.joinRoomBtn.onclick = () => {
-          const c = (el.roomCode.value || "").trim().toUpperCase();
-          if (!state.rooms[c]) { log("room.join_failed", { code: c }); alert("Room not found in local state."); return; }
-          if (!state.rooms[c].players.includes(state.player.name)) state.rooms[c].players.push(state.player.name);
-          state.activeRoom = c;
-          log("room.joined", { code: c });
-          save(); render();
-        };
-        el.roleTarget.onchange = () => renderRecruiter();
-        el.shortlistBtn.onclick = () => {
-          const role = el.roleTarget.value;
-          const fit = roleFit(role);
-          state.shortlist.unshift({ role, fit, at: new Date().toLocaleString() });
-          state.shortlist = state.shortlist.slice(0, 8);
-          state.player.shortlistCount = state.shortlist.length;
-          log("recruiter.shortlist", { role, fit });
-          save(); render();
-        };
-        el.replayBtn.onclick = () => {
-          if (!state.lastMission) return alert("No mission replay available yet.");
-          alert(`Replay: ${state.lastMission.missionType}\nDecision: ${state.lastMission.choice}\nSkill delta: ${JSON.stringify(state.lastMission.delta)}\nTime: ${state.lastMission.at}`);
-          log("recruiter.replay", { missionType: state.lastMission.missionType });
-          save(); render();
-        };
-        el.resetBtn.onclick = () => {
-          if (!confirm("Reset all local SkillHex data?")) return;
-          state = makeDefaultState();
-          log("state.reset");
-          save(); render();
-        };
-        el.exportProofBtn.onclick = () => {
-          const report = exportProofReport();
-          state.proofVault.unshift(report);
-          state.proofVault = state.proofVault.slice(0, 20);
-          state.exportedReports.unshift({ exportedAtIso: report.exportedAtIso, version: report.version, source: "local-export" });
-          state.exportedReports = state.exportedReports.slice(0, 50);
-          log("proof.exported", { version: report.version, exportedAtIso: report.exportedAtIso });
-          save();
-          downloadProofReport(report);
-          render();
-        };
-        el.printProofBtn.onclick = () => {
-          const report = exportProofReport();
-          const opened = openPrintSummary(report);
-          if (!opened) {
-            state.recoveryMetadata.status = "error";
-            state.recoveryMetadata.lastError = "Pop-up blocked; allow pop-ups to print proof summary.";
-          } else {
-            state.recoveryMetadata.status = "success";
-            state.recoveryMetadata.lastError = null;
-            log("proof.print_requested", { version: report.version, exportedAtIso: report.exportedAtIso });
-          }
-          save();
-          render();
-        };
-        el.recoverProofBtn.onclick = async () => {
-          const file = el.recoverProofInput.files && el.recoverProofInput.files[0];
-          try {
-            await recoverProofArtifact(file);
-          } catch (error) {
-            alert(`Proof recovery failed: ${error.message}`);
-          }
-        };
-        el.inputModeBtn.onclick = () => {
-          state.input.mode = state.input.mode === "thread" ? "standard" : "thread";
-          state.input.tutorialSeen = true;
-          logEvent("input_mode_selected", { mode: state.input.mode });
-          setThreadHint(state.input.mode === "thread" ? "Thread mode enabled. Press, drag, release." : "Standard mode enabled. Use existing controls.");
-          save();
-          render();
-        };
-        el.replayThreadHintBtn.onclick = () => {
-          state.input.tutorialSeen = true;
-          setThreadHint("Thread walk-through: hold center, drag to highlight command, release to send. If uncertain, tap segment to confirm.");
-          renderThreadWheel();
-        };
-        window.addEventListener("keydown", evt => {
-          if (evt.key.toLowerCase() === "t") {
-            el.inputModeBtn.click();
-            return;
-          }
-          if (state.input.mode !== "thread") return;
-          const numeric = Number(evt.key);
-          if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= 9) {
-            dispatchThreadCommand(numeric - 1, { source: "keyboard", confidence: 0.75 });
-          }
-          if (evt.key === "0") dispatchThreadCommand(11, { source: "keyboard", confidence: 0.75 });
-          if (evt.key === "-") dispatchThreadCommand(9, { source: "keyboard", confidence: 0.75 });
-          if (evt.key === "=") dispatchThreadCommand(10, { source: "keyboard", confidence: 0.75 });
-          if (evt.key === "Escape") {
-            threadUi.activeIndex = -1;
-            setThreadHint("Gesture cancelled.");
-            renderThreadWheel();
-          }
-        });
+  function renderTelemetry(){
+    el.telemetry.innerHTML = state.telemetry.slice(0,30).map(e=>`<div class='evt'><b>${escapeXml(e.type)}</b><div class='mini'>${escapeXml(e.at)}</div></div>`).join("");
+  }
 
-        function render() {
-          renderModeTabs();
-          drawMap();
-          renderStats();
-          renderSoloMission();
-          renderProfile();
-          renderTelemetry();
-          renderRoom();
-          renderRecruiter();
-          renderTopMeta();
-          renderProofStatus();
-          renderThreadWheel();
-        }
+  function renderTutorial(){
+    const t=state.tutorial;
+    const [title,body]=tutorialSteps[t.step];
+    el.tTitle.textContent=title;
+    el.tBody.textContent=body;
+    el.tViz.textContent=`STEP ${t.step+1}`;
+    el.tCount.textContent=`${t.step+1}/${tutorialSteps.length}`;
+    el.tOverlay.classList.toggle("show",t.active);
+    el.tBack.disabled=t.step===0;
+    el.tNext.textContent=t.step===tutorialSteps.length-1?"Finish":"Next";
+  }
 
-        buildThreadWheel();
-        bindThreadWheelGestures();
-        bindMapClick();
-        log("app.loaded", { mode: state.mode, firebase: firebaseHooks.enabled });
-        render();
-      })();
-    </script>
-  </body>
+  function openTutorial(){
+    state.tutorial.active=true;
+    state.tutorial.step=0;
+    logEvent("tutorial_started",{});
+    renderTutorial();
+    saveState();
+  }
+
+  // Thread Input Controller
+  const wheelState={segs:[],active:-1,gesture:null};
+  const wheelCommands=["Move","Select","Inspect","Confirm","Cancel","Skill Panel","Next","Previous","Zoom In","Zoom Out","Open Menu","Context Action"];
+
+  function contextMap(){
+    if(state.mode==="Demo Mode") return wheelCommands;
+    if(state.mode==="Solo Mission Mode") return ["Select Choice","Confirm","Inspect","Cancel","Next","Previous","Skill Panel","Open Menu","Zoom In","Zoom Out","Move","Context Action"];
+    return wheelCommands;
+  }
+
+  function buildWheel(){
+    el.wheel.querySelectorAll(".seg").forEach(s=>s.remove());
+    wheelState.segs=[];
+    const labels=contextMap(), R=40, C=50;
+    for(let i=0;i<12;i++){
+      const a=((i/12)*Math.PI*2)-Math.PI/2;
+      const x=C+R*Math.cos(a), y=C+R*Math.sin(a);
+      const d=document.createElement("div");
+      d.className="seg";
+      d.style.left=`${x}%`; d.style.top=`${y}%`;
+      d.textContent=`${i+1}`;
+      d.title=labels[i];
+      d.onclick=()=>dispatchThread(i,1,true);
+      el.wheel.appendChild(d);
+      wheelState.segs.push(d);
+    }
+    highlightSeg(-1);
+  }
+
+  function highlightSeg(idx){
+    wheelState.active=idx;
+    wheelState.segs.forEach((s,i)=>s.classList.toggle("a",i===idx));
+    el.wheelCenter.textContent=idx<0?"Idle":contextMap()[idx];
+  }
+
+  function wheelPos(ev){
+    const r=el.wheel.getBoundingClientRect();
+    const x=ev.clientX-r.left-r.width/2, y=ev.clientY-r.top-r.height/2;
+    const dist=Math.hypot(x,y), ang=(Math.atan2(y,x)+Math.PI*2)%(Math.PI*2);
+    const idx=(Math.round((ang/(Math.PI*2))*12)+3)%12;
+    return {idx,dist,max:r.width/2};
+  }
+
+  function cycleTab(delta){
+    const i=tabs.indexOf(state.mode);
+    state.mode=tabs[(i+delta+tabs.length)%tabs.length];
+    state.recruiterViewed=false;
+  }
+
+  function dispatchThread(idx,confidence,clickFallback){
+    const command=contextMap()[idx];
+    if(confidence<0.34 && !confirm(`Low confidence gesture for '${command}'. Confirm?`)){
+      logEvent("gesture_fallback_used",{command});
+      return;
+    }
+    logEvent("thread_command_dispatched",{command,mode:state.mode,confidence});
+    if(command==="Open Menu") state.mode="Settings";
+    if(command==="Next") cycleTab(1);
+    if(command==="Previous") cycleTab(-1);
+    if(command==="Select"||command==="Select Choice"){
+      const b=el.missionBox.querySelector("button");
+      if(b) b.click();
+    }
+    if(command==="Cancel") state.selectedZone=null;
+    if(clickFallback) logEvent("gesture_fallback_used",{method:"accessible_click",command});
+    render();
+  }
+
+  function bindWheelPointer(){
+    const start=(ev)=>{
+      if(state.inputMode!=="thread") return;
+      ev.preventDefault();
+      const p=wheelPos(ev);
+      wheelState.gesture={samples:[p]};
+      highlightSeg(p.idx);
+      logEvent("thread_gesture_started",{idx:p.idx});
+    };
+    const move=(ev)=>{
+      if(!wheelState.gesture || state.inputMode!=="thread") return;
+      const p=wheelPos(ev);
+      wheelState.gesture.samples.push(p);
+      highlightSeg(p.idx);
+    };
+    const end=(ev)=>{
+      if(!wheelState.gesture || state.inputMode!=="thread") return;
+      const p=wheelPos(ev);
+      const avg=wheelState.gesture.samples.reduce((a,s)=>a+s.dist,0)/wheelState.gesture.samples.length;
+      const conf=Math.max(0,Math.min(1,avg/(p.max*0.85)));
+      dispatchThread(p.idx,conf,false);
+      logEvent("thread_gesture_completed",{idx:p.idx,confidence:conf});
+      wheelState.gesture=null;
+    };
+    el.wheel.addEventListener("pointerdown",start);
+    el.wheel.addEventListener("pointermove",move);
+    el.wheel.addEventListener("pointerup",end);
+    el.wheel.addEventListener("pointercancel",end);
+  }
+
+  function renderChips(){
+    const u=currentUser();
+    el.persistChip.textContent = hasFirebase?"Persistence: Firebase":"Persistence: Local mock";
+    el.userChip.textContent = u?`User: ${u.displayName}`:"User: guest";
+    el.inputChip.textContent = `Input: ${state.inputMode}`;
+    el.toggleInputBtn.textContent=`Mode: ${state.inputMode==="thread"?"Thread":"Standard"}`;
+    el.wheel.classList.toggle("hidden", !!state.wheelDocked);
+  }
+
+  function render(){
+    setupTabs();
+    el.panes.forEach(p=>p.classList.toggle("active",p.dataset.pane===state.mode));
+
+    renderAuth();
+    renderSkills();
+    renderTelemetry();
+    renderTutorial();
+    renderChips();
+
+    // Always required shared content
+    buildMap();
+    renderMissionPanel();
+    renderRoom();
+
+    // Pane-specific renders to avoid side effects when hidden
+    if(state.mode==="Recruiter View") renderRecruiter();
+    if(state.mode==="Proof Vault") renderVault();
+    if(state.mode==="Settings") renderSettings();
+
+    // Keep content fresh without side effects
+    if(state.mode!=="Proof Vault") el.vaultBox.innerHTML = "Proof vault ready. Open this mode to inspect artifacts.";
+    if(state.mode!=="Recruiter View") el.recruiterBox.innerHTML = "Recruiter view ready. Open this mode to inspect candidate evidence.";
+
+    buildWheel();
+    saveState();
+  }
+
+  function val(id){ const n=document.getElementById(id); return n?n.value.trim():""; }
+  function escapeXml(str){ return String(str||"").replace(/[<>&'\"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;","\"":"&quot;"}[c])); }
+
+  // Event bindings
+  el.createRoomBtn.onclick=()=>{
+    const n=el.roomName.value.trim()||"Mission Room";
+    const c=Math.random().toString(36).slice(2,7).toUpperCase();
+    const u=currentUser();
+    state.rooms.push({name:n,code:c,members:[u?u.displayName:"Guest"]});
+    saveState(); renderRoom();
+  };
+
+  el.joinRoomBtn.onclick=()=>{
+    const c=el.roomCode.value.trim().toUpperCase();
+    const r=state.rooms.find(x=>x.code===c);
+    if(!r){ alert("Room not found"); return; }
+    const u=currentUser();
+    r.members.push(u?u.displayName:"Guest");
+    saveState(); renderRoom();
+  };
+
+  el.tBack.onclick=()=>{ state.tutorial.step=Math.max(0,state.tutorial.step-1); renderTutorial(); };
+  el.tNext.onclick=()=>{
+    if(state.tutorial.step<tutorialSteps.length-1){
+      state.tutorial.step++;
+      renderTutorial();
+    } else {
+      state.tutorial.active=false;
+      state.tutorial.seen=true;
+      const u=currentUser();
+      if(u) u.tutorialCompleted=true;
+      logEvent("tutorial_completed",{});
+      render();
+    }
+  };
+  el.tSkip.onclick=()=>{ state.tutorial.active=false; state.tutorial.seen=true; render(); };
+
+  el.replayTutorialBtn.onclick=openTutorial;
+  el.toggleInputBtn.onclick=()=>{ state.inputMode=state.inputMode==="thread"?"standard":"thread"; logEvent("input_mode_selected",{mode:state.inputMode}); render(); };
+  el.toggleWheelBtn.onclick=()=>{ state.wheelDocked=!state.wheelDocked; saveState(); renderChips(); };
+  el.logoutBtn.onclick=()=>{ state.currentUserId=null; state.session=null; saveState(); render(); };
+
+  document.addEventListener("keydown",(e)=>{
+    if(e.key==="ArrowRight") { cycleTab(1); render(); }
+    if(e.key==="ArrowLeft") { cycleTab(-1); render(); }
+    if(e.key==="Enter" && state.inputMode==="thread") dispatchThread((wheelState.active+12)%12,1,true);
+    if(e.key.toLowerCase()==="t") { state.inputMode=state.inputMode==="thread"?"standard":"thread"; logEvent("input_mode_selected",{mode:state.inputMode}); render(); }
+  });
+
+  bindWheelPointer();
+  if(!state.tutorial.seen) openTutorial();
+  render();
+  logEvent("app_loaded",{firebase:hasFirebase});
+})();
+</script>
+</body>
 </html>
