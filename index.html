@@ -136,7 +136,20 @@
 
   const STORAGE_KEY = "skillhex-mission-control-v3";
   const tabs = ["Demo Mode","Solo Mission Mode","Room Mode","Recruiter View","Proof Vault","Settings"];
-  const skillsList = ["Analytical Thinking","Systems Thinking","Prioritization","Adaptability","Leadership","Collaboration","Negotiation","Resource Efficiency","Crisis Response","Execution Reliability"];
+  const skillConfig = [
+    {key:"systemsThinking",label:"Systems Thinking"},
+    {key:"analyticalThinking",label:"Analytical Thinking"},
+    {key:"prioritization",label:"Prioritization"},
+    {key:"adaptability",label:"Adaptability"},
+    {key:"resourceEfficiency",label:"Resource Efficiency"},
+    {key:"strategicThinking",label:"Strategic Thinking"},
+    {key:"collaboration",label:"Collaboration"},
+    {key:"leadership",label:"Leadership"},
+    {key:"crisisResponse",label:"Crisis Response"},
+    {key:"executionReliability",label:"Execution Reliability"}
+  ];
+  const skillsList = skillConfig.map(s=>s.key);
+  const skillLabelMap = Object.fromEntries(skillConfig.map(s=>[s.key,s.label]));
   const roleFamilies = ["Software Engineering","Data / Analytics","Finance / Analyst","Operations","Product / Strategy","Research / Science"];
 
   const seededJobs = [
@@ -150,23 +163,262 @@
     ...Array.from({length:5},(_,i)=>({company:`Global Startup ${i+1}`,role:"Product Ops Generalist",location:"Remote",sourceType:"mock-placeholder",sourceUrl:"n/a",requiredSkills:["Systems Thinking"],preferredSkills:["Leadership"],minEducation:"Open",ageEligibilityNote:"18+",compensationType:"range",compensationRange:"$35k-$85k",lastUpdated:"2026-01-01",active:true,confidenceLevel:0.38}))
   ];
 
-  const missionArchetypes = {
-    tactical: { title:"Tactical: Corridor Pressure", scenario:"Supply lane unstable. Commit one tactical action.", choices:[
-      {id:"reroute",txt:"Fast reroute",d:{"Execution Reliability":8,"Resource Efficiency":-2,"Adaptability":4},territory:4,resource:-6},
-      {id:"sync",txt:"Cross-team synchronization",d:{"Collaboration":7,"Leadership":5,"Execution Reliability":-1},territory:3,resource:-4},
-      {id:"model",txt:"Model before movement",d:{"Analytical Thinking":8,"Systems Thinking":5,"Crisis Response":-2},territory:2,resource:-2}
-    ]},
-    simulation: { title:"Simulation: Market Shock", scenario:"Demand shifts by 38% in two regions.", choices:[
-      {id:"focus",txt:"Protect margin first",d:{"Prioritization":7,"Negotiation":3,"Collaboration":-2},territory:2,resource:-3},
-      {id:"rebalance",txt:"Rebalance with shared constraints",d:{"Systems Thinking":7,"Resource Efficiency":6,"Execution Reliability":-1},territory:3,resource:-5},
-      {id:"signal",txt:"Signal transparency early",d:{"Leadership":5,"Collaboration":5,"Crisis Response":3},territory:2,resource:-4}
-    ]},
-    contested: { title:"Contested Territory", scenario:"Rival claims your hex. Win confidence through trade-offs.", choices:[
-      {id:"aggressive",txt:"Aggressive push",d:{"Crisis Response":8,"Negotiation":-3,"Execution Reliability":3},territory:6,resource:-7},
-      {id:"treaty",txt:"Temporary treaty",d:{"Negotiation":7,"Collaboration":4,"Leadership":2},territory:4,resource:-4},
-      {id:"delay",txt:"Delay and reinforce",d:{"Resource Efficiency":5,"Systems Thinking":4,"Crisis Response":-2},territory:3,resource:-2}
-    ]}
-  };
+  const missionScenarios = [
+    {
+      id:"oxygen-crisis", title:"Oxygen Crisis", scenario:"A habitat oxygen processor has failed with 4 hours of reserve left.",
+      constraints:["Reserve oxygen: 4 hours","Repair drone battery at 35%","Comms delay: 9 minutes"],
+      unexpectedEvent:"A dust surge blocks the backup intake manifold.",
+      steps:[
+        {id:"stabilize",text:"Step 1: Stabilize atmosphere",context:"Pressure drop is accelerating in two sectors.",options:[
+          {id:"seal-sectors",text:"Seal two sectors immediately",effects:{crisisResponse:8,prioritization:5,collaboration:-2,resourceEfficiency:-2},timeline:"Sealed sectors and slowed oxygen loss."},
+          {id:"manual-override",text:"Run manual override with crew",effects:{leadership:6,executionReliability:4,adaptability:3,crisisResponse:2},timeline:"Crew performed manual override sequence."},
+          {id:"sensor-scan",text:"Run full diagnostics before action",effects:{analyticalThinking:7,systemsThinking:5,crisisResponse:-2},timeline:"Completed diagnostics before interventions."}
+        ]},
+        {id:"allocate",text:"Step 2: Allocate limited support",context:"You can only support one subsystem at full power.",options:[
+          {id:"support-medbay",text:"Prioritize medbay and life support",effects:{prioritization:6,leadership:4,resourceEfficiency:-3},timeline:"Critical units prioritized for survivability."},
+          {id:"support-repair",text:"Prioritize repair armature",effects:{executionReliability:6,resourceEfficiency:4,adaptability:-2},timeline:"Repair throughput improved for core systems."},
+          {id:"split-load",text:"Split power across all subsystems",effects:{collaboration:5,systemsThinking:4,executionReliability:-3},timeline:"Distributed power across teams and systems."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Dust surge blocks backup manifold.",options:[
+          {id:"remote-flush",text:"Remote flush with risk of valve wear",effects:{adaptability:6,crisisResponse:5,resourceEfficiency:-2},timeline:"Remote flush restored partial intake."},
+          {id:"eva-team",text:"Send EVA team for physical clearance",effects:{leadership:5,collaboration:5,crisisResponse:4,executionReliability:-2},timeline:"EVA team cleared manifold manually."},
+          {id:"load-shed",text:"Load-shed and reduce habitat demand",effects:{resourceEfficiency:7,systemsThinking:4,collaboration:-2},timeline:"Demand reduced to buy repair time."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Choose end-state strategy",options:[
+        {id:"hard-redundancy",text:"Install hard redundancy and postpone expansion",effects:{strategicThinking:7,executionReliability:5,prioritization:3},outcome:"Mission stabilized with resilient oxygen architecture."},
+        {id:"rapid-recovery",text:"Return to full ops quickly with monitored risk",effects:{adaptability:5,executionReliability:4,strategicThinking:-2,resourceEfficiency:2},outcome:"Mission recovered rapidly but retained latent risk."},
+        {id:"crew-rotation",text:"Rotate crew to safe modules and phase repairs",effects:{leadership:6,collaboration:4,resourceEfficiency:3},outcome:"Mission preserved crew health with phased recovery."}
+      ]}
+    },
+    {
+      id:"startup-growth-strategy", title:"Startup Growth Strategy", scenario:"Your SaaS startup must grow 2x in 2 quarters without burning runway.",
+      constraints:["Runway: 8 months","Team size fixed","CAC rising 18%"],
+      unexpectedEvent:"Largest channel partner pauses co-marketing for 6 weeks.",
+      steps:[
+        {id:"gtm-focus",text:"Step 1: Set GTM focus",context:"Three growth levers compete for budget.",options:[
+          {id:"enterprise",text:"Shift to enterprise deals",effects:{strategicThinking:7,prioritization:5,executionReliability:-2},timeline:"Pipeline shifted toward larger contracts."},
+          {id:"plg",text:"Double down on product-led growth",effects:{analyticalThinking:5,resourceEfficiency:5,adaptability:4},timeline:"Self-serve funnel optimization initiated."},
+          {id:"channel",text:"Expand channel partnerships",effects:{collaboration:6,leadership:3,resourceEfficiency:2},timeline:"Partner-led acquisition play launched."}
+        ]},
+        {id:"pricing",text:"Step 2: Pricing move",context:"Revenue target requires higher ARPU or higher volume.",options:[
+          {id:"premium",text:"Introduce premium tier",effects:{strategicThinking:6,analyticalThinking:4,adaptability:-2},timeline:"Premium packaging tested with key segments."},
+          {id:"usage",text:"Switch to usage-based pricing",effects:{systemsThinking:6,adaptability:5,executionReliability:-2},timeline:"Usage instrumentation and billing changes deployed."},
+          {id:"discount",text:"Offer aggressive annual discounts",effects:{prioritization:4,executionReliability:3,resourceEfficiency:-4},timeline:"Short-term conversions improved with discounting."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Partner pause impacts top funnel.",options:[
+          {id:"community",text:"Activate community-led pipeline",effects:{collaboration:6,adaptability:5,leadership:3},timeline:"Community motion replaced partner reach."},
+          {id:"paid-shift",text:"Shift spend to paid acquisition",effects:{executionReliability:5,analyticalThinking:4,resourceEfficiency:-3},timeline:"Paid channels scaled with tighter targeting."},
+          {id:"product-referrals",text:"Build referral incentives fast",effects:{strategicThinking:5,systemsThinking:4,adaptability:4},timeline:"Referral loop shipped to offset top-funnel loss."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Sustainable growth posture",options:[
+        {id:"balanced",text:"Balanced growth with monthly guardrails",effects:{strategicThinking:6,executionReliability:5,resourceEfficiency:4},outcome:"Growth target met with controlled burn and clearer predictability."},
+        {id:"aggressive",text:"Aggressive expansion with higher spend",effects:{leadership:5,adaptability:4,resourceEfficiency:-4},outcome:"Growth accelerated with elevated financial risk."},
+        {id:"conservative",text:"Conserve runway and optimize retention",effects:{prioritization:6,resourceEfficiency:6,strategicThinking:3},outcome:"Runway extended and retention improved, growth pace moderated."}
+      ]}
+    },
+    {
+      id:"supply-chain-breakdown", title:"Supply Chain Breakdown", scenario:"A critical supplier shutdown threatens your delivery commitments.", constraints:["Inventory cover: 11 days","Penalty clauses active","Two alternate suppliers only"], unexpectedEvent:"Port congestion adds 10-day delay for imported components.",
+      steps:[
+        {id:"triage",text:"Step 1: Triage order book",context:"Not all customers can be served equally.",options:[
+          {id:"tier-customers",text:"Prioritize strategic accounts",effects:{prioritization:7,strategicThinking:5,collaboration:-2},timeline:"High-value contracts prioritized."},
+          {id:"fifo",text:"Honor first-in-first-out",effects:{executionReliability:6,leadership:2,strategicThinking:-2},timeline:"Queue fairness policy enforced."},
+          {id:"rebalance",text:"Rebalance by margin and urgency",effects:{analyticalThinking:6,systemsThinking:5,resourceEfficiency:3},timeline:"Dynamic allocation model deployed."}
+        ]},
+        {id:"supplier",text:"Step 2: Supplier strategy",context:"Alternate vendors differ on quality and lead time.",options:[
+          {id:"split-sourcing",text:"Split sourcing across both alternates",effects:{systemsThinking:6,adaptability:4,executionReliability:3},timeline:"Dual-sourcing lowered single-point risk."},
+          {id:"fastest",text:"Choose fastest supplier only",effects:{crisisResponse:6,executionReliability:4,resourceEfficiency:-3},timeline:"Fastest supplier engaged for continuity."},
+          {id:"quality-first",text:"Choose quality-first supplier",effects:{executionReliability:5,strategicThinking:4,prioritization:-2},timeline:"Quality variance reduced, throughput constrained."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Port congestion delays imports by 10 days.",options:[
+          {id:"regional-shift",text:"Shift to regional substitutes",effects:{adaptability:6,resourceEfficiency:4,analyticalThinking:3},timeline:"Regional materials substitution executed."},
+          {id:"air-freight",text:"Use air freight for critical SKUs",effects:{crisisResponse:5,prioritization:5,resourceEfficiency:-4},timeline:"Air freight protected top SKUs."},
+          {id:"customer-plan",text:"Negotiate revised delivery windows",effects:{collaboration:6,leadership:4,executionReliability:-2},timeline:"Customers aligned on revised timelines."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Long-term resilience model",options:[
+        {id:"network-redesign",text:"Redesign supplier network with buffers",effects:{systemsThinking:7,strategicThinking:6,resourceEfficiency:3},outcome:"Supply network resilience improved with lower disruption exposure."},
+        {id:"lean-recovery",text:"Return to lean model after crisis",effects:{resourceEfficiency:6,executionReliability:4,crisisResponse:-2},outcome:"Cost profile improved but resilience remained moderate."},
+        {id:"partnerships",text:"Form strategic supplier alliances",effects:{collaboration:6,leadership:5,strategicThinking:4},outcome:"Strategic alliances improved reliability and shared planning."}
+      ]}
+    },
+    {
+      id:"ai-model-deployment", title:"AI Model Deployment", scenario:"You must deploy a high-impact model to production under regulatory scrutiny.", constraints:["Latency target <120ms","Bias threshold strict","Rollback window: 30 min"], unexpectedEvent:"A drift alert fires during final rollout rehearsal.",
+      steps:[
+        {id:"release",text:"Step 1: Release strategy",context:"Stakeholders push for fast launch.",options:[
+          {id:"canary",text:"Canary release by cohort",effects:{executionReliability:7,systemsThinking:5,adaptability:3},timeline:"Canary release plan approved."},
+          {id:"full-rollout",text:"Full rollout at once",effects:{leadership:4,crisisResponse:3,executionReliability:-4},timeline:"Full rollout scheduled under pressure."},
+          {id:"shadow",text:"Shadow mode validation first",effects:{analyticalThinking:7,resourceEfficiency:3,prioritization:-2},timeline:"Shadow validation extended before activation."}
+        ]},
+        {id:"guardrails",text:"Step 2: Guardrails selection",context:"Monitoring budget is limited.",options:[
+          {id:"bias-first",text:"Bias and fairness monitors first",effects:{strategicThinking:6,analyticalThinking:4,resourceEfficiency:-2},timeline:"Fairness guardrails prioritized."},
+          {id:"latency-first",text:"Latency and uptime monitors first",effects:{executionReliability:6,prioritization:5,strategicThinking:-2},timeline:"Performance guardrails prioritized."},
+          {id:"balanced",text:"Balanced minimal guardrails",effects:{systemsThinking:5,resourceEfficiency:4,adaptability:3},timeline:"Balanced monitoring stack configured."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Drift alert triggers during rehearsal.",options:[
+          {id:"pause-and-retrain",text:"Pause rollout and retrain",effects:{analyticalThinking:6,executionReliability:5,adaptability:-2},timeline:"Rollout paused for targeted retraining."},
+          {id:"feature-gate",text:"Deploy with feature gate fallback",effects:{crisisResponse:5,adaptability:5,systemsThinking:4},timeline:"Feature-gated rollout reduced blast radius."},
+          {id:"scope-limit",text:"Limit deployment scope to safe segments",effects:{prioritization:6,resourceEfficiency:4,leadership:3},timeline:"Deployment scope constrained to low-risk cohorts."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Production governance policy",options:[
+        {id:"governed-scale",text:"Scale with governance council checkpoints",effects:{leadership:6,strategicThinking:6,collaboration:4},outcome:"Model scaled with strong governance and trust."},
+        {id:"speed-scale",text:"Scale aggressively and tune live",effects:{adaptability:6,crisisResponse:4,executionReliability:-3},outcome:"Scale was fast, but operational volatility increased."},
+        {id:"slow-certify",text:"Delay scale until full certification",effects:{executionReliability:6,prioritization:4,resourceEfficiency:-2},outcome:"Risk was reduced, though opportunity window narrowed."}
+      ]}
+    },
+    {
+      id:"financial-portfolio-risk", title:"Financial Portfolio Risk", scenario:"Market volatility spikes and your portfolio drawdown breaches risk tolerance.", constraints:["Max drawdown: 8%","Liquidity floor required","Regulatory exposure limits"], unexpectedEvent:"A correlated asset unexpectedly gaps down 12% pre-market.",
+      steps:[
+        {id:"risk-cut",text:"Step 1: Immediate risk action",context:"Opening bell is in 30 minutes.",options:[
+          {id:"hedge",text:"Add protective hedges",effects:{analyticalThinking:6,strategicThinking:5,resourceEfficiency:-2},timeline:"Hedges layered onto vulnerable positions."},
+          {id:"delever",text:"Rapid deleveraging",effects:{crisisResponse:7,prioritization:5,executionReliability:3},timeline:"Gross exposure reduced quickly."},
+          {id:"hold",text:"Hold positions and monitor",effects:{resourceEfficiency:4,adaptability:2,crisisResponse:-4},timeline:"Positions held awaiting additional signal."}
+        ]},
+        {id:"realloc",text:"Step 2: Reallocation path",context:"Need balance between protection and upside.",options:[
+          {id:"defensive",text:"Shift toward defensive sectors",effects:{strategicThinking:6,executionReliability:4,adaptability:-2},timeline:"Allocation moved to defensive assets."},
+          {id:"barbell",text:"Adopt barbell allocation",effects:{systemsThinking:6,analyticalThinking:5,resourceEfficiency:3},timeline:"Barbell structure balanced risk and return."},
+          {id:"cash",text:"Increase cash materially",effects:{prioritization:5,resourceEfficiency:5,strategicThinking:-2},timeline:"Cash buffer raised for flexibility."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Correlated asset gaps down 12%.",options:[
+          {id:"rebalance-fast",text:"Fast rebalance and cap correlation",effects:{crisisResponse:6,systemsThinking:5,executionReliability:4},timeline:"Correlation exposure capped rapidly."},
+          {id:"communicate",text:"Communicate updated risk memo first",effects:{leadership:5,collaboration:4,crisisResponse:-2},timeline:"Stakeholders briefed before major moves."},
+          {id:"opportunistic",text:"Deploy tactical buy orders",effects:{adaptability:5,analyticalThinking:4,resourceEfficiency:-3},timeline:"Tactical entries placed amid dislocation."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Portfolio doctrine",options:[
+        {id:"risk-discipline",text:"Codify stricter risk discipline",effects:{executionReliability:6,strategicThinking:5,prioritization:4},outcome:"Portfolio stabilized under a stronger risk framework."},
+        {id:"dynamic-risk",text:"Adopt dynamic volatility targeting",effects:{systemsThinking:6,adaptability:5,analyticalThinking:4},outcome:"Portfolio became more adaptive to volatility regimes."},
+        {id:"return-tilt",text:"Maintain return tilt with selective hedges",effects:{strategicThinking:5,resourceEfficiency:4,crisisResponse:-2},outcome:"Return profile improved with moderate residual risk."}
+      ]}
+    },
+    {
+      id:"data-breach-crisis", title:"Data Breach Crisis", scenario:"Security team confirms unauthorized access to customer records.", constraints:["Regulatory notice window: 72h","Core platform must stay online","Forensic team limited"], unexpectedEvent:"Attackers begin extortion with sample data leak.",
+      steps:[
+        {id:"contain",text:"Step 1: Initial containment",context:"Unclear blast radius across services.",options:[
+          {id:"isolate",text:"Isolate affected services immediately",effects:{crisisResponse:7,executionReliability:5,resourceEfficiency:-2},timeline:"Affected services isolated quickly."},
+          {id:"monitor",text:"Silent monitor before containment",effects:{analyticalThinking:6,systemsThinking:4,crisisResponse:-3},timeline:"Monitoring expanded before containment."},
+          {id:"rotate-keys",text:"Global credential and key rotation",effects:{executionReliability:6,prioritization:5,collaboration:2},timeline:"Credential rotation executed platform-wide."}
+        ]},
+        {id:"comms",text:"Step 2: Communication strategy",context:"Legal, PR, and engineering priorities conflict.",options:[
+          {id:"transparent",text:"Transparent early disclosure",effects:{leadership:6,collaboration:5,resourceEfficiency:-2},timeline:"Public disclosure shared with early timeline."},
+          {id:"minimal",text:"Minimal disclosure until confirmed",effects:{prioritization:4,executionReliability:3,leadership:-2},timeline:"Disclosure delayed pending full confirmation."},
+          {id:"targeted",text:"Targeted notice to impacted users",effects:{systemsThinking:5,resourceEfficiency:4,collaboration:3},timeline:"Targeted notifications sent to affected users."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Extortion demand follows sample leak.",options:[
+          {id:"law-enforcement",text:"Coordinate with law enforcement",effects:{leadership:5,collaboration:5,crisisResponse:4},timeline:"Law enforcement coordination initiated."},
+          {id:"harden-first",text:"Prioritize hardening over negotiation",effects:{executionReliability:6,crisisResponse:5,strategicThinking:3},timeline:"Security hardening accelerated across stack."},
+          {id:"negotiate",text:"Engage negotiator to buy time",effects:{adaptability:5,collaboration:4,resourceEfficiency:-3},timeline:"Negotiation used to extend response window."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Trust recovery plan",options:[
+        {id:"trust-program",text:"Launch long-term trust recovery program",effects:{strategicThinking:6,leadership:6,executionReliability:4},outcome:"Trust restored through transparent long-term remediation."},
+        {id:"fast-fix",text:"Close incident quickly and move on",effects:{crisisResponse:5,resourceEfficiency:4,strategicThinking:-3},outcome:"Incident closed fast but confidence recovered slowly."},
+        {id:"independent-audit",text:"Commission independent security audit",effects:{analyticalThinking:5,collaboration:4,executionReliability:5},outcome:"Independent validation improved stakeholder confidence."}
+      ]}
+    },
+    {
+      id:"product-roadmap-decision", title:"Product Roadmap Decision", scenario:"You can only ship one major roadmap initiative this quarter.", constraints:["One cross-functional team","Fixed quarter deadline","Tech debt already high"], unexpectedEvent:"Largest customer requests urgent compliance feature.",
+      steps:[
+        {id:"selection",text:"Step 1: Initiative selection",context:"Growth feature and reliability upgrade compete.",options:[
+          {id:"growth-feature",text:"Choose growth feature",effects:{strategicThinking:6,adaptability:4,executionReliability:-2},timeline:"Roadmap shifted toward growth capture."},
+          {id:"reliability-upgrade",text:"Choose reliability upgrade",effects:{executionReliability:7,systemsThinking:5,prioritization:3},timeline:"Roadmap shifted toward platform reliability."},
+          {id:"debt-burn",text:"Choose tech debt reduction",effects:{resourceEfficiency:6,analyticalThinking:4,strategicThinking:-2},timeline:"Roadmap focused on debt reduction."}
+        ]},
+        {id:"resourcing",text:"Step 2: Team resource model",context:"PM, design, and backend bandwidth is tight.",options:[
+          {id:"squad-model",text:"Dedicated squad model",effects:{leadership:5,executionReliability:4,resourceEfficiency:-2},timeline:"Dedicated squad formed for critical path."},
+          {id:"shared-model",text:"Shared model across streams",effects:{collaboration:6,systemsThinking:4,executionReliability:-2},timeline:"Shared staffing used to spread expertise."},
+          {id:"partner-outsourcing",text:"Outsource non-core pieces",effects:{prioritization:5,resourceEfficiency:4,adaptability:3},timeline:"External support added for non-core work."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Urgent compliance request from largest customer.",options:[
+          {id:"fast-track",text:"Fast-track compliance and re-scope roadmap",effects:{prioritization:6,collaboration:5,strategicThinking:4},timeline:"Roadmap re-scoped to absorb compliance need."},
+          {id:"defer-customer",text:"Defer request to next quarter",effects:{resourceEfficiency:5,executionReliability:4,leadership:-2},timeline:"Compliance request deferred with documented rationale."},
+          {id:"modular-release",text:"Ship modular compliance extension",effects:{adaptability:6,systemsThinking:5,analyticalThinking:3},timeline:"Modular compliance path designed and shipped."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Roadmap governance",options:[
+        {id:"evidence-governance",text:"Adopt evidence-based roadmap governance",effects:{analyticalThinking:6,strategicThinking:6,executionReliability:4},outcome:"Roadmap quality improved with better evidence gates."},
+        {id:"customer-first",text:"Prioritize top customer requests by default",effects:{collaboration:5,leadership:4,prioritization:3},outcome:"Customer alignment increased with some innovation trade-off."},
+        {id:"platform-first",text:"Prioritize platform health by default",effects:{systemsThinking:6,resourceEfficiency:5,adaptability:-2},outcome:"Platform stability improved while feature velocity slowed."}
+      ]}
+    },
+    {
+      id:"research-funding-allocation", title:"Research Funding Allocation", scenario:"You must allocate a constrained grant budget across competing research tracks.", constraints:["Budget covers 2 of 5 proposals","Review board split","Milestone reporting strict"], unexpectedEvent:"A key PI loses access to a critical lab facility.",
+      steps:[
+        {id:"portfolio",text:"Step 1: Portfolio balance",context:"High-risk innovation vs near-term outcomes.",options:[
+          {id:"high-risk",text:"Fund high-risk breakthrough tracks",effects:{strategicThinking:7,adaptability:4,executionReliability:-3},timeline:"Funding tilted toward breakthrough potential."},
+          {id:"balanced",text:"Balanced mix of safe and bold",effects:{systemsThinking:6,prioritization:5,resourceEfficiency:3},timeline:"Portfolio balanced across risk horizons."},
+          {id:"safe",text:"Fund only near-term predictable tracks",effects:{executionReliability:6,resourceEfficiency:4,adaptability:-2},timeline:"Funding favored predictable outcomes."}
+        ]},
+        {id:"evaluation",text:"Step 2: Evaluation criteria",context:"Board asks for transparent scoring model.",options:[
+          {id:"impact-score",text:"Weight societal impact highest",effects:{leadership:5,collaboration:4,strategicThinking:4},timeline:"Impact-centric scoring model adopted."},
+          {id:"feasibility-score",text:"Weight feasibility highest",effects:{analyticalThinking:6,executionReliability:4,prioritization:3},timeline:"Feasibility-centric scoring model adopted."},
+          {id:"open-review",text:"Open peer review process",effects:{collaboration:6,systemsThinking:4,resourceEfficiency:-2},timeline:"Open review expanded decision participation."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Key PI loses lab access.",options:[
+          {id:"reassign",text:"Reassign project to partner lab",effects:{adaptability:6,collaboration:5,executionReliability:3},timeline:"Project reassigned to partner facility."},
+          {id:"pause-track",text:"Pause track and redirect funds",effects:{prioritization:6,resourceEfficiency:5,leadership:-2},timeline:"Funding redirected after pausing affected track."},
+          {id:"remote-method",text:"Adopt remote simulation method",effects:{systemsThinking:5,analyticalThinking:4,adaptability:4},timeline:"Remote methods preserved project momentum."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Funding doctrine",options:[
+        {id:"stage-gates",text:"Use stage-gated continuation funding",effects:{executionReliability:6,strategicThinking:5,resourceEfficiency:4},outcome:"Funding discipline improved with clear continuation gates."},
+        {id:"open-innovation",text:"Create open innovation reserve",effects:{adaptability:6,collaboration:5,leadership:4},outcome:"Innovation diversity increased with managed uncertainty."},
+        {id:"mission-focus",text:"Align all funds to mission-critical outcomes",effects:{prioritization:7,strategicThinking:5,systemsThinking:4},outcome:"Mission outcomes improved with tighter focus."}
+      ]}
+    },
+    {
+      id:"infrastructure-failure", title:"Infrastructure Failure", scenario:"A multi-region outage is impacting core services and SLAs.", constraints:["SLA penalties active","One region at 20% capacity","On-call fatigue high"], unexpectedEvent:"Secondary failover cluster shows intermittent packet loss.",
+      steps:[
+        {id:"incident-command",text:"Step 1: Incident command",context:"Need clear command structure within minutes.",options:[
+          {id:"central-command",text:"Centralized incident command",effects:{leadership:7,executionReliability:5,collaboration:-2},timeline:"Central command established for outage response."},
+          {id:"regional-leads",text:"Regional autonomous leads",effects:{adaptability:6,collaboration:5,executionReliability:-2},timeline:"Regional leads activated with local authority."},
+          {id:"auto-recovery",text:"Maximize automated recovery",effects:{systemsThinking:6,resourceEfficiency:4,crisisResponse:4},timeline:"Automation prioritized for restoration."}
+        ]},
+        {id:"capacity",text:"Step 2: Capacity strategy",context:"Traffic exceeds safe throughput.",options:[
+          {id:"shed-load",text:"Shed non-critical load",effects:{prioritization:6,resourceEfficiency:5,collaboration:-2},timeline:"Non-critical traffic shed to preserve core APIs."},
+          {id:"burst-cloud",text:"Burst to external cloud capacity",effects:{crisisResponse:6,adaptability:5,resourceEfficiency:-3},timeline:"Burst capacity restored partial throughput."},
+          {id:"queue-requests",text:"Queue and degrade gracefully",effects:{systemsThinking:5,executionReliability:5,leadership:3},timeline:"Graceful degradation stabilized service."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Failover cluster packet loss appears.",options:[
+          {id:"reroute",text:"Reroute traffic through tertiary path",effects:{crisisResponse:6,systemsThinking:5,executionReliability:4},timeline:"Traffic rerouted to tertiary path."},
+          {id:"hardware-swap",text:"Perform emergency hardware swap",effects:{executionReliability:6,leadership:4,resourceEfficiency:-3},timeline:"Emergency hardware replacement initiated."},
+          {id:"incident-pause",text:"Pause new deployments and freeze change",effects:{prioritization:5,executionReliability:5,adaptability:-2},timeline:"Change freeze reduced incident volatility."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Reliability investment",options:[
+        {id:"resilience-program",text:"Fund multi-region resilience program",effects:{strategicThinking:7,systemsThinking:6,executionReliability:4},outcome:"Infrastructure resilience improved across regions."},
+        {id:"cost-optimize",text:"Optimize for cost with selective safeguards",effects:{resourceEfficiency:6,prioritization:4,crisisResponse:-2},outcome:"Costs reduced with moderate reliability gains."},
+        {id:"team-reset",text:"Invest in on-call health and runbooks",effects:{leadership:6,collaboration:5,executionReliability:4},outcome:"Team reliability improved with healthier operations."}
+      ]}
+    },
+    {
+      id:"hiring-decision", title:"Hiring Decision", scenario:"You must hire for a mission-critical role under tight timeline pressure.", constraints:["Offer deadline in 5 days","Budget allows one hire","Team skill gap is severe"], unexpectedEvent:"Top candidate receives competing offer with 48-hour expiry.",
+      steps:[
+        {id:"role-profile",text:"Step 1: Define hiring profile",context:"Need immediate delivery and future leadership potential.",options:[
+          {id:"specialist",text:"Hire deep specialist",effects:{executionReliability:6,prioritization:4,collaboration:-2},timeline:"Role profile emphasized specialist depth."},
+          {id:"generalist",text:"Hire adaptable generalist",effects:{adaptability:6,systemsThinking:5,resourceEfficiency:3},timeline:"Role profile emphasized cross-functional adaptability."},
+          {id:"leader",text:"Hire player-coach leader",effects:{leadership:7,collaboration:5,resourceEfficiency:-2},timeline:"Role profile emphasized leadership leverage."}
+        ]},
+        {id:"assessment",text:"Step 2: Assessment method",context:"Interview loop must be fast and fair.",options:[
+          {id:"work-sim",text:"Use work simulation challenge",effects:{analyticalThinking:6,executionReliability:4,resourceEfficiency:-2},timeline:"Work-sim used for evidence-based assessment."},
+          {id:"panel",text:"Use cross-functional panel",effects:{collaboration:6,leadership:4,prioritization:3},timeline:"Panel interview aligned stakeholders quickly."},
+          {id:"references",text:"Rely heavily on references",effects:{resourceEfficiency:5,strategicThinking:3,analyticalThinking:-2},timeline:"Reference-driven process shortened cycle time."}
+        ]},
+        {id:"unexpected",text:"Step 3: Unexpected event response",context:"Top candidate gets 48-hour competing offer.",options:[
+          {id:"expedite",text:"Expedite decision and offer now",effects:{crisisResponse:6,prioritization:5,executionReliability:3},timeline:"Offer process expedited to retain candidate."},
+          {id:"hold-bar",text:"Hold quality bar and continue process",effects:{executionReliability:6,strategicThinking:5,crisisResponse:-2},timeline:"Process quality maintained despite pressure."},
+          {id:"dual-track",text:"Run dual-track with backup candidate",effects:{adaptability:5,systemsThinking:4,resourceEfficiency:3},timeline:"Dual-track reduced single-candidate risk."}
+        ]}
+      ],
+      finalDecision:{text:"Final Decision: Team-building strategy",options:[
+        {id:"capability-matrix",text:"Adopt capability-matrix hiring plan",effects:{systemsThinking:6,strategicThinking:6,leadership:4},outcome:"Hiring strategy aligned better to long-term capability needs."},
+        {id:"speed-first",text:"Optimize for speed-to-hire",effects:{prioritization:6,crisisResponse:4,analyticalThinking:-2},outcome:"Role filled quickly with moderate fit uncertainty."},
+        {id:"culture-first",text:"Prioritize collaboration and culture fit",effects:{collaboration:6,leadership:5,executionReliability:3},outcome:"Team cohesion strengthened with stable delivery outlook."}
+      ]}
+    }
+  ];
 
   const tutorialSteps = [
     ["Mission Control Map","This Mars-style hex grid is your living proof terrain. Each zone represents a capability domain and mission opportunity."],
@@ -180,7 +432,7 @@
 
   function seedZones(){
     const domains=["Strategy","Operations","Product","Analytics","Leadership","Systems","Negotiation","Crisis"];
-    return Array.from({length:25},(_,i)=>({id:`Z${i+1}`,name:`Ares-${i+1}`,domain:domains[i%domains.length],owner:"neutral",control:20+((i*7)%45),missionType:Object.keys(missionArchetypes)[i%3],targetSkill:skillsList[i%skillsList.length],difficulty:1+(i%5),status:"open"}));
+    return Array.from({length:25},(_,i)=>({id:`Z${i+1}`,name:`Ares-${i+1}`,domain:domains[i%domains.length],owner:"neutral",control:20+((i*7)%45),missionId:missionScenarios[i%missionScenarios.length].id,targetSkill:skillsList[i%skillsList.length],difficulty:1+(i%5),status:"open"}));
   }
 
   function baseUser(){ const s={}; skillsList.forEach(k=>s[k]=50); return s; }
@@ -190,7 +442,7 @@
       mode:"Demo Mode", inputMode:"standard", wheelDocked:false, tutorial:{seen:false,step:0,active:false}, agents:true,
       users:[], currentUserId:null, session:null, zones:seedZones(), selectedZone:null, missions:[], timeline:[],
       proofVault:[], roleFitHistory:[], recruiterActions:[], savedReports:[], rooms:[{code:"ALPHA7",name:"Demo Room",members:[]}],
-      telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false
+      telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false, activeMissionRun:null
     };
   }
 
@@ -199,6 +451,12 @@
     const s=Object.assign(defaultState(), parsed||{});
     s.zones = Array.isArray(s.zones) && s.zones.length>=25 ? s.zones : seedZones();
     s.users = Array.isArray(s.users) ? s.users : [];
+    const legacySkillMap={"Systems Thinking":"systemsThinking","Analytical Thinking":"analyticalThinking","Prioritization":"prioritization","Adaptability":"adaptability","Resource Efficiency":"resourceEfficiency","Strategic Thinking":"strategicThinking","Collaboration":"collaboration","Leadership":"leadership","Crisis Response":"crisisResponse","Execution Reliability":"executionReliability","Negotiation":"collaboration"};
+    s.users.forEach(u=>{
+      const next=baseUser();
+      Object.entries(u.skills||{}).forEach(([k,v])=>{ next[legacySkillMap[k]||k]=v; });
+      u.skills=next;
+    });
     if (!s.currentUserId && s.currentUser && s.currentUser.id) s.currentUserId = s.currentUser.id; // migration
     delete s.currentUser;
     return s;
@@ -302,7 +560,7 @@
   function renderSkills(){
     const u=currentUser();
     const skills=(u && u.skills) || baseUser();
-    el.skills.innerHTML=skillsList.map(k=>`<div class='r'><div class='mini'>${k}</div><div class='bar'><span style='width:${Math.max(0,Math.min(100,skills[k]||0))}%'></span></div><div>${Math.round(skills[k]||0)}</div></div>`).join("");
+    el.skills.innerHTML=skillsList.map(k=>`<div class='r'><div class='mini'>${skillLabelMap[k]||k}</div><div class='bar'><span style='width:${Math.max(0,Math.min(100,skills[k]||0))}%'></span></div><div>${Math.round(skills[k]||0)}</div></div>`).join("");
   }
 
   function topSkills(s){ return [...Object.entries(s)].sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]); }
@@ -310,17 +568,17 @@
 
   function roleFitFromSkills(skills){
     const profiles={
-      "Software Engineering":{"Systems Thinking":.3,"Execution Reliability":.2,"Analytical Thinking":.2,"Adaptability":.1,"Collaboration":.2},
-      "Data / Analytics":{"Analytical Thinking":.35,"Systems Thinking":.25,"Prioritization":.2,"Execution Reliability":.2},
-      "Finance / Analyst":{"Analytical Thinking":.35,"Prioritization":.2,"Negotiation":.15,"Execution Reliability":.3},
-      "Operations":{"Resource Efficiency":.3,"Execution Reliability":.3,"Collaboration":.2,"Crisis Response":.2},
-      "Product / Strategy":{"Systems Thinking":.25,"Prioritization":.25,"Leadership":.2,"Collaboration":.15,"Negotiation":.15},
-      "Research / Science":{"Analytical Thinking":.35,"Systems Thinking":.35,"Adaptability":.15,"Execution Reliability":.15}
+      "Software Engineering":{systemsThinking:.28,executionReliability:.25,analyticalThinking:.2,adaptability:.12,collaboration:.15},
+      "Data / Analytics":{analyticalThinking:.35,systemsThinking:.25,prioritization:.2,executionReliability:.2},
+      "Finance / Analyst":{analyticalThinking:.32,prioritization:.22,strategicThinking:.16,executionReliability:.3},
+      "Operations":{resourceEfficiency:.28,executionReliability:.28,collaboration:.2,crisisResponse:.24},
+      "Product / Strategy":{systemsThinking:.22,prioritization:.2,leadership:.18,collaboration:.15,strategicThinking:.25},
+      "Research / Science":{analyticalThinking:.35,systemsThinking:.3,adaptability:.15,executionReliability:.2}
     };
     return roleFamilies.map(r=>{
       const w=profiles[r]; let score=0;
-      Object.keys(w).forEach(s=>score+=(skills[s]||0)*w[s]);
-      return {role:r,score:Math.round(score),reason:`Matched because of ${topSkills(skills).join(" + ")}. Gap likely in ${lowSkills(skills).join(" / ")}.`};
+      Object.keys(w).forEach(sk=>score+=(skills[sk]||0)*w[sk]);
+      return {role:r,score:Math.round(score),reason:`Matched because of ${topSkills(skills).map(k=>skillLabelMap[k]||k).join(" + ")}. Gap likely in ${lowSkills(skills).map(k=>skillLabelMap[k]||k).join(" / ")}.`};
     }).sort((a,b)=>b.score-a.score);
   }
 
@@ -347,16 +605,60 @@
     }
   }
 
+  function getMissionForZone(zone){
+    const idx=Math.max(0, Number(zone.id.replace("Z",""))-1);
+    return missionScenarios[idx % missionScenarios.length];
+  }
+
+  function beginMission(zone, mission){
+    state.activeMissionRun={zoneId:zone.id,missionId:mission.id,stepIndex:0,selections:[],effects:{},timeline:[`Mission started: ${mission.title}`],contextEventShown:false};
+    logEvent("mission_started",{zone:zone.id,missionId:mission.id});
+    markAgent("mission_engine: mission_started");
+    renderMissionPanel();
+  }
+
+  function applyEffects(user,effects){
+    Object.entries(effects).forEach(([k,v])=>{
+      user.skills[k]=Math.max(0,Math.min(100,(user.skills[k]||50)+v));
+      logEvent("mission_step_completed",{skill:k,delta:v});
+    });
+  }
+
+  function aggregateEffects(run){
+    return run.selections.reduce((acc,s)=>{
+      Object.entries(s.effects||{}).forEach(([k,v])=>acc[k]=(acc[k]||0)+v);
+      return acc;
+    },{});
+  }
+
   function renderMissionPanel(){
     const z=state.zones.find(x=>x.id===state.selectedZone) || state.zones[0];
     if(!state.selectedZone) state.selectedZone=z.id;
+    const mission=getMissionForZone(z);
+    const run=state.activeMissionRun && state.activeMissionRun.zoneId===z.id ? state.activeMissionRun : null;
     el.zoneBox.innerHTML=`<b>${z.name}</b> (${z.id})<br><span class='mini'>Domain: ${z.domain} · Owner: ${z.owner} · Control: ${z.control}% · Difficulty: ${z.difficulty}</span>`;
-    const m=missionArchetypes[z.missionType];
-    const html=`<b>${m.title}</b><div class='mini'>${m.scenario}</div>${m.choices.map(c=>`<button class='btn mission-choice' data-c='${c.id}'>${c.txt}</button>`).join("")}`;
-    el.missionBox.innerHTML=html;
-    el.soloBox.innerHTML=html;
-    const bind=(root)=>[...root.querySelectorAll("button")].forEach(btn=>btn.onclick=()=>runMission(z, m, m.choices.find(c=>c.id===btn.dataset.c)));
-    bind(el.missionBox); bind(el.soloBox);
+
+    const renderRoot=(root)=>{
+      if(!run){
+        root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div><button class='btn mission-choice' data-begin='1'>Begin Mission</button>`;
+        const btn=root.querySelector("[data-begin]");
+        if(btn) btn.onclick=()=>beginMission(z,mission);
+        return;
+      }
+      const totalSteps=mission.steps.length+1;
+      const isFinal=run.stepIndex>=mission.steps.length;
+      const step=isFinal?null:mission.steps[run.stepIndex];
+      const progress=`Step ${run.stepIndex+1}/${totalSteps}`;
+      const contextInfo=isFinal?"Final phase: lock your final strategic decision.":step.context;
+      const header=isFinal?mission.finalDecision.text:step.text;
+      const options=(isFinal?mission.finalDecision.options:step.options).map((o,i)=>`<button class='btn mission-choice' data-opt='${o.id}'>${i+1}. ${o.text}</button>`).join("");
+      const unexpected = (!run.contextEventShown && run.stepIndex===2) ? `<div class='evt'><b>Unexpected Event</b><div class='mini'>${mission.unexpectedEvent}</div></div>` : "";
+      root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div><div class='mini' style='margin-top:6px'><b>${progress}</b></div>${unexpected}<div class='mini' style='margin-top:6px'>${header}</div><div class='mini'>Context: ${contextInfo}</div>${options}`;
+      root.querySelectorAll("[data-opt]").forEach(btn=>btn.onclick=()=>advanceMission(z,mission,btn.dataset.opt));
+    };
+
+    renderRoot(el.missionBox);
+    renderRoot(el.soloBox);
   }
 
   function buildAgeAware(age,fit){
@@ -370,28 +672,30 @@
     return [{type:"future_fit",items:fit.slice(0,4)},{type:"learning_pathway",items:["Communication loops","Scenario prioritization","Systems mapping"]}];
   }
 
-  function normalizeResultPayload({player,zone,archetype,choice,timeline}){
+  function normalizeResultPayload({player,zone,mission,timeline,effects,outcomeText}){
     const fit=roleFitFromSkills(player.skills);
     const top=fit[0];
-    const confidence=Math.min(0.99,0.5+(zone.difficulty*0.05)+(choice.territory/20));
+    const score=Math.max(1,Math.min(100,50+Object.values(effects).reduce((a,b)=>a+b,0)));
     return {
-      type:"mission_result", version:"1.0.0", id:crypto.randomUUID(), createdAt:new Date().toISOString(),
+      missionId: mission.id,
+      score,
+      skills:{current:{...player.skills},delta:{...effects}},
+      timeline:timeline.map((t,i)=>({t:`T+${i*3}m`,event:t})),
+      outcome:outcomeText,
+      recommendations:["Run a contrasting scenario to test decision consistency.","Improve the two lowest skills before high-stakes missions."],
+      type:"mission_result", version:"2.0.0", id:crypto.randomUUID(), createdAt:new Date().toISOString(),
       player:{id:player.id,name:player.displayName,userType:player.userType,ageGroup:player.ageGroup,rolePath:player.rolePath},
-      mission:{zoneId:zone.id,zoneName:zone.name,domain:zone.domain,missionType:zone.missionType,title:archetype.title,scenario:archetype.scenario,decision:choice.txt,difficulty:zone.difficulty},
-      outcome:{status:"completed",score:Math.round(Object.values(choice.d).reduce((a,b)=>a+b,0)+65),resourceDelta:choice.resource,confidence,consistency:Math.min(1,0.45+(state.missions.length*0.02))},
-      skills:{current:{...player.skills},delta:{...choice.d}},
-      territory:{owner:zone.owner,control:zone.control,change:choice.territory},
+      mission:{zoneId:zone.id,zoneName:zone.name,domain:zone.domain,title:mission.title,scenario:mission.scenario,difficulty:zone.difficulty},
+      outcomeMeta:{status:"completed",score,consistency:Math.min(1,0.5+(state.missions.length*0.02))},
+      territory:{owner:zone.owner,control:zone.control},
       roleFit:{topRole:top.role,topScore:top.score,matches:fit.slice(0,3),ageAware:buildAgeAware(player.ageGroup, fit)},
-      timeline:timeline.map((t,i)=>({t:`T+${i*2}m`,event:t})),
-      nextSteps:["Run a simulation mission for consistency.","Improve weakest skill with targeted missions."],
-      recommendations:recommendationsFor(player.ageGroup, fit),
       sourceMeta:{mode:hasFirebase?"firebase":"local-mock",jobsVersion:"seed-v1"},
       render:{preferredLayout:["compact","full","story"][state.missions.length%3],theme:"mars-control"},
-      exportMeta:{canSvg:true,canFallback:true,schema:"canonical-mission-result-v1"}
+      exportMeta:{canSvg:true,canFallback:true,schema:"canonical-mission-result-v2"}
     };
   }
-  function validateResultPayload(p){ return !!(p&&p.type&&p.player&&p.mission&&p.outcome&&p.skills&&p.territory&&Array.isArray(p.timeline)); }
-  function summarizeResultPayload(p){ return `${p.player.name}: ${p.mission.title} → ${p.outcome.score} (${p.roleFit.topRole})`; }
+  function validateResultPayload(p){ return !!(p&&p.missionId&&typeof p.score==="number"&&p.skills&&Array.isArray(p.timeline)&&p.outcome&&Array.isArray(p.recommendations)); }
+  function summarizeResultPayload(p){ return `${p.player.name}: ${p.mission.title} → ${p.score} (${p.roleFit.topRole})`; }
 
   function buildSvgLayout(payload,layout){
     const w=layout==="full"?860:layout==="story"?720:500;
@@ -400,11 +704,11 @@
   }
   function renderSkillBars(payload,x,y){
     const entries=Object.entries(payload.skills.delta).slice(0,6);
-    return entries.map(([k,v],i)=>`<text x='${x}' y='${y+i*24}' fill='#c7d6ff' font-size='12'>${escapeXml(k)}</text><rect x='${x+160}' y='${y-10+i*24}' width='120' height='10' fill='#162645' rx='4'/><rect x='${x+160}' y='${y-10+i*24}' width='${Math.min(120,Math.abs(v)*12)}' height='10' fill='${v>=0?"#00d1b0":"#ff7185"}' rx='4'/>`).join("");
+    return entries.map(([k,v],i)=>`<text x='${x}' y='${y+i*24}' fill='#c7d6ff' font-size='12'>${escapeXml(skillLabelMap[k]||k)}</text><rect x='${x+160}' y='${y-10+i*24}' width='120' height='10' fill='#162645' rx='4'/><rect x='${x+160}' y='${y-10+i*24}' width='${Math.min(120,Math.abs(v)*12)}' height='10' fill='${v>=0?"#00d1b0":"#ff7185"}' rx='4'/>`).join("");
   }
   function renderTimeline(payload,x,y,max){ return (payload.timeline||[]).slice(0,max).map((e,i)=>`<text x='${x}' y='${y+i*18}' fill='#9fb0d9' font-size='11'>${escapeXml(e.t)}: ${escapeXml(e.event)}</text>`).join(""); }
   function renderRoleFit(payload,x,y){ return `<text x='${x}' y='${y}' fill='#63b6ff' font-size='13'>Top Role: ${escapeXml(payload.roleFit.topRole)} (${payload.roleFit.topScore})</text>`; }
-  function renderOutcomeBadge(payload,x,y){ return `<rect x='${x}' y='${y-18}' width='120' height='28' rx='8' fill='#1f3f62'/><text x='${x+8}' y='${y}' fill='#fff' font-size='13'>Score ${payload.outcome.score}</text>`; }
+  function renderOutcomeBadge(payload,x,y){ return `<rect x='${x}' y='${y-18}' width='120' height='28' rx='8' fill='#1f3f62'/><text x='${x+8}' y='${y}' fill='#fff' font-size='13'>Score ${payload.score}</text>`; }
   function exportSvgString(parts){ return parts.join("")+"</svg>"; }
 
   function renderResult(payload,valid){
@@ -418,12 +722,12 @@
       const nextY = layout==="full" ? 392 : layout==="story" ? 286 : 244;
       const timelineCount = layout==="compact" ? 3 : 4;
       s.push(`<text x='20' y='28' fill='#f2f5ff' font-size='16' font-weight='700'>${escapeXml(payload.mission.title)}</text>`);
-      s.push(`<text x='20' y='48' fill='#9fb0d9' font-size='12'>Player: ${escapeXml(payload.player.name)} · Zone: ${escapeXml(payload.mission.zoneId)}</text>`);
+      s.push(`<text x='20' y='48' fill='#9fb0d9' font-size='12'>Player: ${escapeXml(payload.player.name)} · Mission: ${escapeXml(payload.missionId)}</text>`);
       s.push(renderOutcomeBadge(payload,20,76));
       s.push(renderRoleFit(payload,160,76));
       s.push(renderSkillBars(payload,20,120));
       s.push(renderTimeline(payload,20,timelineY,timelineCount));
-      s.push(`<text x='20' y='${nextY}' fill='#ffd88f' font-size='11'>Next: ${escapeXml(payload.nextSteps[0]||"")}</text>`);
+      s.push(`<text x='20' y='${nextY}' fill='#ffd88f' font-size='11'>Next: ${escapeXml(payload.recommendations[0]||"")}</text>`);
       const svg=exportSvgString(s);
       markAgent("svg_renderer: svg_render_completed");
       logEvent("svg_render_succeeded",{id:payload.id});
@@ -437,48 +741,44 @@
     }
   }
 
-  function runMission(zone, archetype, choice){
+  function advanceMission(zone, mission, optionId){
+    const run=state.activeMissionRun;
     const user=currentUser();
-    if(!user){ alert("Sign up or log in first."); return; }
-    logEvent("mission_started",{zone:zone.id,type:zone.missionType});
-    markAgent("mission_engine: mission_started");
-
-    Object.entries(choice.d).forEach(([k,v])=>{
-      user.skills[k]=Math.max(0,Math.min(100,(user.skills[k]||50)+v));
-      logEvent("mission_step_completed",{skill:k,delta:v});
-    });
-
-    zone.control=Math.max(0,Math.min(100,zone.control+choice.territory));
-    if(zone.control>55) zone.owner="player";
-
-    const timeline=[
-      `Mission launched in ${zone.name}`,
-      `Decision: ${choice.txt}`,
-      `Territory shift +${choice.territory}%`,
-      `Resource change ${choice.resource}`
-    ];
-
-    markAgent("skill_analyzer: skill_analysis_started");
-    const result = normalizeResultPayload({player:user,zone,archetype,choice,timeline});
-    logEvent("mission_result_payload_created",{id:result.id});
-    const valid=validateResultPayload(result);
-    markAgent("skill_analyzer: skill_analysis_completed");
-    const rendered=renderResult(result, valid);
-
-    const vaultItem={
-      id:result.id, createdAt:new Date().toISOString(),
-      raw:result, normalized:result,
-      svg:rendered.svg||null, fallback:rendered.fallback||null,
-      report:summarizeResultPayload(result), roleFit:result.roleFit
-    };
-
-    state.proofVault.unshift(vaultItem); state.proofVault=state.proofVault.slice(0,120);
-    state.missions.unshift(result);
-    state.roleFitHistory.unshift(result.roleFit);
-    markAgent("proof_vault: proof_saved");
-    logEvent("proof_saved",{id:result.id});
-    logEvent("mission_completed",{id:result.id});
-    render();
+    if(!run || !user) return;
+    const isFinal=run.stepIndex>=mission.steps.length;
+    const optionSet=isFinal?mission.finalDecision.options:mission.steps[run.stepIndex].options;
+    const option=optionSet.find(o=>o.id===optionId);
+    if(!option) return;
+    run.selections.push({step:isFinal?"final":mission.steps[run.stepIndex].id,option:option.text,effects:option.effects});
+    run.timeline.push(option.timeline || `Decision made: ${option.text}`);
+    if(!isFinal && run.stepIndex===2 && !run.contextEventShown){
+      run.timeline.push(`Unexpected event: ${mission.unexpectedEvent}`);
+      run.contextEventShown=true;
+    }
+    if(isFinal){
+      const effects=aggregateEffects(run);
+      applyEffects(user,effects);
+      zone.control=Math.max(0,Math.min(100,zone.control+Math.round(Object.values(effects).reduce((a,b)=>a+b,0)/8)));
+      if(zone.control>55) zone.owner="player";
+      markAgent("skill_analyzer: skill_analysis_started");
+      const result = normalizeResultPayload({player:user,zone,mission,timeline:run.timeline,effects,outcomeText:option.outcome||"Mission completed."});
+      logEvent("mission_result_payload_created",{id:result.id,missionId:mission.id});
+      const valid=validateResultPayload(result);
+      markAgent("skill_analyzer: skill_analysis_completed");
+      const rendered=renderResult(result, valid);
+      const vaultItem={id:result.id,createdAt:new Date().toISOString(),raw:result,normalized:result,svg:rendered.svg||null,fallback:rendered.fallback||null,report:summarizeResultPayload(result),roleFit:result.roleFit};
+      state.proofVault.unshift(vaultItem); state.proofVault=state.proofVault.slice(0,120);
+      state.missions.unshift(result);
+      state.roleFitHistory.unshift(result.roleFit);
+      state.activeMissionRun=null;
+      markAgent("proof_vault: proof_saved");
+      logEvent("proof_saved",{id:result.id});
+      logEvent("mission_completed",{id:result.id,missionId:mission.id});
+      render();
+      return;
+    }
+    run.stepIndex += 1;
+    renderMissionPanel();
   }
 
   function renderVault(){
@@ -515,7 +815,7 @@
     const user=currentUser();
     const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist"};
     const fit=roleFitFromSkills(candidate.skills||baseUser());
-    const recent=state.missions.slice(0,3).map(m=>`<li>${escapeXml(m.mission.title)} (${m.outcome.score})</li>`).join("") || "<li>No missions yet</li>";
+    const recent=state.missions.slice(0,3).map(m=>`<li>${escapeXml(m.mission.title)} (${m.score})</li>`).join("") || "<li>No missions yet</li>";
     const territory=state.zones.filter(z=>z.owner==="player").length;
     el.recruiterBox.innerHTML=`<b>Player Card:</b> ${escapeXml(candidate.displayName)}<br><span class='mini'>${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
       <div class='mini'>Territory holdings: ${territory}/25 · Skill velocity: ${state.missions.length?"active":"idle"}</div>
