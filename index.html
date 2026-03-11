@@ -3,132 +3,523 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SkillHex Mission Control - Firebase Data Model</title>
+    <title>SkillHex: Mission Control</title>
     <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #121a30;
+        --panel-2: #17213b;
+        --text: #ebefff;
+        --muted: #a9b5da;
+        --accent: #69b6ff;
+        --accent-2: #00d3b8;
+        --danger: #ff6f7d;
+        --line: #2c385f;
+        --gold: #f2d88a;
+        --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      }
+      * { box-sizing: border-box; }
       body {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-        margin: 2rem;
-        background: #0f172a;
-        color: #e2e8f0;
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at 80% -20%, #2d355e 0%, #10172b 40%, #0b1020 80%);
+        min-height: 100vh;
       }
-      h1 {
-        margin-bottom: 0.5rem;
+      .shell { max-width: 1280px; margin: 0 auto; padding: 20px; }
+      .hero {
+        border: 1px solid var(--line); background: linear-gradient(160deg, rgba(120,152,255,.18), rgba(0,0,0,.2));
+        border-radius: 18px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px;
       }
-      p {
-        color: #cbd5e1;
+      .hero h1 { margin: 0 0 6px; font-size: 1.8rem; }
+      .tagline { color: var(--gold); font-weight: 600; margin-bottom: 10px; }
+      .meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: .92rem; }
+      .badge { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; background: rgba(0,0,0,.2); }
+
+      .layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+      .panel h2 { margin: 0 0 10px; font-size: 1.02rem; }
+      .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+      .tab {
+        border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--muted);
+        padding: 8px 10px; cursor: pointer; font-weight: 600;
       }
-      pre {
-        background: #111827;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1rem;
-        overflow: auto;
-        line-height: 1.35;
+      .tab.active { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(105,182,255,.25); }
+      .mode-view { display: none; }
+      .mode-view.active { display: block; }
+
+      .map-wrap { display: grid; grid-template-columns: 1fr 280px; gap: 12px; align-items: start; }
+      canvas { width: 100%; background: radial-gradient(circle at 30% 15%, #3c1f1e, #2a1615 50%, #1f1212 100%); border-radius: 14px; border: 1px solid #573432; }
+      .stat-grid { display: grid; gap: 8px; }
+      .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px; }
+      .label { color: var(--muted); font-size: .82rem; }
+      .value { font-weight: 700; margin-top: 2px; }
+
+      .mission-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--panel-2); margin-bottom: 10px; }
+      .mission-type { font-size: .78rem; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
+      .choices { display: grid; gap: 8px; margin-top: 8px; }
+      button, .btn {
+        border: 1px solid var(--line); background: linear-gradient(180deg, #223053, #172342); color: var(--text);
+        padding: 8px 10px; border-radius: 10px; cursor: pointer;
       }
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono,
-          Courier New, monospace;
-        font-size: 0.9rem;
+      button:hover { border-color: var(--accent); }
+      .ghost { background: transparent; }
+      .primary { border-color: #4d8fde; background: linear-gradient(180deg, #2b4c7a, #203b62); }
+      .good { color: var(--accent-2); }
+      .bad { color: var(--danger); }
+      .flex { display: flex; gap: 8px; flex-wrap: wrap; }
+      input, select {
+        width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #0d1428; color: var(--text); padding: 8px;
+      }
+
+      .skills { display: grid; gap: 8px; }
+      .skill-row { display: grid; grid-template-columns: 120px 1fr 44px; gap: 8px; align-items: center; }
+      .bar { background: #101932; height: 9px; border-radius: 20px; overflow: hidden; border: 1px solid #2e3d6d; }
+      .bar > span { display: block; height: 100%; background: linear-gradient(90deg, #4d8fde, #00d3b8); }
+
+      .feed { max-height: 220px; overflow: auto; display: grid; gap: 8px; }
+      .event { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #0d1529; font-size: .87rem; }
+      .tiny { font-size: .78rem; color: var(--muted); }
+
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: 1fr; }
+        .map-wrap { grid-template-columns: 1fr; }
       }
     </style>
   </head>
   <body>
-    <h1>Firebase-Friendly Data Model</h1>
-    <p>Canonical Firestore collections and document fields for SkillHex Mission Control.</p>
-    <pre><code id="model"></code></pre>
+    <div class="shell">
+      <section class="hero">
+        <h1>SkillHex: Mission Control</h1>
+        <div class="tagline">“Not a resume. Not a leaderboard. A living proof-of-skill map.”</div>
+        <div class="meta">
+          <div class="badge" id="persistenceBadge"></div>
+          <div class="badge" id="playerBadge"></div>
+          <div class="badge" id="territoryBadge"></div>
+        </div>
+      </section>
+
+      <div class="layout">
+        <section class="panel">
+          <div class="tabs" id="modeTabs"></div>
+
+          <div class="mode-view active" data-mode="Demo">
+            <h2>Demo Command Deck</h2>
+            <p class="tiny">Explore all systems quickly: run missions, claim hexes, and inspect recruiter fit.</p>
+            <div class="map-wrap">
+              <div>
+                <canvas id="mapCanvas" width="740" height="520"></canvas>
+                <div class="tiny">Click a hex to focus it. Hex owner color: you (cyan), AI rivals (orange/purple), neutral (slate).</div>
+              </div>
+              <div class="stat-grid" id="demoStats"></div>
+            </div>
+          </div>
+
+          <div class="mode-view" data-mode="Solo Missions">
+            <h2>Solo Missions</h2>
+            <div id="soloMission"></div>
+          </div>
+
+          <div class="mode-view" data-mode="Room Mode">
+            <h2>Room Mode</h2>
+            <div class="flex">
+              <input id="roomName" placeholder="Room name (e.g., GTM-Alpha)" />
+              <button class="primary" id="createRoomBtn">Create Room</button>
+            </div>
+            <div class="flex" style="margin-top:8px;">
+              <input id="roomCode" placeholder="Enter room code" />
+              <button id="joinRoomBtn">Join</button>
+            </div>
+            <div id="roomState" class="mission-card" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="mode-view" data-mode="Recruiter View">
+            <h2>Recruiter Lens</h2>
+            <div class="mission-card">
+              <div class="label">Role Target</div>
+              <select id="roleTarget"></select>
+              <div id="fitSummary" style="margin-top:8px;"></div>
+              <div class="flex" style="margin-top:8px;">
+                <button id="shortlistBtn" class="primary">Add to Shortlist</button>
+                <button id="replayBtn">Replay Last Mission</button>
+              </div>
+            </div>
+            <div id="shortlist" class="feed"></div>
+          </div>
+        </section>
+
+        <aside class="panel">
+          <h2>Player Profile</h2>
+          <div class="mission-card">
+            <div class="label">Player</div>
+            <div class="value" id="playerName"></div>
+            <div class="tiny" id="growthText"></div>
+          </div>
+          <div class="skills" id="skills"></div>
+          <h2 style="margin-top:14px;">Telemetry Feed</h2>
+          <div class="feed" id="telemetry"></div>
+          <div class="flex" style="margin-top:10px;">
+            <button id="resetBtn" class="ghost">Reset Local Data</button>
+          </div>
+        </aside>
+      </div>
+    </div>
 
     <script>
-      const firebaseDataModel = {
-        users: {
-          path: 'users/{userId}',
-          fields: {
-            id: 'string',
-            type: 'player | recruiter',
-            displayName: 'string',
-            companyName: 'string | null',
-            rolePath: 'string',
-            createdAt: 'Timestamp',
-            skills: 'Record&lt;string, number&gt;',
-            territoryCount: 'number',
-            capturedHexes: 'string[]',
-            recentSkillVelocity: 'Record&lt;string, number&gt;',
-            shortlisted: 'string[]'
-          }
-        },
-        rooms: {
-          path: 'rooms/{roomId}',
-          fields: {
-            id: 'string',
-            code: 'string',
-            hostId: 'string',
-            mode: 'string',
-            status: 'waiting | active | completed',
-            createdAt: 'Timestamp',
-            playerIds: 'string[]',
-            currentMissionId: 'string | null',
-            selectedHexId: 'string | null',
-            scores: 'Record&lt;string, number&gt;'
-          }
-        },
-        missions: {
-          path: 'missions/{missionId}',
-          fields: {
-            id: 'string',
-            type: 'tactical | simulation | competitive',
-            zoneType: 'string',
-            title: 'string',
-            description: 'string',
-            difficulty: 'number',
-            targetSkills: 'string[]'
-          }
-        },
-        missionRuns: {
-          path: 'missionRuns/{runId}',
-          fields: {
-            id: 'string',
-            missionId: 'string',
-            roomId: 'string',
-            userId: 'string',
-            startedAt: 'Timestamp',
-            completedAt: 'Timestamp | null',
-            decisions: 'Array&lt;Record&lt;string, unknown&gt;&gt;',
-            score: 'number',
-            skillDeltas: 'Record&lt;string, number&gt;',
-            tradeoffs: 'Array&lt;Record&lt;string, unknown&gt;&gt;',
-            territoryDelta: 'number',
-            outcomeSummary: 'string'
-          }
-        },
-        mapState: {
-          path: 'mapState/{mapId}',
-          fields: {
-            id: 'string',
-            zones: 'Array&lt;{ owner: string, control: number, missionType: string, targetSkill: string }&gt;'
-          }
-        },
-        recruiterActions: {
-          path: 'recruiterActions/{actionId}',
-          fields: {
-            recruiterId: 'string',
-            playerId: 'string',
-            actionType: 'viewed | shortlisted | tagged | contacted',
-            timestamp: 'Timestamp'
-          }
-        },
-        analyticsEvents: {
-          path: 'analyticsEvents/{eventId}',
-          fields: {
-            type: 'string',
-            userId: 'string',
-            roomId: 'string | null',
-            missionId: 'string | null',
-            payload: 'Record&lt;string, unknown&gt;',
-            timestamp: 'Timestamp'
-          }
-        }
-      };
+      (() => {
+        const STORAGE_KEY = "skillhex-mission-control-v1";
+        const MODES = ["Demo", "Solo Missions", "Room Mode", "Recruiter View"];
+        const SKILLS = ["Systems Thinking", "Communication", "Execution", "Adaptability", "Leadership"];
+        const ROLE_PROFILES = {
+          "Product Manager": { "Systems Thinking": 75, Communication: 80, Execution: 70, Adaptability: 68, Leadership: 72 },
+          "Operations Lead": { "Systems Thinking": 65, Communication: 62, Execution: 84, Adaptability: 70, Leadership: 65 },
+          "Strategy Analyst": { "Systems Thinking": 83, Communication: 66, Execution: 60, Adaptability: 72, Leadership: 55 }
+        };
 
-      document.getElementById('model').textContent = JSON.stringify(firebaseDataModel, null, 2);
+        const missionTemplates = {
+          tactical: {
+            title: "Breach Logistics Grid",
+            prompt: "A supply corridor is disrupted. Choose a response pattern.",
+            choices: [
+              { text: "Rapid reroute through untested lane", delta: { Execution: 8, Adaptability: 5, Communication: -2 }, territory: 2 },
+              { text: "Cross-team sync before movement", delta: { Communication: 7, Leadership: 4, Execution: -1 }, territory: 1 },
+              { text: "Hold and model probable outcomes", delta: { "Systems Thinking": 8, Execution: -2 }, territory: 0 }
+            ]
+          },
+          simulation: {
+            title: "Market Shock Simulation",
+            prompt: "Demand collapses in one region and spikes in another.",
+            choices: [
+              { text: "Rebalance resources immediately", delta: { Adaptability: 8, Execution: 4, Leadership: -2 }, territory: 1 },
+              { text: "Build scenario stack with confidence ranges", delta: { "Systems Thinking": 9, Communication: 2, Execution: -1 }, territory: 1 },
+              { text: "Assign squad captains with local autonomy", delta: { Leadership: 7, Communication: 5, "Systems Thinking": -2 }, territory: 2 }
+            ]
+          },
+          competitive: {
+            title: "Rival Team Negotiation",
+            prompt: "A rival room challenges your claim on strategic hexes.",
+            choices: [
+              { text: "Outbid with data-backed concession", delta: { Communication: 6, "Systems Thinking": 4, Execution: -1 }, territory: 1 },
+              { text: "Bluff confidence and force timeline", delta: { Leadership: 6, Execution: 3, Communication: -3 }, territory: 2 },
+              { text: "Split-zone treaty for long-term edge", delta: { Adaptability: 5, Leadership: 3, "Systems Thinking": 4 }, territory: 1 }
+            ]
+          }
+        };
+
+        const firebaseHooks = {
+          enabled: !!(window.firebaseConfig && window.firebase),
+          async saveState(state) {
+            if (!this.enabled) return false;
+            try { console.info("Firebase hook: saveState", state); return true; } catch { return false; }
+          },
+          async logEvent(event) {
+            if (!this.enabled) return false;
+            try { console.info("Firebase hook: logEvent", event); return true; } catch { return false; }
+          }
+        };
+
+        const makeDefaultState = () => ({
+          player: {
+            name: "Pilot-01",
+            skills: { "Systems Thinking": 52, Communication: 48, Execution: 55, Adaptability: 50, Leadership: 45 },
+            growth: [], territory: 2, shortlistCount: 0
+          },
+          map: Array.from({ length: 37 }, (_, i) => ({ id: i, owner: i % 9 === 0 ? "rivalA" : i % 7 === 0 ? "rivalB" : i % 5 === 0 ? "player" : "neutral", control: 40 + (i * 9) % 55, missionType: ["tactical", "simulation", "competitive"][i % 3] })),
+          telemetry: [],
+          rooms: {},
+          activeRoom: null,
+          lastMission: null,
+          mode: "Demo",
+          selectedHex: 0,
+          shortlist: []
+        });
+
+        const loadState = () => {
+          try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : makeDefaultState(); }
+          catch { return makeDefaultState(); }
+        };
+
+        let state = loadState();
+
+        const el = {
+          modeTabs: document.getElementById("modeTabs"),
+          modeViews: () => Array.from(document.querySelectorAll(".mode-view")),
+          mapCanvas: document.getElementById("mapCanvas"),
+          demoStats: document.getElementById("demoStats"),
+          soloMission: document.getElementById("soloMission"),
+          roomState: document.getElementById("roomState"),
+          roomName: document.getElementById("roomName"),
+          roomCode: document.getElementById("roomCode"),
+          createRoomBtn: document.getElementById("createRoomBtn"),
+          joinRoomBtn: document.getElementById("joinRoomBtn"),
+          roleTarget: document.getElementById("roleTarget"),
+          fitSummary: document.getElementById("fitSummary"),
+          shortlistBtn: document.getElementById("shortlistBtn"),
+          replayBtn: document.getElementById("replayBtn"),
+          shortlist: document.getElementById("shortlist"),
+          skills: document.getElementById("skills"),
+          telemetry: document.getElementById("telemetry"),
+          playerName: document.getElementById("playerName"),
+          growthText: document.getElementById("growthText"),
+          persistenceBadge: document.getElementById("persistenceBadge"),
+          playerBadge: document.getElementById("playerBadge"),
+          territoryBadge: document.getElementById("territoryBadge"),
+          resetBtn: document.getElementById("resetBtn")
+        };
+
+        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+        const code = () => Math.random().toString(36).slice(2, 7).toUpperCase();
+
+        function log(type, payload = {}) {
+          const entry = { t: new Date().toISOString(), type, payload };
+          state.telemetry.unshift(entry);
+          state.telemetry = state.telemetry.slice(0, 50);
+          firebaseHooks.logEvent(entry);
+        }
+
+        function save() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          firebaseHooks.saveState(state);
+        }
+
+        function applyChoice(missionType, choice) {
+          Object.entries(choice.delta).forEach(([k, v]) => { state.player.skills[k] = clamp((state.player.skills[k] || 0) + v, 0, 100); });
+          state.player.territory += choice.territory;
+          state.player.growth.push({ at: Date.now(), missionType, delta: choice.delta });
+
+          for (let i = 0; i < choice.territory; i++) {
+            const neutral = state.map.find(h => h.owner !== "player");
+            if (neutral) neutral.owner = "player";
+          }
+
+          state.lastMission = { missionType, choice: choice.text, delta: choice.delta, at: new Date().toLocaleString() };
+          log("mission.completed", { missionType, choice: choice.text, delta: choice.delta, territoryGain: choice.territory });
+          save();
+          render();
+        }
+
+        function currentMission() {
+          const selected = state.map[state.selectedHex] || state.map[0];
+          return missionTemplates[selected.missionType];
+        }
+
+        function renderModeTabs() {
+          el.modeTabs.innerHTML = "";
+          MODES.forEach(mode => {
+            const b = document.createElement("button");
+            b.className = `tab ${state.mode === mode ? "active" : ""}`;
+            b.textContent = mode;
+            b.onclick = () => { state.mode = mode; log("mode.switch", { mode }); save(); render(); };
+            el.modeTabs.appendChild(b);
+          });
+
+          el.modeViews().forEach(v => v.classList.toggle("active", v.dataset.mode === state.mode));
+        }
+
+        function drawMap() {
+          const c = el.mapCanvas, ctx = c.getContext("2d");
+          const size = 34, rows = 6, cols = 7, h = Math.sqrt(3) * size;
+          ctx.clearRect(0, 0, c.width, c.height);
+
+          state.map.forEach((hex, i) => {
+            const row = Math.floor(i / cols), col = i % cols;
+            const x = 70 + col * size * 1.5;
+            const y = 65 + row * h + (col % 2 ? h / 2 : 0);
+            hex.cx = x; hex.cy = y;
+            const color = hex.owner === "player" ? "#2f8ea8" : hex.owner === "rivalA" ? "#9b5d2d" : hex.owner === "rivalB" ? "#6d4ca6" : "#4d556a";
+            drawHex(ctx, x, y, size, color, state.selectedHex === i);
+            ctx.fillStyle = "#dbe7ff";
+            ctx.font = "11px Inter";
+            ctx.fillText(String(i + 1), x - 4, y + 4);
+          });
+        }
+
+        function drawHex(ctx, x, y, size, fill, selected) {
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const a = Math.PI / 180 * (60 * i + 30);
+            const px = x + size * Math.cos(a), py = y + size * Math.sin(a);
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fillStyle = fill;
+          ctx.fill();
+          ctx.lineWidth = selected ? 3 : 1;
+          ctx.strokeStyle = selected ? "#fff7c0" : "rgba(255,255,255,.2)";
+          ctx.stroke();
+        }
+
+        function bindMapClick() {
+          el.mapCanvas.onclick = (e) => {
+            const rect = el.mapCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (el.mapCanvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (el.mapCanvas.height / rect.height);
+            let best = 0, dist = Infinity;
+            state.map.forEach((h, i) => {
+              const d = Math.hypot(h.cx - x, h.cy - y);
+              if (d < dist) { dist = d; best = i; }
+            });
+            state.selectedHex = best;
+            log("map.hex_selected", { hex: best + 1, missionType: state.map[best].missionType });
+            save(); render();
+          };
+        }
+
+        function renderStats() {
+          const owned = state.map.filter(h => h.owner === "player").length;
+          const selected = state.map[state.selectedHex];
+          el.demoStats.innerHTML = `
+            <div class="stat"><div class="label">Focused Hex</div><div class="value">#${state.selectedHex + 1} · ${selected.missionType}</div></div>
+            <div class="stat"><div class="label">Owner</div><div class="value">${selected.owner}</div></div>
+            <div class="stat"><div class="label">Control Strength</div><div class="value">${selected.control}%</div></div>
+            <div class="stat"><div class="label">Total Territories</div><div class="value">${owned} / ${state.map.length}</div></div>
+          `;
+          el.territoryBadge.textContent = `Territory: ${owned}/${state.map.length}`;
+        }
+
+        function renderSoloMission() {
+          const key = state.map[state.selectedHex].missionType;
+          const m = missionTemplates[key];
+          el.soloMission.innerHTML = `
+            <div class="mission-card">
+              <div class="mission-type">${key}</div>
+              <h3 style="margin:6px 0;">${m.title}</h3>
+              <div class="tiny">${m.prompt}</div>
+              <div class="choices">
+                ${m.choices.map((c, idx) => `<button data-idx="${idx}">${c.text}</button>`).join("")}
+              </div>
+              <div class="tiny" style="margin-top:8px;">Each choice creates skill gains and trade-offs. Territory shifts persist across modes.</div>
+            </div>`;
+          el.soloMission.querySelectorAll("button").forEach(btn => btn.onclick = () => applyChoice(key, m.choices[Number(btn.dataset.idx)]));
+        }
+
+        function renderProfile() {
+          el.playerName.textContent = state.player.name;
+          const recent = state.player.growth.slice(-3).map(g => g.missionType).join(" → ") || "No missions yet";
+          el.growthText.textContent = `Growth path: ${recent}`;
+          el.skills.innerHTML = SKILLS.map(s => `
+            <div class="skill-row">
+              <div class="tiny">${s}</div>
+              <div class="bar"><span style="width:${state.player.skills[s]}%"></span></div>
+              <div class="tiny">${state.player.skills[s]}</div>
+            </div>
+          `).join("");
+          el.playerBadge.textContent = `Pilot: ${state.player.name}`;
+        }
+
+        function renderTelemetry() {
+          el.telemetry.innerHTML = state.telemetry.map(e => `
+            <div class="event">
+              <div><strong>${e.type}</strong></div>
+              <div class="tiny">${new Date(e.t).toLocaleTimeString()} · ${JSON.stringify(e.payload)}</div>
+            </div>
+          `).join("") || `<div class="tiny">No telemetry yet. Start a mission.</div>`;
+        }
+
+        function renderRoom() {
+          const room = state.activeRoom ? state.rooms[state.activeRoom] : null;
+          if (!room) {
+            el.roomState.innerHTML = `<div class="tiny">No active room. Create or join to run competitive coordination.</div>`;
+            return;
+          }
+          el.roomState.innerHTML = `
+            <div class="mission-type">Room ${room.code}</div>
+            <div><strong>${room.name}</strong></div>
+            <div class="tiny">Players: ${room.players.join(", ")}</div>
+            <div class="tiny">Status: ${room.status}</div>
+            <div class="flex" style="margin-top:8px;">
+              <button id="roomRunMission">Run Competitive Round</button>
+            </div>
+          `;
+          document.getElementById("roomRunMission").onclick = () => {
+            const m = missionTemplates.competitive;
+            const pick = m.choices[Math.floor(Math.random() * m.choices.length)];
+            applyChoice("competitive", pick);
+            room.status = "active";
+            log("room.round", { room: room.code, choice: pick.text });
+            save(); render();
+          };
+        }
+
+        function roleFit(role) {
+          const target = ROLE_PROFILES[role];
+          let gap = 0;
+          SKILLS.forEach(s => gap += Math.abs(target[s] - state.player.skills[s]));
+          return Math.max(0, Math.round(100 - gap / SKILLS.length));
+        }
+
+        function renderRecruiter() {
+          el.roleTarget.innerHTML = Object.keys(ROLE_PROFILES).map(r => `<option>${r}</option>`).join("");
+          const selected = el.roleTarget.value || Object.keys(ROLE_PROFILES)[0];
+          el.roleTarget.value = selected;
+          const fit = roleFit(selected);
+          const strengths = SKILLS.sort((a, b) => state.player.skills[b] - state.player.skills[a]).slice(0, 2).join(", ");
+          el.fitSummary.innerHTML = `
+            <div class="value">Fit Score: ${fit}/100</div>
+            <div class="tiny">Top signals: ${strengths}. Trade-off evidence visible in mission telemetry and replay.</div>
+          `;
+          el.shortlist.innerHTML = state.shortlist.map(s => `<div class="event"><strong>${s.role}</strong><div class="tiny">${s.at} · Fit ${s.fit}</div></div>`).join("") || `<div class="tiny">No shortlist entries yet.</div>`;
+        }
+
+        function renderTopMeta() {
+          el.persistenceBadge.textContent = firebaseHooks.enabled ? "Persistence: Firebase + Local" : "Persistence: Local Mock Mode";
+        }
+
+        el.createRoomBtn.onclick = () => {
+          const name = (el.roomName.value || "Untitled Room").trim();
+          const c = code();
+          state.rooms[c] = { code: c, name, status: "waiting", players: [state.player.name] };
+          state.activeRoom = c;
+          log("room.created", { code: c, name });
+          save(); render();
+        };
+        el.joinRoomBtn.onclick = () => {
+          const c = (el.roomCode.value || "").trim().toUpperCase();
+          if (!state.rooms[c]) { log("room.join_failed", { code: c }); alert("Room not found in local state."); return; }
+          if (!state.rooms[c].players.includes(state.player.name)) state.rooms[c].players.push(state.player.name);
+          state.activeRoom = c;
+          log("room.joined", { code: c });
+          save(); render();
+        };
+        el.roleTarget.onchange = () => renderRecruiter();
+        el.shortlistBtn.onclick = () => {
+          const role = el.roleTarget.value;
+          const fit = roleFit(role);
+          state.shortlist.unshift({ role, fit, at: new Date().toLocaleString() });
+          state.shortlist = state.shortlist.slice(0, 8);
+          state.player.shortlistCount = state.shortlist.length;
+          log("recruiter.shortlist", { role, fit });
+          save(); render();
+        };
+        el.replayBtn.onclick = () => {
+          if (!state.lastMission) return alert("No mission replay available yet.");
+          alert(`Replay: ${state.lastMission.missionType}\nDecision: ${state.lastMission.choice}\nSkill delta: ${JSON.stringify(state.lastMission.delta)}\nTime: ${state.lastMission.at}`);
+          log("recruiter.replay", { missionType: state.lastMission.missionType });
+          save(); render();
+        };
+        el.resetBtn.onclick = () => {
+          if (!confirm("Reset all local SkillHex data?")) return;
+          state = makeDefaultState();
+          log("state.reset");
+          save(); render();
+        };
+
+        function render() {
+          renderModeTabs();
+          drawMap();
+          renderStats();
+          renderSoloMission();
+          renderProfile();
+          renderTelemetry();
+          renderRoom();
+          renderRecruiter();
+          renderTopMeta();
+        }
+
+        bindMapClick();
+        log("app.loaded", { mode: state.mode, firebase: firebaseHooks.enabled });
+        render();
+      })();
     </script>
   </body>
 </html>
