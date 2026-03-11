@@ -150,7 +150,7 @@
   ];
   const skillsList = skillConfig.map(s=>s.key);
   const skillLabelMap = Object.fromEntries(skillConfig.map(s=>[s.key,s.label]));
-  const roleFamilies = ["Software Engineering","Data / Analytics","Finance / Analyst","Operations","Product / Strategy","Research / Science"];
+  const roleFamilies = ["Software Engineering","Operations Analyst","Product Manager","Systems Engineer","Strategy Analyst"];
 
   const seededJobs = [
     {company:"Google",role:"Associate Product Analyst",location:"Bengaluru",sourceType:"source-backed",sourceUrl:"https://careers.google.com",requiredSkills:["Systems Thinking","Prioritization"],preferredSkills:["Collaboration"],minEducation:"Bachelor",ageEligibilityNote:"18+",compensationType:"salary",compensationRange:"₹14L-28L",lastUpdated:"2026-01-03",active:true,confidenceLevel:0.82},
@@ -420,6 +420,11 @@
     }
   ];
 
+  missionScenarios.forEach(m=>{
+    m.decisions=(m.steps||[]).map((d,i)=>({step:i+1,description:d.text,options:d.options,skillImpact:d.options?.map(o=>o.effects||{})||[]}));
+    m.events=[m.unexpectedEvent];
+  });
+
   const tutorialSteps = [
     ["Mission Control Map","This Mars-style hex grid is your living proof terrain. Each zone represents a capability domain and mission opportunity."],
     ["Hex Control","Tap/click a hex to inspect. Completing missions increases control percentage and can change ownership."],
@@ -567,18 +572,18 @@
   function lowSkills(s){ return [...Object.entries(s)].sort((a,b)=>a[1]-b[1]).slice(0,2).map(x=>x[0]); }
 
   function roleFitFromSkills(skills){
-    const profiles={
-      "Software Engineering":{systemsThinking:.28,executionReliability:.25,analyticalThinking:.2,adaptability:.12,collaboration:.15},
-      "Data / Analytics":{analyticalThinking:.35,systemsThinking:.25,prioritization:.2,executionReliability:.2},
-      "Finance / Analyst":{analyticalThinking:.32,prioritization:.22,strategicThinking:.16,executionReliability:.3},
-      "Operations":{resourceEfficiency:.28,executionReliability:.28,collaboration:.2,crisisResponse:.24},
-      "Product / Strategy":{systemsThinking:.22,prioritization:.2,leadership:.18,collaboration:.15,strategicThinking:.25},
-      "Research / Science":{analyticalThinking:.35,systemsThinking:.3,adaptability:.15,executionReliability:.2}
-    };
-    return roleFamilies.map(r=>{
-      const w=profiles[r]; let score=0;
-      Object.keys(w).forEach(sk=>score+=(skills[sk]||0)*w[sk]);
-      return {role:r,score:Math.round(score),reason:`Matched because of ${topSkills(skills).map(k=>skillLabelMap[k]||k).join(" + ")}. Gap likely in ${lowSkills(skills).map(k=>skillLabelMap[k]||k).join(" / ")}.`};
+    const mapping=[
+      {role:"Software Engineering",rules:[["systemsThinking",0.28],["analyticalThinking",0.24],["executionReliability",0.22],["adaptability",0.14],["collaboration",0.12]]},
+      {role:"Operations Analyst",rules:[["systemsThinking",0.24],["prioritization",0.2],["resourceEfficiency",0.2],["crisisResponse",0.18],["executionReliability",0.18]]},
+      {role:"Product Manager",rules:[["prioritization",0.24],["strategicThinking",0.24],["collaboration",0.2],["leadership",0.18],["adaptability",0.14]]},
+      {role:"Systems Engineer",rules:[["systemsThinking",0.3],["resourceEfficiency",0.2],["crisisResponse",0.2],["executionReliability",0.18],["analyticalThinking",0.12]]},
+      {role:"Strategy Analyst",rules:[["analyticalThinking",0.3],["strategicThinking",0.28],["prioritization",0.18],["systemsThinking",0.14],["adaptability",0.1]]}
+    ];
+    return mapping.map(({role,rules})=>{
+      const score=rules.reduce((sum,[k,w])=>sum+((skills[k]||0)*w),0);
+      const confidence=Math.max(35,Math.min(99,Math.round(score)));
+      return { role, score:Math.round(score), confidence,
+        reason:`Signals strongest in ${topSkills(skills).map(k=>skillLabelMap[k]||k).join(" + ")}. Improve ${lowSkills(skills).map(k=>skillLabelMap[k]||k).join(" / ")}.`};
     }).sort((a,b)=>b.score-a.score);
   }
 
@@ -611,7 +616,7 @@
   }
 
   function beginMission(zone, mission){
-    state.activeMissionRun={zoneId:zone.id,missionId:mission.id,stepIndex:0,selections:[],effects:{},timeline:[`Mission started: ${mission.title}`],contextEventShown:false};
+    state.activeMissionRun={zoneId:zone.id,missionId:mission.id,stepIndex:0,selections:[],effects:{},timeline:[{time:"T+0m",event:"Scenario",playerDecision:"Mission initialized",skillChanges:{}}],contextEventShown:false,startedAt:Date.now()};
     logEvent("mission_started",{zone:zone.id,missionId:mission.id});
     markAgent("mission_engine: mission_started");
     renderMissionPanel();
@@ -636,11 +641,16 @@
     if(!state.selectedZone) state.selectedZone=z.id;
     const mission=getMissionForZone(z);
     const run=state.activeMissionRun && state.activeMissionRun.zoneId===z.id ? state.activeMissionRun : null;
+    const latest=state.missions[0];
+    const renderFeedback=(m)=>{
+      if(!m||!m.feedback) return "";
+      return `<div class='evt' style='margin-top:8px'><b>Player Feedback</b><div class='mini'>What you did well: ${(m.feedback.didWell||[]).join(' · ')||'n/a'}</div><div class='mini'>What you missed: ${(m.feedback.missed||[]).join(' · ')||'n/a'}</div><div class='mini'>Skills improved: ${(m.feedback.improved||[]).map(([k,v])=>`${skillLabelMap[k]} (+${v})`).join(', ')||'none'}</div><div class='mini'>Skills weakened: ${(m.feedback.weakened||[]).map(([k,v])=>`${skillLabelMap[k]} (${v})`).join(', ')||'none'}</div></div>`;
+    };
     el.zoneBox.innerHTML=`<b>${z.name}</b> (${z.id})<br><span class='mini'>Domain: ${z.domain} · Owner: ${z.owner} · Control: ${z.control}% · Difficulty: ${z.difficulty}</span>`;
 
     const renderRoot=(root)=>{
       if(!run){
-        root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div><button class='btn mission-choice' data-begin='1'>Begin Mission</button>`;
+        root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div>${latest?`<div class='evt' style='margin-top:6px'><b>Latest Score</b><div class='mini'>Mission ${latest.score.missionScore} · Confidence ${latest.score.confidenceScore} · Consistency ${latest.score.decisionConsistency}</div></div>`:''}<button class='btn mission-choice' data-begin='1'>Begin Mission</button>${renderFeedback(latest)}`;
         const btn=root.querySelector("[data-begin]");
         if(btn) btn.onclick=()=>beginMission(z,mission);
         return;
@@ -653,7 +663,7 @@
       const header=isFinal?mission.finalDecision.text:step.text;
       const options=(isFinal?mission.finalDecision.options:step.options).map((o,i)=>`<button class='btn mission-choice' data-opt='${o.id}'>${i+1}. ${o.text}</button>`).join("");
       const unexpected = (!run.contextEventShown && run.stepIndex===2) ? `<div class='evt'><b>Unexpected Event</b><div class='mini'>${mission.unexpectedEvent}</div></div>` : "";
-      root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div><div class='mini' style='margin-top:6px'><b>${progress}</b></div>${unexpected}<div class='mini' style='margin-top:6px'>${header}</div><div class='mini'>Context: ${contextInfo}</div>${options}`;
+      root.innerHTML=`<b>${mission.title}</b><div class='mini'>${mission.scenario}</div><div class='mini' style='margin-top:6px'>Constraints: ${mission.constraints.join(" · ")}</div><div class='mini' style='margin-top:6px'><b>${progress}</b></div>${unexpected}<div class='mini' style='margin-top:6px'>${header}</div><div class='mini'>Context: ${contextInfo}</div>${options}${renderFeedback(latest)}`;
       root.querySelectorAll("[data-opt]").forEach(btn=>btn.onclick=()=>advanceMission(z,mission,btn.dataset.opt));
     };
 
@@ -672,63 +682,80 @@
     return [{type:"future_fit",items:fit.slice(0,4)},{type:"learning_pathway",items:["Communication loops","Scenario prioritization","Systems mapping"]}];
   }
 
-  function normalizeResultPayload({player,zone,mission,timeline,effects,outcomeText}){
+  function normalizeResultPayload({player,zone,mission,run,effects,outcomeText,startedAt}){
     const fit=roleFitFromSkills(player.skills);
-    const top=fit[0];
-    const score=Math.max(1,Math.min(100,50+Object.values(effects).reduce((a,b)=>a+b,0)));
+    const missionScoreRaw=(effects.systemsThinking||0)*0.25 + (effects.prioritization||0)*0.20 + (effects.adaptability||0)*0.15 + (effects.crisisResponse||0)*0.20 + (effects.executionReliability||0)*0.20;
+    const missionScore=Math.max(0,Math.min(100,Math.round(60+missionScoreRaw*2.4)));
+    const positive=Object.values(effects).filter(v=>v>0).length;
+    const negative=Object.values(effects).filter(v=>v<0).length;
+    const decisionConsistency=Math.max(45,Math.min(99,Math.round(70 + (positive-negative)*3)));
+    const confidenceScore=Math.max(40,Math.min(99,Math.round((missionScore*0.65)+(decisionConsistency*0.35))));
+    const duration=Math.max(1,Math.round((Date.now()-startedAt)/1000));
+    const improved=Object.entries(effects).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+    const weakened=Object.entries(effects).filter(([,v])=>v<0).sort((a,b)=>a[1]-b[1]);
     return {
-      missionId: mission.id,
-      score,
-      skills:{current:{...player.skills},delta:{...effects}},
-      timeline:timeline.map((t,i)=>({t:`T+${i*3}m`,event:t})),
-      outcome:outcomeText,
-      recommendations:["Run a contrasting scenario to test decision consistency.","Improve the two lowest skills before high-stakes missions."],
-      type:"mission_result", version:"2.0.0", id:crypto.randomUUID(), createdAt:new Date().toISOString(),
+      missionId: mission.id, missionTitle: mission.title, playerId: player.id, duration,
+      decisions: run.selections, timeline: run.timeline,
+      score:{missionScore,confidenceScore,decisionConsistency}, skills:{...effects},
+      roleFit:fit.slice(0,3), outcome:outcomeText,
+      recommendations:[
+        improved[0]?`Double down on ${skillLabelMap[improved[0][0]]} during higher-difficulty missions.`:"Keep stacking cross-functional wins.",
+        weakened[0]?`Mitigate ${skillLabelMap[weakened[0][0]]} trade-offs with contingency planning.`:"Test with tighter constraints to stress consistency."
+      ],
+      feedback:{
+        didWell:improved.slice(0,2).map(([k,v])=>`Strong ${skillLabelMap[k]} (+${v})`),
+        missed:weakened.slice(0,2).map(([k,v])=>`Pressure on ${skillLabelMap[k]} (${v})`),
+        improved:improved.slice(0,4), weakened:weakened.slice(0,4)
+      },
+      type:"mission_result", version:"3.0.0", id:crypto.randomUUID(), createdAt:new Date().toISOString(),
       player:{id:player.id,name:player.displayName,userType:player.userType,ageGroup:player.ageGroup,rolePath:player.rolePath},
-      mission:{zoneId:zone.id,zoneName:zone.name,domain:zone.domain,title:mission.title,scenario:mission.scenario,difficulty:zone.difficulty},
-      outcomeMeta:{status:"completed",score,consistency:Math.min(1,0.5+(state.missions.length*0.02))},
-      territory:{owner:zone.owner,control:zone.control},
-      roleFit:{topRole:top.role,topScore:top.score,matches:fit.slice(0,3),ageAware:buildAgeAware(player.ageGroup, fit)},
+      mission:{zoneId:zone.id,zoneName:zone.name,domain:zone.domain,title:mission.title,scenario:mission.scenario,difficulty:zone.difficulty,constraints:mission.constraints},
+      outcomeMeta:{status:"completed",score:missionScore,consistency:decisionConsistency}, territory:{owner:zone.owner,control:zone.control},
       sourceMeta:{mode:hasFirebase?"firebase":"local-mock",jobsVersion:"seed-v1"},
       render:{preferredLayout:["compact","full","story"][state.missions.length%3],theme:"mars-control"},
-      exportMeta:{canSvg:true,canFallback:true,schema:"canonical-mission-result-v2"}
+      exportMeta:{canSvg:true,canFallback:true,schema:"canonical-mission-result-v3"}
     };
   }
-  function validateResultPayload(p){ return !!(p&&p.missionId&&typeof p.score==="number"&&p.skills&&Array.isArray(p.timeline)&&p.outcome&&Array.isArray(p.recommendations)); }
-  function summarizeResultPayload(p){ return `${p.player.name}: ${p.mission.title} → ${p.score} (${p.roleFit.topRole})`; }
+  function validateResultPayload(p){ return !!(p&&p.missionId&&p.missionTitle&&p.playerId&&p.score&&typeof p.score.missionScore==="number"&&p.skills&&Array.isArray(p.timeline)&&Array.isArray(p.decisions)&&p.outcome&&Array.isArray(p.recommendations)); }
+  function summarizeResultPayload(p){ return `${p.player.name}: ${p.mission.title} → ${p.score.missionScore} (${p.roleFit[0]?.role||"Generalist"})`; }
 
   function buildSvgLayout(payload,layout){
     const w=layout==="full"?860:layout==="story"?720:500;
     const h=layout==="full"?420:layout==="story"?320:260;
     return [`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>`,`<rect width='100%' height='100%' rx='16' fill='#0f1832' stroke='#2f4168'/>`];
   }
-  function renderSkillBars(payload,x,y){
-    const entries=Object.entries(payload.skills.delta).slice(0,6);
-    return entries.map(([k,v],i)=>`<text x='${x}' y='${y+i*24}' fill='#c7d6ff' font-size='12'>${escapeXml(skillLabelMap[k]||k)}</text><rect x='${x+160}' y='${y-10+i*24}' width='120' height='10' fill='#162645' rx='4'/><rect x='${x+160}' y='${y-10+i*24}' width='${Math.min(120,Math.abs(v)*12)}' height='10' fill='${v>=0?"#00d1b0":"#ff7185"}' rx='4'/>`).join("");
+  function renderSkillBars(skills,x,y){
+    const entries=Object.entries(skills||{}).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    return entries.map(([k,v],i)=>`<text x='${x}' y='${y+i*24}' fill='#c7d6ff' font-size='12'>${escapeXml(skillLabelMap[k]||k)}</text><rect x='${x+160}' y='${y-10+i*24}' width='120' height='10' fill='#162645' rx='4'/><rect x='${x+160}' y='${y-10+i*24}' width='${Math.min(120,Math.abs(v)*10)}' height='10' fill='${v>=0?"#00d1b0":"#ff7185"}' rx='4'/>`).join("");
   }
-  function renderTimeline(payload,x,y,max){ return (payload.timeline||[]).slice(0,max).map((e,i)=>`<text x='${x}' y='${y+i*18}' fill='#9fb0d9' font-size='11'>${escapeXml(e.t)}: ${escapeXml(e.event)}</text>`).join(""); }
-  function renderRoleFit(payload,x,y){ return `<text x='${x}' y='${y}' fill='#63b6ff' font-size='13'>Top Role: ${escapeXml(payload.roleFit.topRole)} (${payload.roleFit.topScore})</text>`; }
-  function renderOutcomeBadge(payload,x,y){ return `<rect x='${x}' y='${y-18}' width='120' height='28' rx='8' fill='#1f3f62'/><text x='${x+8}' y='${y}' fill='#fff' font-size='13'>Score ${payload.score}</text>`; }
+  function renderTimeline(timeline,x,y,max){ return (timeline||[]).slice(0,max).map((e,i)=>`<text x='${x}' y='${y+i*18}' fill='#9fb0d9' font-size='11'>${escapeXml(e.time)}: ${escapeXml(e.event)} / ${escapeXml(e.playerDecision||"-")}</text>`).join(""); }
+
+  function renderRoleFit(payload,x,y){ const top=payload.roleFit[0]||{role:"Generalist",confidence:50}; return `<text x='${x}' y='${y}' fill='#63b6ff' font-size='13'>Top Role: ${escapeXml(top.role)} (${top.confidence}% confidence)</text>`; }
+  function renderOutcomeBadge(payload,x,y){ return `<rect x='${x}' y='${y-18}' width='220' height='28' rx='8' fill='#1f3f62'/><text x='${x+8}' y='${y}' fill='#fff' font-size='13'>Score ${payload.score.missionScore} · Confidence ${payload.score.confidenceScore}</text>`; }
   function exportSvgString(parts){ return parts.join("")+"</svg>"; }
+
+  function generateMissionSVG(payload){
+    const layout=payload.render?.preferredLayout||"compact";
+    const s=buildSvgLayout(payload,layout);
+    const timelineY = layout==="full" ? 300 : layout==="story" ? 224 : 190;
+    const nextY = layout==="full" ? 392 : layout==="story" ? 286 : 244;
+    const timelineCount = layout==="compact" ? 3 : 4;
+    s.push(`<text x='20' y='28' fill='#f2f5ff' font-size='16' font-weight='700'>${escapeXml(payload.missionTitle)}</text>`);
+    s.push(`<text x='20' y='48' fill='#9fb0d9' font-size='12'>Player: ${escapeXml(payload.player.name)} · Mission: ${escapeXml(payload.missionId)}</text>`);
+    s.push(renderOutcomeBadge(payload,20,76));
+    s.push(renderRoleFit(payload,250,76));
+    s.push(renderSkillBars(payload.skills,20,120));
+    s.push(renderTimeline(payload.timeline,20,timelineY,timelineCount));
+    s.push(`<text x='20' y='${nextY}' fill='#ffd88f' font-size='11'>Outcome: ${escapeXml(payload.outcome)}</text>`);
+    return exportSvgString(s);
+  }
 
   function renderResult(payload,valid){
     markAgent("svg_renderer: svg_render_started");
     logEvent("svg_render_started",{id:payload.id});
     try {
       if(!valid) throw new Error("Invalid payload");
-      const layout=payload.render.preferredLayout||"compact";
-      const s=buildSvgLayout(payload,layout);
-      const timelineY = layout==="full" ? 300 : layout==="story" ? 224 : 190;
-      const nextY = layout==="full" ? 392 : layout==="story" ? 286 : 244;
-      const timelineCount = layout==="compact" ? 3 : 4;
-      s.push(`<text x='20' y='28' fill='#f2f5ff' font-size='16' font-weight='700'>${escapeXml(payload.mission.title)}</text>`);
-      s.push(`<text x='20' y='48' fill='#9fb0d9' font-size='12'>Player: ${escapeXml(payload.player.name)} · Mission: ${escapeXml(payload.missionId)}</text>`);
-      s.push(renderOutcomeBadge(payload,20,76));
-      s.push(renderRoleFit(payload,160,76));
-      s.push(renderSkillBars(payload,20,120));
-      s.push(renderTimeline(payload,20,timelineY,timelineCount));
-      s.push(`<text x='20' y='${nextY}' fill='#ffd88f' font-size='11'>Next: ${escapeXml(payload.recommendations[0]||"")}</text>`);
-      const svg=exportSvgString(s);
+      const svg=generateMissionSVG(payload);
       markAgent("svg_renderer: svg_render_completed");
       logEvent("svg_render_succeeded",{id:payload.id});
       return {svg};
@@ -750,9 +777,9 @@
     const option=optionSet.find(o=>o.id===optionId);
     if(!option) return;
     run.selections.push({step:isFinal?"final":mission.steps[run.stepIndex].id,option:option.text,effects:option.effects});
-    run.timeline.push(option.timeline || `Decision made: ${option.text}`);
+    run.timeline.push({time:`T+${run.selections.length*2}m`,event:isFinal?"Final Decision":(mission.steps[run.stepIndex]?.text||"Decision"),playerDecision:option.text,skillChanges:option.effects});
     if(!isFinal && run.stepIndex===2 && !run.contextEventShown){
-      run.timeline.push(`Unexpected event: ${mission.unexpectedEvent}`);
+      run.timeline.push({time:`T+${run.selections.length*2+1}m`,event:"Unexpected Event",playerDecision:"Responded under pressure",skillChanges:{},details:mission.unexpectedEvent});
       run.contextEventShown=true;
     }
     if(isFinal){
@@ -761,7 +788,7 @@
       zone.control=Math.max(0,Math.min(100,zone.control+Math.round(Object.values(effects).reduce((a,b)=>a+b,0)/8)));
       if(zone.control>55) zone.owner="player";
       markAgent("skill_analyzer: skill_analysis_started");
-      const result = normalizeResultPayload({player:user,zone,mission,timeline:run.timeline,effects,outcomeText:option.outcome||"Mission completed."});
+      const result = normalizeResultPayload({player:user,zone,mission,run,effects,outcomeText:option.outcome||"Mission completed.",startedAt:run.startedAt||Date.now()});
       logEvent("mission_result_payload_created",{id:result.id,missionId:mission.id});
       const valid=validateResultPayload(result);
       markAgent("skill_analyzer: skill_analysis_completed");
@@ -795,7 +822,7 @@
       if(!tgt) return;
       tgt.innerHTML = v.svg
         ? `<div class='mini'>SVG Preview</div>${v.svg}`
-        : `<div class='mini'>Fallback summary: ${escapeXml(v.fallback?.summary||"Unavailable")}</div><div class='mini'>${(v.fallback?.timeline||[]).map(t=>escapeXml(`${t.t}: ${t.event}`)).join(" | ")}</div>`;
+        : `<div class='mini'>Fallback summary: ${escapeXml(v.fallback?.summary||"Unavailable")}</div><div class='mini'>${(v.fallback?.timeline||[]).map(t=>escapeXml(`${t.time||t.t}: ${t.event}`)).join(" | ")}</div>`;
     });
 
     el.vaultBox.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>{
@@ -815,12 +842,17 @@
     const user=currentUser();
     const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist"};
     const fit=roleFitFromSkills(candidate.skills||baseUser());
-    const recent=state.missions.slice(0,3).map(m=>`<li>${escapeXml(m.mission.title)} (${m.score})</li>`).join("") || "<li>No missions yet</li>";
-    const territory=state.zones.filter(z=>z.owner==="player").length;
-    el.recruiterBox.innerHTML=`<b>Player Card:</b> ${escapeXml(candidate.displayName)}<br><span class='mini'>${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
-      <div class='mini'>Territory holdings: ${territory}/25 · Skill velocity: ${state.missions.length?"active":"idle"}</div>
-      <div class='mini'>Potential fit tag: ${escapeXml(fit[0].role)} (${fit[0].score})</div>
-      <ul>${recent}</ul>
+    const recentRuns=state.missions.slice(0,5);
+    const missionHistory=recentRuns.map(m=>`<li>${escapeXml(m.missionTitle)} · score ${m.score.missionScore} · confidence ${m.score.confidenceScore}</li>`).join("") || "<li>No missions yet</li>";
+    const timeline=recentRuns[0]?.timeline?.slice(0,5).map(t=>`<li>${escapeXml(t.time)} - ${escapeXml(t.event)}: ${escapeXml(t.playerDecision||'')}</li>`).join("") || "<li>No timeline yet</li>";
+    const consistency=recentRuns.length?Math.round(recentRuns.reduce((a,m)=>a+m.score.decisionConsistency,0)/recentRuns.length):0;
+    const skillGraph=Object.entries(candidate.skills||{}).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>`<div class='mini'>${skillLabelMap[k]}: ${Math.round(v)}</div>`).join('');
+    el.recruiterBox.innerHTML=`<b>Recruiter Evidence Panel</b><br><span class='mini'>${escapeXml(candidate.displayName)} · ${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
+      <div class='mini' style='margin-top:6px'><b>Role Fit</b>: ${fit.slice(0,3).map(f=>`${f.role} (${f.confidence}%)`).join(' · ')}</div>
+      <div class='mini' style='margin-top:6px'><b>Consistency Score</b>: ${consistency}</div>
+      <div class='mini' style='margin-top:6px'><b>Mission History</b></div><ul>${missionHistory}</ul>
+      <div class='mini'><b>Decision Timeline (latest)</b></div><ul>${timeline}</ul>
+      <div class='mini'><b>Skill Graph</b></div>${skillGraph}
       <button class='btn' id='shortlistBtn'>Shortlist</button>`;
 
     document.getElementById("shortlistBtn").onclick=()=>{
