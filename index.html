@@ -634,6 +634,15 @@ import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSup
       svgProof:vaultItem.svg||null,
       timestamp:serverTimestamp()
     });
+    if(!hasFirebase) return;
+    try{
+      const db = window.firebase?.firestore?.();
+      const u=currentUser();
+      if(db && u){
+        await db.collection('players').doc(u.id).set(u,{merge:true});
+        await db.collection('global').doc('analytics').set(state.globalAnalytics,{merge:true});
+      }
+    }catch(_e){}
   }
 
   function defaultState(){
@@ -643,6 +652,7 @@ import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSup
       proofVault:[], roleFitHistory:[], recruiterActions:[], savedReports:[], rooms:[{code:"ALPHA7",name:"Demo Room",members:[]}],
       telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false, activeMissionRun:null,
       globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}, recruiterTarget:""
+      globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}
     };
   }
 
@@ -768,6 +778,18 @@ import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSup
       }catch(e){
         alert(`Signup failed: ${e?.message||'Please check credentials.'}`);
       }
+        region:val("suRegion")||"Unknown",
+        password:val("suPass")||"1234",
+        skills:baseUser(), tutorialCompleted:false, playerStats:emptyPlayerStats(), missionHistory:[], proofVault:[], roleFit:[], recentSkillChanges:[]
+      };
+      ensurePlayerShape(user);
+      state.users.push(user);
+      state.globalAnalytics.totalPlayers=state.users.length;
+      state.currentUserId=user.id;
+      state.session={id:user.id};
+      saveState();
+      logEvent("signup_completed",{id:user.id});
+      render();
     };
 
     document.getElementById("loginBtn").onclick = async () => {
