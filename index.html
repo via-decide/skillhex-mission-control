@@ -3,77 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SKILLHEX / SKILL HACKS: MISSION CONTROL</title>
+  <title>SkillHex Mission Control</title>
   <style>
-    :root {
-      --bg:#070b16; --panel:#111a2e; --panel2:#152340; --line:#2f4168; --txt:#eaf0ff; --muted:#9fb0d9;
-      --accent:#63b6ff; --accent2:#00d1b0; --warn:#ffb266; --bad:#ff7185; --good:#69e0a2;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--txt);background:radial-gradient(circle at 80% -15%,#27396d 0,#0f1730 33%,var(--bg) 72%);}
-    button,input,select{font:inherit}
-    .app{max-width:1400px;margin:auto;padding:12px}
-    .hero,.card{background:rgba(16,26,46,.92);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.35)}
-    .hero{padding:14px;margin-bottom:10px}.hero h1{margin:0 0 6px;font-size:1.15rem}
-    .tagline{color:#ffd88f;font-weight:600}.trust{color:var(--muted);font-size:.86rem;margin-top:4px}
-    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.grow{flex:1}
-    .chip{padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:#0c1428;color:var(--muted);font-size:.8rem}
-    .layout{display:grid;grid-template-columns:1.35fr .85fr;gap:10px}
-    .tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:8px}
-    .tabs button,.btn{border:1px solid var(--line);border-radius:10px;background:linear-gradient(180deg,#1c2e55,#162544);color:var(--txt);padding:8px;cursor:pointer}
-    .tabs button.active{border-color:var(--accent)} .ghost{background:#0f182f}
-    .pane{display:none}.pane.active{display:block}
-    .grid2{display:grid;grid-template-columns:1fr 290px;gap:8px}
-    .map-wrap{position:relative}
-    .map{width:100%;height:min(68vh,580px);background:radial-gradient(circle at 30% 15%,#4a2822,#311a16 48%,#1b1110);border-radius:12px;border:1px solid #5f3630;touch-action:manipulation}
-    .hex{cursor:pointer;stroke:#8d6f63;stroke-width:1.2}.hex.neutral{fill:#3f4048}.hex.player{fill:#0f6c8f}.hex.rivalA{fill:#83542c}.hex.rivalB{fill:#5a3f85}.hex.selected{stroke:#fff;stroke-width:2.1}
-    .zone-label{font-size:8px;fill:#f9f6ef;pointer-events:none}
-    .stack{display:grid;gap:8px}.mini{font-size:.82rem;color:var(--muted)}
-    .box{padding:8px;border:1px solid var(--line);border-radius:10px;background:#0d1832}
-    .skills .r{display:grid;grid-template-columns:140px 1fr 44px;gap:8px;align-items:center}.bar{height:9px;border:1px solid #345;background:#0b152d;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
-    .feed{max-height:180px;overflow:auto;display:grid;gap:6px}.evt{padding:7px;border:1px solid var(--line);border-radius:8px;background:#0c1428;font-size:.8rem}
-    .auth-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.auth-grid input,.auth-grid select,.input{width:100%;padding:8px;border-radius:9px;border:1px solid var(--line);background:#0a1328;color:var(--txt)}
-    .mission-choice{width:100%;text-align:left;margin-top:6px}
-    .overlay{position:fixed;inset:0;background:rgba(3,7,15,.8);display:none;z-index:90;align-items:center;justify-content:center;padding:10px}.overlay.show{display:flex}
-    .tutorial{max-width:850px;width:min(95vw,850px);padding:12px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(165deg,#1a274a,#101a31)}
-    .tutorial .viz{height:130px;border-radius:10px;border:1px solid #334d7d;background:radial-gradient(circle at 38% 35%,rgba(99,182,255,.25),rgba(0,0,0,.1));display:grid;place-items:center;margin:8px 0}
-    .wheel-wrap{position:fixed;right:10px;bottom:10px;z-index:70}
-    .wheel{width:min(250px,60vw);height:min(250px,60vw);border-radius:50%;position:relative;border:1px solid var(--line);background:radial-gradient(circle at 40% 30%,rgba(99,182,255,.15),rgba(0,0,0,.2));touch-action:none;user-select:none}
-    .seg{position:absolute;width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:#152a4c;display:grid;place-items:center;color:var(--muted);font-size:.66rem;transform:translate(-50%,-50%)}
-    .seg.a{background:#1f534b;color:#fff;border-color:var(--accent2)}
-    .center{position:absolute;inset:35%;border-radius:50%;border:1px solid var(--line);background:#0c1631;display:grid;place-items:center;text-align:center;padding:6px;font-size:.7rem;color:var(--muted)}
-    .dock{display:flex;justify-content:space-between;align-items:center;gap:8px}
-    .activity{display:grid;gap:4px}.agent{font-size:.72rem;padding:5px;border:1px dashed #36527f;border-radius:8px;color:#a8c6ff;background:#0d1935}
-    .hidden{display:none!important}
-    @media (max-width:1040px){.layout{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    :root{--bg:#0b1020;--panel:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--gold:#f4c35d;--red:#ff6f7f;--green:#55d38a;--purple:#ae8cff}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% -10%,#263a75,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .app{max-width:1280px;margin:auto;padding:12px;display:grid;gap:10px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1}
+    button,input,select{font:inherit}button{background:#1a2750;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer}
+    input,select{background:#0f1730;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:8px}
+    .tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.tabs button.active{border-color:var(--blue)}
+    .layout{display:grid;grid-template-columns:1.35fr .9fr;gap:10px}.pane{display:none}.pane.active{display:block}
+    .grid{display:grid;gap:8px}.mission{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0e1730}
+    .mini{font-size:.84rem;color:var(--muted)} .skill{display:grid;grid-template-columns:150px 1fr 42px;gap:8px;align-items:center}
+    .bar{height:10px;background:#0a1227;border:1px solid #2d416e;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,#66b3ff,#59dfad)}
+    .hex-map{width:100%;height:360px;border:1px solid var(--line);border-radius:10px;background:#0d162e}
+    .hex{stroke:#d6e2ff;stroke-width:1.5;fill:#334;transition:.35s}.hex.locked{opacity:.35}.hex.science{fill:var(--blue)}.hex.business{fill:var(--gold)}.hex.security{fill:var(--red)}.hex.engineering{fill:var(--green)}.hex.leadership{fill:var(--purple)}
+    .hex.captured{filter:drop-shadow(0 0 8px #fff);transform-origin:center;animation:capture .55s ease}
+    @keyframes capture{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+    .result{display:grid;gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0e1730}
+    .anim{transition:width .7s ease}
+    .proof{max-height:200px;overflow:auto;border:1px solid var(--line);padding:8px;border-radius:8px;background:#0c1430}
+    @media (max-width:980px){.layout{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
   </style>
 </head>
 <body>
 <div class="app">
-  <section class="hero">
-    <h1>SKILLHEX / SKILL HACKS: MISSION CONTROL</h1>
-    <div class="tagline">Not a resume. Not a leaderboard. A living proof-of-skill map.</div>
-    <div class="trust">Gameplay does not guarantee employment. It reveals evidence of fit and growth.</div>
-    <div class="row" style="margin-top:8px">
-      <span class="chip" id="persistChip"></span><span class="chip" id="userChip"></span><span class="chip" id="inputChip"></span>
-      <button class="btn ghost" id="replayTutorialBtn">Replay Tutorial</button>
-      <button class="btn ghost" id="logoutBtn">Log out</button>
+  <section class="card">
+    <div class="row">
+      <h2 style="margin:0" class="grow">SkillHex Mission Control</h2>
+      <div id="userChip" class="mini"></div>
+      <button id="logoutBtn">Logout</button>
     </div>
+    <div class="tabs" id="tabs"></div>
   </section>
 
   <div class="layout">
-    <section class="card" style="padding:10px">
-      <div class="tabs" id="tabs"></div>
+    <section class="card">
+      <div id="missionPane" class="pane active"></div>
+      <div id="mapPane" class="pane"></div>
+      <div id="resultsPane" class="pane"></div>
+      <div id="proofPane" class="pane"></div>
+      <div id="leaderboardPane" class="pane"></div>
+      <div id="recruiterPane" class="pane"></div>
+      <div id="tutorialPane" class="pane"></div>
+    </section>
 
-      <div class="pane active" data-pane="Demo Mode">
-        <div class="grid2">
-          <div class="map-wrap"><svg id="mapSvg" class="map" viewBox="0 0 900 620" role="img" aria-label="Mars hex territory map"></svg></div>
-          <div class="stack">
-            <div class="box" id="zoneBox">Select a zone to inspect and launch missions.</div>
-            <div class="box" id="missionBox"></div>
-          </div>
-        </div>
+    <aside class="card grid">
+      <div id="authBox"></div>
+      <div>
+        <h3 style="margin:0 0 8px">Skill Graph</h3>
+        <div id="skillGraph"></div>
       </div>
+      <div>
+        <h3 style="margin:0 0 8px">Mission Timeline</h3>
+        <div id="timeline" class="proof"></div>
 
       <div class="pane" data-pane="Solo Mission Mode"><div class="box" id="soloBox"></div></div>
       <div class="pane" data-pane="Skill Dashboard"><div class="box" id="skillDashboardBox"></div></div>
@@ -85,24 +69,97 @@
           <div id="roomBox" class="mini" style="margin-top:8px"></div>
         </div>
       </div>
-
-      <div class="pane" data-pane="Recruiter View"><div class="box" id="recruiterBox"></div></div>
-      <div class="pane" data-pane="Proof Vault"><div class="box" id="vaultBox"></div></div>
-      <div class="pane" data-pane="Settings"><div class="box" id="settingsBox"></div></div>
-    </section>
-
-    <aside class="card" style="padding:10px">
-      <div id="authCard" class="box"></div>
-      <h3>Skill Profile</h3>
-      <div id="skills" class="skills"></div>
-      <h3>System Activity Lane</h3>
-      <div class="activity" id="activity"></div>
-      <h3>Telemetry</h3>
-      <div class="feed" id="telemetry"></div>
     </aside>
   </div>
 </div>
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, getDocs, query, orderBy, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getAnalytics, isSupported, logEvent as analyticsLogEvent } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBixS7kmf5R5BbsCecSgfGqagGrY2cme6Y",
+  authDomain: "skillhex-mission-control.firebaseapp.com",
+  projectId: "skillhex-mission-control",
+  storageBucket: "skillhex-mission-control.firebasestorage.app",
+  messagingSenderId: "859943015449",
+  appId: "1:859943015449:web:42dcdbe56a64574060c688",
+  measurementId: "G-JTFLZSJHWK"
+};
+
+const STORAGE_KEY = "skillhex-v5";
+const tabs = ["Mission Engine","Hex Map","Results","Proof Vault","Leaderboard","Recruiter View","Tutorial"];
+
+const skillsTemplate = {
+  systemsThinking:0,logic:0,prioritization:0,riskManagement:0,engineeringJudgement:0,
+  strategicThinking:0,leadership:0,resourceOptimization:0,problemSolving:0,adaptability:0
+};
+
+const missions = [
+  {id:"mars_habitat",title:"Mars Habitat Failure",category:"engineering",scenario:"Critical oxygen and energy systems are degrading.",decisions:[{text:"Repair oxygen generator",impact:{systemsThinking:2,problemSolving:1}},{text:"Fix solar panels",impact:{engineeringJudgement:2,resourceOptimization:1}},{text:"Ration food",impact:{riskManagement:1,prioritization:1}}],outcomes:"Habitat stabilized under constrained resources.",skillImpact:"engineering"},
+  {id:"startup_survival",title:"Startup Survival",category:"business",scenario:"Burn rate is rising while runway shrinks.",decisions:[{text:"Cut non-core spend",impact:{prioritization:2,resourceOptimization:2}},{text:"Refocus on retention",impact:{strategicThinking:2,logic:1}},{text:"Restructure team pods",impact:{leadership:2,adaptability:1}}],outcomes:"Runway extends with focused growth.",skillImpact:"business"},
+  {id:"cyber_attack",title:"Cyber Attack",category:"security",scenario:"Production services are under active intrusion.",decisions:[{text:"Isolate affected systems",impact:{riskManagement:2,systemsThinking:1}},{text:"Activate response team",impact:{leadership:2,adaptability:1}},{text:"Patch and monitor",impact:{logic:2,engineeringJudgement:1}}],outcomes:"Attack contained with service continuity.",skillImpact:"security"},
+  {id:"traffic_planner",title:"Traffic Planner",category:"science",scenario:"City gridlock spikes after infrastructure failure.",decisions:[{text:"Deploy adaptive signals",impact:{systemsThinking:2,logic:1}},{text:"Prioritize emergency lanes",impact:{riskManagement:1,prioritization:2}},{text:"Reroute freight windows",impact:{strategicThinking:2,resourceOptimization:1}}],outcomes:"Flow restored with lower congestion risk.",skillImpact:"science"},
+  {id:"disaster_relief",title:"Disaster Relief",category:"leadership",scenario:"A multi-region relief operation needs rapid coordination.",decisions:[{text:"Establish command center",impact:{leadership:2,systemsThinking:1}},{text:"Allocate critical supplies",impact:{prioritization:2,resourceOptimization:2}},{text:"Rotate field teams",impact:{adaptability:2,riskManagement:1}}],outcomes:"Relief network improves response reliability.",skillImpact:"leadership"},
+  {id:"ai_factory",title:"AI Factory",category:"engineering",scenario:"Model pipeline quality drops under scaling pressure.",decisions:[{text:"Fix data lineage",impact:{logic:2,engineeringJudgement:1}},{text:"Introduce safety gates",impact:{riskManagement:2,strategicThinking:1}},{text:"Optimize inference stack",impact:{problemSolving:2,resourceOptimization:1}}],outcomes:"Pipeline stabilized with safer throughput.",skillImpact:"engineering"}
+];
+
+const hexLayout = missions.map((m,i)=>({id:m.id,label:m.title.split(" ")[0],cat:m.category,index:i,unlocked:i===0,captured:false}));
+
+let app=null,auth=null,db=null,analytics=null;
+let firebaseReady=false;
+try{
+  app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app); firebaseReady=true;
+  setPersistence(auth,browserLocalPersistence).catch(()=>{});
+  isSupported().then(ok=>{ if(ok) analytics=getAnalytics(app); }).catch(()=>{});
+}catch(e){ firebaseReady=false; }
+
+const state = load();
+const el = {
+  tabs:document.getElementById('tabs'),userChip:document.getElementById('userChip'),logoutBtn:document.getElementById('logoutBtn'),
+  missionPane:document.getElementById('missionPane'),mapPane:document.getElementById('mapPane'),resultsPane:document.getElementById('resultsPane'),proofPane:document.getElementById('proofPane'),leaderboardPane:document.getElementById('leaderboardPane'),recruiterPane:document.getElementById('recruiterPane'),tutorialPane:document.getElementById('tutorialPane'),
+  authBox:document.getElementById('authBox'),skillGraph:document.getElementById('skillGraph'),timeline:document.getElementById('timeline')
+};
+
+function load(){
+  let parsed={}; try{parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");}catch(_e){}
+  return Object.assign({
+    tab:"Mission Engine",users:[],currentUserId:null,missionRuns:[],proofs:[],hexes:hexLayout,
+    activeMissionId:null,decisionStep:0,currentRun:[],latestResult:null,recruiterTarget:null
+  },parsed);
+}
+function save(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
+function logEvent(name,p={}){ if(analytics){ try{analyticsLogEvent(analytics,name,p);}catch(_e){} } }
+function currentUser(){ return state.users.find(u=>u.id===state.currentUserId)||null; }
+function totalSkillScore(sk){ return Object.values(sk||{}).reduce((a,b)=>a+b,0); }
+function cloneSkills(){ return JSON.parse(JSON.stringify(skillsTemplate)); }
+
+async function signup(email,password,name,mode){
+  if(firebaseReady){
+    const cred = await createUserWithEmailAndPassword(auth,email,password);
+    const user = {id:cred.user.uid,email,name,mode,skills:cloneSkills(),missionsPlayed:0,missionsCompleted:0,createdAt:new Date().toISOString(),proofs:[],history:[]};
+    await setDoc(doc(db,'players',user.id),{name:user.name,mode:user.mode,skills:user.skills,missionsPlayed:0,missionsCompleted:0,createdAt:serverTimestamp(),email:user.email});
+    await setDoc(doc(db,'skillProfiles',user.id),{playerId:user.id,skills:user.skills,totalSkillScore:0,updatedAt:serverTimestamp()});
+    return user;
+  }
+  return {id:crypto.randomUUID(),email,name,mode,password,skills:cloneSkills(),missionsPlayed:0,missionsCompleted:0,createdAt:new Date().toISOString(),proofs:[],history:[]};
+}
+
+async function login(email,password){
+  if(firebaseReady){
+    const cred=await signInWithEmailAndPassword(auth,email,password);
+    const snap=await getDoc(doc(db,'players',cred.user.uid));
+    if(snap.exists()){
+      const d=snap.data();
+      const runs = await getDocs(query(collection(db,'missionRuns'),where('playerId','==',cred.user.uid),orderBy('timestamp','desc'),limit(25)));
+      const proofs = await getDocs(query(collection(db,'proofVault'),where('playerId','==',cred.user.uid),orderBy('timestamp','desc'),limit(25)));
+      return {
+        id:cred.user.uid,email,name:d.name||email,mode:d.mode||'player',skills:Object.assign(cloneSkills(),d.skills||{}),
+        missionsPlayed:d.missionsPlayed||0,missionsCompleted:d.missionsCompleted||0,createdAt:new Date().toISOString(),
+        history:runs.docs.map(x=>x.data()),proofs:proofs.docs.map(x=>x.data())
+      };
 <div class="overlay" id="tutorialOverlay" aria-modal="true" role="dialog">
   <div class="tutorial">
     <h3 id="tTitle"></h3>
@@ -1274,86 +1331,39 @@ import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSup
       el.wheel.appendChild(d);
       wheelState.segs.push(d);
     }
-    highlightSeg(-1);
   }
+  return state.users.find(u=>u.email===email && u.password===password)||null;
+}
 
-  function highlightSeg(idx){
-    wheelState.active=idx;
-    wheelState.segs.forEach((s,i)=>s.classList.toggle("a",i===idx));
-    el.wheelCenter.textContent=idx<0?"Idle":contextMap()[idx];
-  }
+async function logout(){ if(firebaseReady){ try{await signOut(auth);}catch(_e){} } state.currentUserId=null; save(); render(); }
 
-  function wheelPos(ev){
-    const r=el.wheel.getBoundingClientRect();
-    const x=ev.clientX-r.left-r.width/2, y=ev.clientY-r.top-r.height/2;
-    const dist=Math.hypot(x,y), ang=(Math.atan2(y,x)+Math.PI*2)%(Math.PI*2);
-    const idx=(Math.round((ang/(Math.PI*2))*12)+3)%12;
-    return {idx,dist,max:r.width/2};
+async function persistMissionRun(run,svg){
+  const user=currentUser(); if(!user) return;
+  if(firebaseReady){
+    await addDoc(collection(db,'missionRuns'),{playerId:user.id,missionId:run.missionId,decisions:run.decisions,score:run.successScore,skillDelta:run.skillDelta,timestamp:serverTimestamp()});
+    await addDoc(collection(db,'proofVault'),{playerId:user.id,missionId:run.missionId,svgProof:svg,timestamp:serverTimestamp(),score:run.successScore});
+    await setDoc(doc(db,'skillProfiles',user.id),{playerId:user.id,skills:user.skills,totalSkillScore:totalSkillScore(user.skills),updatedAt:serverTimestamp()},{merge:true});
+    await updateDoc(doc(db,'players',user.id),{skills:user.skills,missionsPlayed:user.missionsPlayed,missionsCompleted:user.missionsCompleted});
   }
+}
 
-  function cycleTab(delta){
-    const i=tabs.indexOf(state.mode);
-    state.mode=tabs[(i+delta+tabs.length)%tabs.length];
-    state.recruiterViewed=false;
-  }
+function renderTabs(){
+  el.tabs.innerHTML=tabs.map(t=>`<button class="${state.tab===t?'active':''}" data-tab="${t}">${t}</button>`).join('');
+  el.tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab; render();});
+}
 
-  function dispatchThread(idx,confidence,clickFallback){
-    const command=contextMap()[idx];
-    if(confidence<0.34 && !confirm(`Low confidence gesture for '${command}'. Confirm?`)){
-      logEvent("gesture_fallback_used",{command});
-      return;
-    }
-    logEvent("thread_command_dispatched",{command,mode:state.mode,confidence});
-    if(command==="Open Menu") state.mode="Settings";
-    if(command==="Next") cycleTab(1);
-    if(command==="Previous") cycleTab(-1);
-    if(command==="Select"||command==="Select Choice"){
-      const b=el.missionBox.querySelector("button");
-      if(b) b.click();
-    }
-    if(command==="Cancel") state.selectedZone=null;
-    if(clickFallback) logEvent("gesture_fallback_used",{method:"accessible_click",command});
-    render();
-  }
-
-  function bindWheelPointer(){
-    const start=(ev)=>{
-      if(state.inputMode!=="thread") return;
-      ev.preventDefault();
-      const p=wheelPos(ev);
-      wheelState.gesture={samples:[p]};
-      highlightSeg(p.idx);
-      logEvent("thread_gesture_started",{idx:p.idx});
-    };
-    const move=(ev)=>{
-      if(!wheelState.gesture || state.inputMode!=="thread") return;
-      const p=wheelPos(ev);
-      wheelState.gesture.samples.push(p);
-      highlightSeg(p.idx);
-    };
-    const end=(ev)=>{
-      if(!wheelState.gesture || state.inputMode!=="thread") return;
-      const p=wheelPos(ev);
-      const avg=wheelState.gesture.samples.reduce((a,s)=>a+s.dist,0)/wheelState.gesture.samples.length;
-      const conf=Math.max(0,Math.min(1,avg/(p.max*0.85)));
-      dispatchThread(p.idx,conf,false);
-      logEvent("thread_gesture_completed",{idx:p.idx,confidence:conf});
-      wheelState.gesture=null;
-    };
-    el.wheel.addEventListener("pointerdown",start);
-    el.wheel.addEventListener("pointermove",move);
-    el.wheel.addEventListener("pointerup",end);
-    el.wheel.addEventListener("pointercancel",end);
-  }
-
-  function renderChips(){
-    const u=currentUser();
-    el.persistChip.textContent = hasFirebase?"Persistence: Firebase":"Persistence: Local mock";
-    el.userChip.textContent = u?`User: ${u.displayName}`:"User: guest";
-    el.inputChip.textContent = `Input: ${state.inputMode}`;
-    el.toggleInputBtn.textContent=`Mode: ${state.inputMode==="thread"?"Thread":"Standard"}`;
-    el.wheel.classList.toggle("hidden", !!state.wheelDocked);
-  }
+function renderAuth(){
+  const u=currentUser();
+  if(u){ el.authBox.innerHTML=`<b>${u.name||u.email}</b><div class='mini'>Mode: ${u.mode}</div><div class='mini'>Total Skill Score: ${totalSkillScore(u.skills)}</div>`; return; }
+  el.authBox.innerHTML=`<div class='grid'>
+    <input id='name' placeholder='Name'><input id='email' placeholder='Email'>
+    <input id='pass' type='password' placeholder='Password'><select id='mode'><option value='player'>Player</option><option value='recruiter'>Recruiter</option></select>
+    <div class='row'><button id='signup'>Sign up</button><button id='login'>Login</button></div></div>`;
+  document.getElementById('signup').onclick=async()=>{
+    try{
+      const user=await signup(v('email'),v('pass'),v('name')||'Player',v('mode'));
+      state.users=state.users.filter(x=>x.id!==user.id); state.users.push(user); state.currentUserId=user.id; save(); render();
+    }catch(e){ alert(e.message||'Signup failed'); }
 
   function render(){
     setupTabs();
@@ -1398,29 +1408,168 @@ import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSup
     state.rooms.push({name:n,code:c,members:[u?u.displayName:"Guest"]});
     saveState(); renderRoom();
   };
-
-  el.joinRoomBtn.onclick=()=>{
-    const c=el.roomCode.value.trim().toUpperCase();
-    const r=state.rooms.find(x=>x.code===c);
-    if(!r){ alert("Room not found"); return; }
-    const u=currentUser();
-    r.members.push(u?u.displayName:"Guest");
-    saveState(); renderRoom();
+  document.getElementById('login').onclick=async()=>{
+    try{
+      const user=await login(v('email'),v('pass')); if(!user){ alert('Invalid credentials'); return; }
+      state.users=state.users.filter(x=>x.id!==user.id); state.users.push(user); state.currentUserId=user.id; save(); render();
+    }catch(e){ alert(e.message||'Login failed'); }
   };
+}
 
-  el.tBack.onclick=()=>{ state.tutorial.step=Math.max(0,state.tutorial.step-1); renderTutorial(); };
-  el.tNext.onclick=()=>{
-    if(state.tutorial.step<tutorialSteps.length-1){
-      state.tutorial.step++;
-      renderTutorial();
+function renderMissionPane(){
+  const user=currentUser();
+  const cards = missions.map(m=>`<div class='mission'><b>${m.title}</b><div class='mini'>${m.scenario}</div><div class='mini'>Category: ${m.category}</div><button data-start='${m.id}' ${!user?'disabled':''}>Start Mission</button></div>`).join('');
+  const active = missions.find(m=>m.id===state.activeMissionId);
+  let runUI='';
+  if(active){
+    const idx=state.decisionStep;
+    if(idx<active.decisions.length){
+      const d=active.decisions[idx];
+      runUI=`<div class='mission'><b>${active.title} · Decision ${idx+1}/${active.decisions.length}</b><div class='mini'>Choose your step:</div><button id='choose'>${d.text}</button></div>`;
     } else {
-      state.tutorial.active=false;
-      state.tutorial.seen=true;
-      const u=currentUser();
-      if(u) u.tutorialCompleted=true;
-      logEvent("tutorial_completed",{});
-      render();
+      runUI=`<div class='mission'><b>${active.title}</b><div class='mini'>All decisions complete. Run simulation.</div><button id='simulate'>Simulate Result</button></div>`;
     }
+  }
+  el.missionPane.innerHTML=`<h3>Mission Engine</h3>${runUI}<div class='grid'>${cards}</div>`;
+  el.missionPane.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>{state.activeMissionId=b.dataset.start;state.decisionStep=0;state.currentRun=[];logEvent('mission_started',{missionId:state.activeMissionId});save();render();});
+  document.getElementById('choose')?.addEventListener('click',()=>{
+    const m=missions.find(x=>x.id===state.activeMissionId); const d=m.decisions[state.decisionStep]; state.currentRun.push(d); state.decisionStep++; logEvent('decision_made',{missionId:m.id,step:state.decisionStep}); save(); render();
+  });
+  document.getElementById('simulate')?.addEventListener('click',runSimulation);
+}
+
+function runSimulation(){
+  const user=currentUser(); if(!user) return;
+  const mission=missions.find(m=>m.id===state.activeMissionId); if(!mission) return;
+  const skillDelta=cloneSkills(); state.currentRun.forEach(d=>Object.entries(d.impact).forEach(([k,v])=>{skillDelta[k]+=v;user.skills[k]=(user.skills[k]||0)+v;}));
+  const efficiency=Math.min(100,45+totalSkillScore(skillDelta)*3);
+  const risk=Math.max(5,60-Math.round((skillDelta.riskManagement+skillDelta.prioritization+skillDelta.logic)*8));
+  const cost=Math.max(10,70-Math.round((skillDelta.resourceOptimization+skillDelta.strategicThinking)*7));
+  const successScore=Math.round((efficiency*0.5)+((100-risk)*0.3)+((100-cost)*0.2));
+  const run={playerId:user.id,missionId:mission.id,missionName:mission.title,decisions:state.currentRun.map(x=>x.text),score:successScore,skillDelta,timestamp:new Date().toISOString(),efficiency,risk,cost,successScore};
+  user.missionsPlayed++; user.missionsCompleted++; user.history.unshift(run);
+  state.missionRuns.unshift(run); state.latestResult=run;
+  captureHex(mission.id);
+  const svg=buildProofSvg(user,run);
+  user.proofs.unshift({missionId:run.missionId,svgProof:svg,timestamp:run.timestamp,score:run.successScore});
+  state.proofs.unshift({playerId:user.id,missionId:run.missionId,svgProof:svg,timestamp:run.timestamp,score:run.successScore});
+  persistMissionRun(run,svg).catch(()=>{});
+  logEvent('mission_completed',{missionId:mission.id,score:run.successScore});
+  state.activeMissionId=null; state.decisionStep=0; state.currentRun=[]; save(); render();
+}
+
+function captureHex(missionId){
+  const idx=state.hexes.findIndex(h=>h.id===missionId); if(idx<0) return;
+  state.hexes[idx].captured=true;
+  if(state.hexes[idx+1]) state.hexes[idx+1].unlocked=true;
+}
+
+function renderMap(){
+  const hexes = state.hexes.map((h,i)=>{
+    const cx=90+(i%3)*140+(Math.floor(i/3)%2?70:0), cy=90+Math.floor(i/3)*120, r=42;
+    const pts=[0,60,120,180,240,300].map(a=>{const rad=Math.PI*a/180; return `${cx+r*Math.cos(rad)},${cy+r*Math.sin(rad)}`}).join(' ');
+    const cls=`hex ${h.cat} ${h.unlocked?'':'locked'} ${h.captured?'captured':''}`;
+    return `<polygon class='${cls}' points='${pts}'></polygon><text x='${cx-18}' y='${cy+4}' fill='#fff' font-size='10'>${h.label}</text>`;
+  }).join('');
+  el.mapPane.innerHTML=`<h3>Hex Map Progression</h3><svg class='hex-map' viewBox='0 0 520 360'>${hexes}</svg><div class='mini'>science blue · business gold · security red · engineering green · leadership purple</div>`;
+}
+
+function renderResults(){
+  const r=state.latestResult;
+  if(!r){ el.resultsPane.innerHTML='<h3>Result Simulation</h3><div class="mini">Complete a mission to view animated simulation metrics.</div>'; return; }
+  el.resultsPane.innerHTML=`<h3>Result Simulation</h3><div class='result'>
+    <div><b>${r.missionName}</b> · Success ${r.successScore}</div>
+    ${metric('Efficiency',r.efficiency)}${metric('Risk',100-r.risk)}${metric('Cost',100-r.cost)}${metric('Success Score',r.successScore)}
+  </div>`;
+  setTimeout(()=>{document.querySelectorAll('.anim').forEach(n=>n.style.width=n.dataset.w+'%');},40);
+}
+function metric(label,val){ return `<div class='skill'><div class='mini'>${label}</div><div class='bar'><span class='anim' data-w='${val}' style='width:0%'></span></div><div>${Math.round(val)}</div></div>`; }
+
+function topSkills(sk){return Object.entries(sk).sort((a,b)=>b[1]-a[1]).slice(0,3);}
+function buildProofSvg(user,run){
+  const top=topSkills(user.skills).map(([k,v],i)=>`<text x='20' y='${130+i*22}' fill='#cbd9ff' font-size='13'>${k}: ${v}</text>`).join('');
+  const tl=run.decisions.map((d,i)=>`<text x='20' y='${220+i*18}' fill='#9db0df' font-size='12'>${i+1}. ${escapeXml(d)}</text>`).join('');
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='720' height='340' viewBox='0 0 720 340'><rect width='720' height='340' fill='#0f1730'/><rect x='12' y='12' width='696' height='316' rx='12' fill='none' stroke='#324a7b'/><text x='20' y='36' fill='#f3f7ff' font-size='22' font-family='sans-serif'>SkillHex Proof Card</text><text x='20' y='64' fill='#8fb6ff' font-size='15'>Player: ${escapeXml(user.name||user.email)}</text><text x='20' y='86' fill='#8fb6ff' font-size='15'>Mission: ${escapeXml(run.missionName)}</text><text x='20' y='108' fill='#ffd27a' font-size='15'>Score: ${run.successScore}</text><text x='20' y='180' fill='#f3f7ff' font-size='15'>Top 3 Skills</text>${top}<text x='20' y='202' fill='#f3f7ff' font-size='15'>Decision Timeline</text>${tl}</svg>`;
+}
+
+function downloadSvg(svg,id){const b=new Blob([svg],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`proof-${id}.svg`;a.click();URL.revokeObjectURL(u);}
+
+function renderProof(){
+  const u=currentUser(); if(!u){ el.proofPane.innerHTML='<h3>SVG Proof Vault</h3><div class="mini">Login required.</div>'; return; }
+  const list=(u.proofs||[]).map((p,i)=>`<div class='mission'><b>${p.missionId}</b><div class='mini'>Score ${p.score}</div><div class='row'><button data-open='${i}'>View Result</button><button data-dl='${i}'>Export SVG</button></div><div id='pv-${i}' class='proof'></div></div>`).join('')||"<div class='mini'>No proofs yet.</div>";
+  el.proofPane.innerHTML=`<h3>SVG Proof Generator / Vault</h3>${list}`;
+  el.proofPane.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const i=+b.dataset.open; document.getElementById(`pv-${i}`).innerHTML=u.proofs[i].svgProof; logEvent('result_viewed',{missionId:u.proofs[i].missionId});});
+  el.proofPane.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dl; downloadSvg(u.proofs[i].svgProof,u.proofs[i].missionId);});
+}
+
+async function renderLeaderboard(){
+  let players=[...state.users];
+  if(firebaseReady){
+    try{
+      const snaps=await getDocs(query(collection(db,'skillProfiles'),orderBy('totalSkillScore','desc'),limit(10)));
+      const cloud=[];
+      for(const d of snaps.docs){ const x=d.data(); const p=await getDoc(doc(db,'players',x.playerId)); cloud.push({name:p.data()?.name||x.playerId,total:x.totalSkillScore||0}); }
+      el.leaderboardPane.innerHTML=`<h3>Leaderboard</h3>${cloud.map((p,i)=>`<div class='mission'>#${i+1} ${p.name} · ${p.total}</div>`).join('')||'<div class="mini">No data</div>'}`;
+      return;
+    }catch(_e){}
+  }
+  players.sort((a,b)=>totalSkillScore(b.skills)-totalSkillScore(a.skills));
+  el.leaderboardPane.innerHTML=`<h3>Leaderboard</h3>${players.map((p,i)=>`<div class='mission'>#${i+1} ${p.name||p.email} · ${totalSkillScore(p.skills)}</div>`).join('')||'<div class="mini">No players yet</div>'}`;
+}
+
+function renderRecruiter(){
+  const u=currentUser();
+  if(!u || u.mode!=='recruiter'){ el.recruiterPane.innerHTML='<h3>Recruiter View</h3><div class="mini">Login as recruiter to inspect candidates.</div>'; return; }
+  const candidates=state.users.filter(x=>x.mode==='player');
+  const target = candidates.find(x=>x.id===state.recruiterTarget) || candidates[0];
+  const options=candidates.map(c=>`<option value='${c.id}' ${target&&c.id===target.id?'selected':''}>${c.name||c.email}</option>`).join('');
+  const graph = target ? Object.entries(target.skills).map(([k,v])=>`<div class='skill'><div class='mini'>${k}</div><div class='bar'><span style='width:${Math.min(100,v*8)}%'></span></div><div>${v}</div></div>`).join('') : '';
+  const history = target ? (target.history||[]).map(h=>`<li>${h.missionId} · ${h.score}</li>`).join('') : '';
+  const proofs = target ? (target.proofs||[]).map((p,i)=>`<button data-cpv='${i}'>${p.missionId} Proof</button>`).join(' ') : '';
+  el.recruiterPane.innerHTML=`<h3>Recruiter View</h3>${target?`<div class='row'><select id='cand'>${options}</select><button id='load'>Load</button></div><div class='mini'>Candidate: ${target.name||target.email}</div><h4>Skill Graph</h4>${graph}<h4>Mission History</h4><ul>${history||'<li>none</li>'}</ul><h4>SVG Proofs</h4><div id='proofView' class='proof'></div>${proofs}`:'<div class="mini">No candidates available.</div>'}`;
+  document.getElementById('load')?.addEventListener('click',()=>{state.recruiterTarget=document.getElementById('cand').value;save();render();});
+  el.recruiterPane.querySelectorAll('[data-cpv]').forEach(b=>b.onclick=()=>{document.getElementById('proofView').innerHTML=target.proofs[+b.dataset.cpv].svgProof;});
+}
+
+function renderTutorial(){
+  const steps=[
+    "1. Introduction — Enter Mission Engine and choose a scenario.",
+    "2. Decision Steps — Execute decisions sequentially for each mission.",
+    "3. Simulation Results — Run efficiency/risk/cost/success simulation.",
+    "4. Skill Upgrades — See skill deltas and graph growth.",
+    "5. Hex Map Expansion — Captured missions unlock new hexes."
+  ];
+  el.tutorialPane.innerHTML=`<h3>Mission Tutorial</h3>${steps.map(s=>`<div class='mission'>${s}</div>`).join('')}`;
+}
+
+function renderSkillGraph(){
+  const u=currentUser(); const sk=u?u.skills:skillsTemplate;
+  el.skillGraph.innerHTML=Object.entries(sk).map(([k,v])=>`<div class='skill'><div class='mini'>${k}</div><div class='bar'><span style='width:${Math.min(100,v*8)}%'></span></div><div>${v}</div></div>`).join('');
+}
+
+function renderTimeline(){
+  const u=currentUser();
+  if(!u){el.timeline.textContent='No session.';return;}
+  el.timeline.innerHTML=(u.history||[]).slice(0,8).map(h=>`<div class='mini'>${h.missionId} · score ${h.score} · ${new Date(h.timestamp).toLocaleString()}</div>`).join('')||'No mission history.';
+}
+
+function renderPanes(){
+  [el.missionPane,el.mapPane,el.resultsPane,el.proofPane,el.leaderboardPane,el.recruiterPane,el.tutorialPane].forEach(p=>p.classList.remove('active'));
+  ({"Mission Engine":el.missionPane,"Hex Map":el.mapPane,"Results":el.resultsPane,"Proof Vault":el.proofPane,"Leaderboard":el.leaderboardPane,"Recruiter View":el.recruiterPane,"Tutorial":el.tutorialPane}[state.tab]).classList.add('active');
+}
+
+async function render(){
+  renderTabs(); renderPanes(); renderAuth(); renderSkillGraph(); renderTimeline();
+  renderMissionPane(); renderMap(); renderResults(); renderProof(); await renderLeaderboard(); renderRecruiter(); renderTutorial();
+  const u=currentUser(); el.userChip.textContent=u?`${u.name||u.email} (${u.mode})`:'Guest'; save();
+}
+
+function v(id){return document.getElementById(id)?.value?.trim()||'';}
+function escapeXml(s){return String(s||'').replace(/[<>&'\"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;","\"":"&quot;"}[c]));}
+
+el.logoutBtn.onclick=logout;
+if(firebaseReady){ onAuthStateChanged(auth, async (u)=>{ if(u && !state.currentUserId){ try{const me=await login(u.email,''); if(me){state.users=state.users.filter(x=>x.id!==me.id);state.users.push(me);state.currentUserId=me.id; save(); render();}}catch(_e){} } }); }
+render();
   };
   el.tSkip.onclick=()=>{ state.tutorial.active=false; state.tutorial.seen=true; render(); };
 
