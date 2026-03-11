@@ -22,5 +22,633 @@
   </main>
 
   <script type="module" src="js/app.js"></script>
+  <title>SkillHex Progression Control</title>
+  <style>
+    :root{--bg:#0b1020;--card:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--green:#55d38a;--gold:#f4c35d;--science:#58a6ff;--engineering:#55d38a;--business:#f4c35d;--leadership:#ae8cff;--logic:#72d1ff;--crisis:#ff7d8a;--special:#ffb86b}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(circle at 85% -20%,#2f4b9f,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .app{max-width:1160px;margin:auto;padding:16px;display:grid;gap:12px}
+    :root{--bg:#0b1020;--card:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--green:#55d38a;--gold:#f4c35d}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 85% -20%,#2f4b9f,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .app{max-width:1100px;margin:auto;padding:16px;display:grid;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1}
+    button,input{font:inherit;border-radius:8px;border:1px solid var(--line)}
+    button{background:#1a2750;color:var(--txt);padding:8px 10px;cursor:pointer}
+    input{background:#0f1730;color:var(--txt);padding:8px}
+    .grid{display:grid;gap:10px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .mini{font-size:.88rem;color:var(--muted)} .pill{padding:3px 8px;border-radius:999px;background:#1b2a59;font-size:.8rem}
+    .mission{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1730;display:grid;gap:6px}
+    .bar{height:10px;background:#091125;border:1px solid #335090;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,#6ab4ff,#68e2ad)}
+    .list{max-height:240px;overflow:auto;display:grid;gap:6px}
+    .badge{background:#2f245a;color:#d9c7ff;border:1px solid #5e4fa3;padding:2px 8px;border-radius:999px;font-size:.75rem}
+    svg{max-width:100%;border:1px solid var(--line);border-radius:10px;background:#0e1731}
+
+    .map-wrap{position:relative}
+    #hexMapSvg{height:420px;width:100%;cursor:grab;touch-action:none}
+    #hexMapSvg.dragging{cursor:grabbing}
+    .hex{stroke:#d7e5ff;stroke-width:1.5;opacity:.92;transition:transform .25s ease,filter .25s ease,stroke-width .25s ease}
+    .hex:hover{filter:drop-shadow(0 0 9px rgba(255,255,255,.6));stroke-width:2.2}
+    .hex.upgraded{animation:hexPulse .8s ease}
+    .hex.special{stroke:#ffd08a;stroke-dasharray:5 3;filter:drop-shadow(0 0 10px rgba(255,192,110,.5))}
+    @keyframes hexPulse{0%{transform:scale(.85)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+    .map-tip{position:absolute;pointer-events:none;background:#0d1838;border:1px solid #3b5da0;border-radius:10px;padding:8px 10px;font-size:.84rem;color:#e9f2ff;min-width:170px;display:none;z-index:2}
+
+    @media(max-width:900px){.cols{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <section class="card row">
+    <h2 style="margin:0" class="grow">SkillHex Progression System</h2>
+    <span id="seasonChip" class="pill"></span>
+    <span id="clock" class="pill"></span>
+  </section>
+
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 1 — Daily Missions</h3>
+      <div id="dailyList" class="grid"></div>
+      <div class="row mini"><span id="dailyReset"></span><span class="grow"></span><strong id="tokenBank"></strong></div>
+    </div>
+
+    <div class="card grid">
+      <h3 style="margin:0">Section 2 — SkillHex Pass</h3>
+      <div class="mini">XP from mission completions unlocks levels: missions, hex territories, and skill badges.</div>
+      <div>Pass Level <strong id="passLevel"></strong> · XP <strong id="passXp"></strong></div>
+      <div class="bar"><span id="passBar"></span></div>
+      <div id="passUnlocks" class="mini"></div>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 3 — Skill Rating (SR)</h3>
+      <div class="row"><strong id="playerSr"></strong><span class="mini">SR changes with mission score.</span></div>
+      <div class="list" id="leaderboard"></div>
+    </div>
+
+    <div class="card grid">
+      <h3 style="margin:0">Section 4 — Streak System</h3>
+      <div>Current streak: <strong id="streakCount"></strong> days</div>
+      <div id="streakRewards" class="mini"></div>
+      <button id="loginBtn">Register Daily Login</button>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 5 — Event Missions</h3>
+      <div id="eventInfo"></div>
+      <div class="mini" id="eventTimer"></div>
+    </div>
+
+    <div class="card grid">
+      <h3 style="margin:0">Section 6 — Squad Missions</h3>
+      <div class="row"><input id="roomName" class="grow" placeholder="Room name" /><button id="createRoom">Create Room</button></div>
+      <div class="row"><input id="memberName" class="grow" placeholder="Member name" /><button id="addMember">Add Member</button></div>
+      <div class="mini">Room supports up to 3 players.</div>
+      <div id="roomState" class="mini"></div>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div class="card grid">
+      <h3 style="margin:0">Section 7 — Reward System</h3>
+      <div id="rewardLog" class="list"></div>
+    </div>
+
+    <div class="card grid">
+      <h3 style="margin:0">Section 8 — Result Share Card</h3>
+      <div id="shareCard"></div>
+      <div class="row">
+        <a id="shareLinkedIn" target="_blank"><button>LinkedIn</button></a>
+        <a id="shareWhatsApp" target="_blank"><button>WhatsApp</button></a>
+        <a id="shareTwitter" target="_blank"><button>Twitter</button></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card grid">
+    <div class="row">
+      <h3 style="margin:0" class="grow">Hex Skill Map (JSON-driven)</h3>
+      <span class="mini">Zoom: mouse wheel · Pan: drag map</span>
+    </div>
+    <div class="map-wrap">
+      <div id="mapTooltip" class="map-tip"></div>
+      <svg id="hexMapSvg" viewBox="0 0 900 520" aria-label="SkillHex map"></svg>
+    </div>
+    <div class="mini">Stored player hex state JSON:</div>
+    <pre id="hexJson" class="mission mini"></pre>
+  </section>
+</div>
+
+<script>
+const KEY = "skillhex-progression-v2";
+const MAX_LEVEL = 5;
+const XP_PER_LEVEL = 100;
+const skillPalette = {
+  science:'var(--science)', engineering:'var(--engineering)', business:'var(--business)',
+  leadership:'var(--leadership)', logic:'var(--logic)', crisis:'var(--crisis)', techLeader:'var(--special)'
+};
+
+const skillMeta = [
+  {key:'science',label:'Science',q:0,r:0},
+  {key:'engineering',label:'Engineering',q:1,r:0},
+  {key:'business',label:'Business',q:-1,r:1},
+  {key:'leadership',label:'Leadership',q:0,r:1},
+  {key:'logic',label:'Logic',q:1,r:1},
+  {key:'crisis',label:'Crisis',q:0,r:2}
+];
+
+const now = () => Date.now();
+const dayStamp = (ts = now()) => new Date(ts).toISOString().slice(0,10);
+const missionsTemplate = [
+  { id:'complete_any', title:'Complete any mission', target:1, type:'count', reward:20, skill:'logic' },
+  { id:'score_700', title:'Score above 700', target:700, type:'score', reward:30, skill:'science' },
+  { id:'improve_skill', title:'Improve a skill category', target:1, type:'improve', reward:25, skill:'engineering' }
+];
+const events = [
+  { id:'asteroid_rush', name:'Asteroid Rush', desc:'Clear 5 threats in tactical mode', reward:'+40 tokens + Hex Territory' },
+  { id:'signal_blackout', name:'Signal Blackout', desc:'Solve comms puzzle with your squad', reward:'Rare Badge + 50 XP' },
+  { id:'reactor_peak', name:'Reactor Peak', desc:'Score 900+ in calibration mission', reward:'Skill Upgrade Core' }
+];
+const passLevels = [
+  {level:1, unlock:'Mission Slot +1'}, {level:2, unlock:'Hex Territory: Delta-3'}, {level:3, unlock:'Badge: Pathfinder'},
+  {level:4, unlock:'Mission: Elite Circuit'}, {level:5, unlock:'Hex Territory: Nova Ring'}, {level:6, unlock:'Badge: Tactical Ace'}
+];
+
+const defaultState = {
+  tokens:0,xp:0,passLevel:1,sr:1000,lastMissionScore:0,territories:0,skillUpgrades:0,badges:[],
+  daily:{stamp:'',missions:[]},streak:{count:0,lastLogin:''},rewardLog:[],
+  squad:{room:'',members:[]},leaderboardBots:[
+    {name:'NovaPilot',sr:1210},{name:'HexRanger',sr:1155},{name:'OrbitMind',sr:1108},{name:'You',sr:1000}
+  ],
+  hexSkills:{
+    science:{xp:0,level:1}, engineering:{xp:0,level:1}, business:{xp:0,level:1},
+    leadership:{xp:0,level:1}, logic:{xp:0,level:1}, crisis:{xp:0,level:1}
+  },
+  specialHexes:{techLeader:false},
+  mapViewport:{x:0,y:0,w:900,h:520}
+};
+
+const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+const state = {
+  ...defaultState,
+  ...saved,
+  daily:{...defaultState.daily,...saved.daily},
+  streak:{...defaultState.streak,...saved.streak},
+  squad:{...defaultState.squad,...saved.squad},
+  specialHexes:{...defaultState.specialHexes,...saved.specialHexes},
+  mapViewport:{...defaultState.mapViewport,...saved.mapViewport},
+  hexSkills:{...defaultState.hexSkills,...saved.hexSkills}
+};
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function pushReward(text){ state.rewardLog.unshift(`${new Date().toLocaleTimeString()} — ${text}`); state.rewardLog = state.rewardLog.slice(0,20); }
+
+function xpForLevel(level){ return Math.max(0,(level-1)*XP_PER_LEVEL); }
+function computeLevel(xp){ return Math.min(MAX_LEVEL, Math.floor(xp / XP_PER_LEVEL) + 1); }
+function skillLevelsJSON(){
+  return Object.fromEntries(Object.entries(state.hexSkills).map(([k,v])=>[k,v.level]));
+}
+
+</div>
+
+<script>
+const KEY = "skillhex-progression-v1";
+const now = () => Date.now();
+const dayStamp = (ts = now()) => new Date(ts).toISOString().slice(0,10);
+const missionsTemplate = [
+  { id:"complete_any", title:"Complete any mission", target:1, type:"count", reward:20 },
+  { id:"score_700", title:"Score above 700", target:700, type:"score", reward:30 },
+  { id:"improve_skill", title:"Improve a skill category", target:1, type:"improve", reward:25 }
+];
+const events = [
+  { id:"asteroid_rush", name:"Asteroid Rush", desc:"Clear 5 threats in tactical mode", durationHrs:12, reward:"+40 tokens + Hex Territory" },
+  { id:"signal_blackout", name:"Signal Blackout", desc:"Solve comms puzzle with your squad", durationHrs:12, reward:"Rare Badge + 50 XP" },
+  { id:"reactor_peak", name:"Reactor Peak", desc:"Score 900+ in calibration mission", durationHrs:12, reward:"Skill Upgrade Core" }
+];
+const passLevels = [
+  {level:1, unlock:"Mission Slot +1"}, {level:2, unlock:"Hex Territory: Delta-3"}, {level:3, unlock:"Badge: Pathfinder"},
+  {level:4, unlock:"Mission: Elite Circuit"}, {level:5, unlock:"Hex Territory: Nova Ring"}, {level:6, unlock:"Badge: Tactical Ace"}
+];
+
+const defaultState = {
+  tokens:0,xp:0,passLevel:1,sr:1000,lastMissionScore:0,territories:0,skillUpgrades:0,badges:[],
+  daily:{stamp:"",missions:[]},streak:{count:0,lastLogin:""},rewardLog:[],
+  squad:{room:"",members:[]},leaderboardBots:[
+    {name:"NovaPilot",sr:1210},{name:"HexRanger",sr:1155},{name:"OrbitMind",sr:1108},{name:"You",sr:1000}
+  ]
+};
+
+const state = Object.assign({}, defaultState, JSON.parse(localStorage.getItem(KEY) || "{}"));
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function pushReward(text){ state.rewardLog.unshift(`${new Date().toLocaleTimeString()} — ${text}`); state.rewardLog = state.rewardLog.slice(0,20); }
+
+function resetDailyIfNeeded(){
+  const today = dayStamp();
+  if(state.daily.stamp !== today){
+    state.daily.stamp = today;
+    state.daily.missions = missionsTemplate.map(m=>({...m,progress:0,done:false}));
+  }
+}
+
+function addSkillXp(skill, amount){
+  if(!state.hexSkills[skill]) return;
+  const current = state.hexSkills[skill];
+  const oldLevel = current.level;
+  current.xp = Math.min((MAX_LEVEL-1)*XP_PER_LEVEL + (XP_PER_LEVEL-1), current.xp + amount);
+  current.level = computeLevel(current.xp);
+  if(current.level > oldLevel){
+    pushReward(`${skill} hex upgraded to level ${current.level}`);
+    animateHexUpgrade(skill);
+  }
+  unlockSpecialHexes();
+}
+
+function unlockSpecialHexes(){
+  const e = state.hexSkills.engineering.level >= 3;
+  const l = state.hexSkills.leadership.level >= 3;
+  if(e && l && !state.specialHexes.techLeader){
+    state.specialHexes.techLeader = true;
+    pushReward('Special hex unlocked: Tech Leader (engineering + leadership)');
+  }
+}
+
+function addXp(amount){
+  state.xp += amount;
+  while(state.xp >= state.passLevel*100 && state.passLevel < passLevels.length){
+    state.xp -= state.passLevel*100;
+    state.passLevel += 1;
+    const unlock = passLevels.find(p=>p.level===state.passLevel)?.unlock;
+    if(unlock){ pushReward(`Pass Level ${state.passLevel} unlocked: ${unlock}`); }
+    if(unlock?.includes('Hex Territory')) state.territories += 1;
+    if(unlock?.includes('Badge')) state.badges.push(unlock.replace('Badge: ',''));
+  }
+}
+
+function applyMissionResult(score, skill){
+  state.lastMissionScore = score;
+  const srDelta = Math.round((score - 700) / 25);
+  state.sr = Math.max(300, state.sr + srDelta);
+  state.leaderboardBots.find(p=>p.name==='You').sr = state.sr;
+  addXp(40 + Math.max(0, Math.round((score-600)/20)));
+  addSkillXp(skill, 45 + Math.max(0, Math.round((score-650)/8)));
+
+  state.daily.missions.forEach(m=>{
+    if(m.done) return;
+    if(m.type==='count') m.progress = Math.min(m.target, m.progress + 1);
+    if(m.type==='score' && score >= m.target) m.progress = m.target;
+    if(m.type==='improve' && score >= 650) m.progress = m.target;
+function addXp(amount){
+  state.xp += amount;
+  while(state.xp >= state.passLevel*100 && state.passLevel < passLevels.length){
+    state.xp -= state.passLevel*100;
+    state.passLevel += 1;
+    const unlock = passLevels.find(p=>p.level===state.passLevel)?.unlock;
+    if(unlock){ pushReward(`Pass Level ${state.passLevel} unlocked: ${unlock}`); }
+    if(unlock?.includes("Hex Territory")) state.territories += 1;
+    if(unlock?.includes("Badge")) state.badges.push(unlock.replace("Badge: ",""));
+  }
+}
+
+function applyMissionResult(score){
+  state.lastMissionScore = score;
+  const srDelta = Math.round((score - 700) / 25);
+  state.sr = Math.max(300, state.sr + srDelta);
+  state.leaderboardBots.find(p=>p.name==="You").sr = state.sr;
+  addXp(40 + Math.max(0, Math.round((score-600)/20)));
+
+  state.daily.missions.forEach(m=>{
+    if(m.done) return;
+    if(m.type==="count") m.progress = Math.min(m.target, m.progress + 1);
+    if(m.type==="score" && score >= m.target) m.progress = m.target;
+    if(m.type==="improve" && score >= 650) m.progress = m.target;
+    if(m.progress >= m.target){
+      m.done = true;
+      state.tokens += m.reward;
+      pushReward(`Daily Mission complete: ${m.title} (+${m.reward} tokens)`);
+    }
+  });
+
+  if(score >= 850){ state.skillUpgrades += 1; pushReward('Skill upgrade core earned'); }
+  save();
+}
+
+function registerLogin(){
+  const today = dayStamp();
+  const prev = state.streak.lastLogin;
+  if(prev === today) return;
+  const yesterday = dayStamp(now()-86400000);
+  state.streak.count = prev===yesterday ? state.streak.count+1 : 1;
+  state.streak.lastLogin = today;
+  if(state.streak.count===3){ state.tokens += 35; pushReward('3-day streak: bonus tokens (+35)'); }
+  if(state.streak.count===7){ state.badges.push('Rare Mission Voucher'); pushReward('7-day streak: rare mission unlocked'); }
+  if(state.streak.count===30){ state.badges.push('Elite Consistency Badge'); pushReward('30-day streak: elite badge unlocked'); }
+  save(); render();
+}
+
+function currentEvent(){
+  const cycle = 12*60*60*1000;
+  const idx = Math.floor(now()/cycle)%events.length;
+  const end = (Math.floor(now()/cycle)+1)*cycle;
+  return {event:events[idx], end};
+}
+
+function createSquadRoom(){
+  const name = document.getElementById('roomName').value.trim();
+  if(!name) return;
+  state.squad.room = name;
+  state.squad.members = ['You'];
+  save(); render();
+}
+function addSquadMember(){
+  const m = document.getElementById('memberName').value.trim();
+  if(!m || !state.squad.room || state.squad.members.length>=3) return;
+  if(!state.squad.members.includes(m)) state.squad.members.push(m);
+  if(state.squad.members.length===3) pushReward(`Squad mission ready in room ${state.squad.room}`);
+  save(); render();
+}
+
+function missionActions(){
+  const html = state.daily.missions.map(m=>`<div class="mission"><strong>${m.title}</strong><div class="mini">Progress ${m.progress}/${m.target} · Reward ${m.reward} tokens · Skill XP: ${m.skill}</div>${m.done?'<span class="badge">Completed</span>':`<button data-score="${m.type==='score'?760:710}" data-skill="${m.skill}">Simulate Completion</button>`}</div>`).join('');
+  document.getElementById('dailyList').innerHTML = html;
+  document.querySelectorAll('#dailyList button').forEach(btn=>btn.onclick=()=>{ applyMissionResult(Number(btn.dataset.score), btn.dataset.skill); render(); });
+}
+
+function renderShareCard(){
+  const svg = `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#4ea1ff"/><stop offset="1" stop-color="#55d38a"/></linearGradient></defs><rect width="480" height="240" fill="#0f1730"/><rect x="14" y="14" width="452" height="212" rx="16" fill="#131f42" stroke="#335090"/><text x="30" y="48" fill="#eef3ff" font-size="22" font-family="Inter">SkillHex Result Card</text><text x="30" y="84" fill="#9db0df" font-size="15">SR: ${state.sr}  •  Pass Lvl: ${state.passLevel}  •  Tokens: ${state.tokens}</text><text x="30" y="112" fill="#9db0df" font-size="15">Streak: ${state.streak.count} days  •  Last Score: ${state.lastMissionScore}</text><rect x="30" y="140" width="320" height="12" rx="6" fill="#091125" stroke="#335090"/><rect x="30" y="140" width="${Math.min(320,(state.xp/(state.passLevel*100))*320)}" height="12" rx="6" fill="url(#g)"/><text x="30" y="177" fill="#eef3ff" font-size="14">Badges: ${(state.badges.slice(-3).join(', ') || 'None yet')}</text><text x="30" y="204" fill="#f4c35d" font-size="14">#SkillHex #MissionControl</text></svg>`;
+  document.getElementById('shareCard').innerHTML = svg;
+  const shareText = encodeURIComponent(`My SkillHex SR is ${state.sr}, Pass Level ${state.passLevel}, and ${state.streak.count}-day streak.`);
+  document.getElementById('shareLinkedIn').href = `https://www.linkedin.com/sharing/share-offsite/?url=https://skillhex.app&summary=${shareText}`;
+  document.getElementById('shareWhatsApp').href = `https://wa.me/?text=${shareText}`;
+  document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?text=${shareText}`;
+}
+
+function hexPoints(cx, cy, size){
+  const pts = [];
+  for(let i=0;i<6;i++){
+    const ang = (Math.PI/180)*(60*i-30);
+    pts.push(`${(cx + size*Math.cos(ang)).toFixed(1)},${(cy + size*Math.sin(ang)).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+function axialToPixel(q,r,size){
+  return { x:size*Math.sqrt(3)*(q + r/2), y:size*1.5*r };
+}
+
+function renderHexMap(){
+  const svg = document.getElementById('hexMapSvg');
+  svg.setAttribute('viewBox', `${state.mapViewport.x} ${state.mapViewport.y} ${state.mapViewport.w} ${state.mapViewport.h}`);
+  const baseX = 350, baseY = 120, size = 52;
+
+  const hexes = skillMeta.map(meta=>{
+    const pos = axialToPixel(meta.q, meta.r, size);
+    const s = state.hexSkills[meta.key];
+    const currentLevelXp = xpForLevel(s.level);
+    const nextThreshold = Math.min(MAX_LEVEL*XP_PER_LEVEL, xpForLevel(s.level+1));
+    const progress = s.level===MAX_LEVEL ? XP_PER_LEVEL : Math.max(0, Math.min(XP_PER_LEVEL, s.xp-currentLevelXp));
+    return { ...meta, x:baseX+pos.x, y:baseY+pos.y, level:s.level, xp:s.xp, progress, nextThreshold };
+  });
+
+  let out = `<g id="hexLayer">`;
+  hexes.forEach(h=>{
+    out += `<g class="hex-group" data-skill="${h.key}" data-level="${h.level}" data-xp="${h.xp}" data-progress="${h.progress}/${XP_PER_LEVEL}">
+      <polygon class="hex" id="hex-${h.key}" fill="${skillPalette[h.key]}" points="${hexPoints(h.x,h.y,size)}" />
+      <text x="${h.x}" y="${h.y-5}" text-anchor="middle" font-size="13" fill="#0b1020" font-weight="700">${h.label}</text>
+      <text x="${h.x}" y="${h.y+15}" text-anchor="middle" font-size="14" fill="#0b1020" font-weight="800">L${h.level}</text>
+    </g>`;
+  });
+
+  if(state.specialHexes.techLeader){
+    const sp = axialToPixel(2,0,size);
+    const sx = baseX+sp.x, sy = baseY+sp.y;
+    out += `<g class="hex-group" data-skill="techLeader" data-level="Special" data-xp="Unlocked" data-progress="engineering + leadership">
+      <polygon class="hex special" id="hex-techLeader" fill="${skillPalette.techLeader}" points="${hexPoints(sx,sy,size)}" />
+      <text x="${sx}" y="${sy-4}" text-anchor="middle" font-size="12" fill="#311f00" font-weight="700">Tech Leader</text>
+      <text x="${sx}" y="${sy+14}" text-anchor="middle" font-size="11" fill="#311f00" font-weight="800">SPECIAL</text>
+    </g>`;
+  }
+
+  out += `</g>`;
+  svg.innerHTML = out;
+
+  bindHexTooltip();
+}
+
+function bindHexTooltip(){
+  const tip = document.getElementById('mapTooltip');
+  document.querySelectorAll('.hex-group').forEach(g=>{
+    g.addEventListener('mousemove', e=>{
+      const skill = g.dataset.skill;
+      const level = g.dataset.level;
+      const progress = g.dataset.progress;
+      tip.style.display = 'block';
+      tip.style.left = `${e.offsetX+18}px`;
+      tip.style.top = `${e.offsetY+18}px`;
+      tip.innerHTML = `<strong>${skill}</strong><br/>Level: ${level}<br/>XP progress: ${progress}`;
+    });
+    g.addEventListener('mouseleave', ()=>{ tip.style.display = 'none'; });
+  });
+}
+
+function animateHexUpgrade(skill){
+  setTimeout(()=>{
+    const el = document.getElementById(`hex-${skill}`);
+    if(!el) return;
+    el.classList.remove('upgraded');
+    void el.offsetWidth;
+    el.classList.add('upgraded');
+  }, 40);
+}
+
+function bindMapNavigation(){
+  const svg = document.getElementById('hexMapSvg');
+  let dragging = false;
+  let startX = 0, startY = 0;
+  let startView = null;
+
+  svg.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.1 : 0.9;
+    const minW = 380, maxW = 1300;
+    const newW = Math.max(minW, Math.min(maxW, state.mapViewport.w*factor));
+    const ratio = newW/state.mapViewport.w;
+    state.mapViewport.w = newW;
+    state.mapViewport.h = 520 * (state.mapViewport.w/900);
+    state.mapViewport.x += (state.mapViewport.w*(1-ratio))/2;
+    state.mapViewport.y += (state.mapViewport.h*(1-ratio))/2;
+    renderHexMap();
+    save();
+  }, {passive:false});
+
+  svg.addEventListener('pointerdown', e=>{
+    dragging = true;
+    svg.classList.add('dragging');
+    startX = e.clientX; startY = e.clientY;
+    startView = {...state.mapViewport};
+    svg.setPointerCapture(e.pointerId);
+  });
+
+  svg.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const scaleX = state.mapViewport.w / svg.clientWidth;
+    const scaleY = state.mapViewport.h / svg.clientHeight;
+    state.mapViewport.x = startView.x - (e.clientX - startX)*scaleX;
+    state.mapViewport.y = startView.y - (e.clientY - startY)*scaleY;
+    renderHexMap();
+  });
+
+  const endDrag = ()=>{ dragging=false; svg.classList.remove('dragging'); save(); };
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+}
+
+function render(){
+  resetDailyIfNeeded();
+  const {event,end} = currentEvent();
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  document.getElementById('seasonChip').textContent = `Season ${new Date().getFullYear()}.${new Date().getMonth()+1}`;
+  document.getElementById('dailyReset').textContent = `Daily reset stamp: ${state.daily.stamp}`;
+  document.getElementById('tokenBank').textContent = `Tokens: ${state.tokens}`;
+  document.getElementById('passLevel').textContent = state.passLevel;
+  document.getElementById('passXp').textContent = `${state.xp}/${state.passLevel*100}`;
+  document.getElementById('passBar').style.width = `${Math.min(100,(state.xp/(state.passLevel*100))*100)}%`;
+  document.getElementById('passUnlocks').textContent = passLevels.map(p=>`L${p.level}: ${p.unlock}`).join(' • ');
+
+  document.getElementById('playerSr').textContent = `Your SR: ${state.sr}`;
+  const board = [...state.leaderboardBots].sort((a,b)=>b.sr-a.sr).map((p,i)=>`<div class="mission"><div class="row"><strong>#${i+1} ${p.name}</strong><span class="grow"></span><span>${p.sr} SR</span></div></div>`).join('');
+  document.getElementById('leaderboard').innerHTML = board;
+
+  document.getElementById('streakCount').textContent = state.streak.count;
+  document.getElementById('streakRewards').innerHTML = `3 day → bonus tokens · 7 day → rare mission · 30 day → elite badge`;
+
+  document.getElementById('eventInfo').innerHTML = `<strong>${event.name}</strong><div class="mini">${event.desc}<br/>Reward: ${event.reward}</div>`;
+  const sec = Math.max(0, Math.floor((end-now())/1000));
+  const hh = String(Math.floor(sec/3600)).padStart(2,'0');
+  const mm = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+  const ss = String(sec%60).padStart(2,'0');
+  document.getElementById('eventTimer').textContent = `Ends in ${hh}:${mm}:${ss}`;
+
+  document.getElementById('roomState').innerHTML = state.squad.room
+    ? `Room <strong>${state.squad.room}</strong> · Members (${state.squad.members.length}/3): ${state.squad.members.join(', ')}`
+    : 'No active room';
+
+  document.getElementById('rewardLog').innerHTML = state.rewardLog.map(r=>`<div class="mission mini">${r}</div>`).join('') || '<div class="mini">No rewards yet.</div>';
+
+  document.getElementById('hexJson').textContent = JSON.stringify(skillLevelsJSON(), null, 2);
+
+  missionActions();
+  renderShareCard();
+  renderHexMap();
+  save();
+}
+
+document.getElementById('loginBtn').onclick = registerLogin;
+document.getElementById('createRoom').onclick = createSquadRoom;
+document.getElementById('addMember').onclick = addSquadMember;
+
+bindMapNavigation();
+
+  if(score >= 850){ state.skillUpgrades += 1; pushReward("Skill upgrade core earned"); }
+  save();
+}
+
+function registerLogin(){
+  const today = dayStamp();
+  const prev = state.streak.lastLogin;
+  if(prev === today) return;
+  const yesterday = dayStamp(now()-86400000);
+  state.streak.count = prev===yesterday ? state.streak.count+1 : 1;
+  state.streak.lastLogin = today;
+  if(state.streak.count===3){ state.tokens += 35; pushReward("3-day streak: bonus tokens (+35)"); }
+  if(state.streak.count===7){ state.badges.push("Rare Mission Voucher"); pushReward("7-day streak: rare mission unlocked"); }
+  if(state.streak.count===30){ state.badges.push("Elite Consistency Badge"); pushReward("30-day streak: elite badge unlocked"); }
+  save(); render();
+}
+
+function currentEvent(){
+  const cycle = 12*60*60*1000;
+  const idx = Math.floor(now()/cycle)%events.length;
+  const end = (Math.floor(now()/cycle)+1)*cycle;
+  return {event:events[idx], end};
+}
+
+function createSquadRoom(){
+  const name = document.getElementById('roomName').value.trim();
+  if(!name) return;
+  state.squad.room = name;
+  state.squad.members = ["You"];
+  save(); render();
+}
+function addSquadMember(){
+  const m = document.getElementById('memberName').value.trim();
+  if(!m || !state.squad.room || state.squad.members.length>=3) return;
+  if(!state.squad.members.includes(m)) state.squad.members.push(m);
+  if(state.squad.members.length===3) pushReward(`Squad mission ready in room ${state.squad.room}`);
+  save(); render();
+}
+
+function missionActions(){
+  const html = state.daily.missions.map(m=>`<div class="mission"><strong>${m.title}</strong><div class="mini">Progress ${m.progress}/${m.target} · Reward ${m.reward} tokens</div>${m.done?'<span class="badge">Completed</span>':'<button data-score="'+(m.type==='score'?760:710)+'">Simulate Completion</button>'}</div>`).join('');
+  document.getElementById('dailyList').innerHTML = html;
+  document.querySelectorAll('#dailyList button').forEach(btn=>btn.onclick=()=>{ applyMissionResult(Number(btn.dataset.score)); render(); });
+}
+
+function renderShareCard(){
+  const svg = `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#4ea1ff"/><stop offset="1" stop-color="#55d38a"/></linearGradient></defs><rect width="480" height="240" fill="#0f1730"/><rect x="14" y="14" width="452" height="212" rx="16" fill="#131f42" stroke="#335090"/><text x="30" y="48" fill="#eef3ff" font-size="22" font-family="Inter">SkillHex Result Card</text><text x="30" y="84" fill="#9db0df" font-size="15">SR: ${state.sr}  •  Pass Lvl: ${state.passLevel}  •  Tokens: ${state.tokens}</text><text x="30" y="112" fill="#9db0df" font-size="15">Streak: ${state.streak.count} days  •  Last Score: ${state.lastMissionScore}</text><rect x="30" y="140" width="320" height="12" rx="6" fill="#091125" stroke="#335090"/><rect x="30" y="140" width="${Math.min(320,(state.xp/(state.passLevel*100))*320)}" height="12" rx="6" fill="url(#g)"/><text x="30" y="177" fill="#eef3ff" font-size="14">Badges: ${(state.badges.slice(-3).join(', ') || 'None yet')}</text><text x="30" y="204" fill="#f4c35d" font-size="14">#SkillHex #MissionControl</text></svg>`;
+  document.getElementById('shareCard').innerHTML = svg;
+  const shareText = encodeURIComponent(`My SkillHex SR is ${state.sr}, Pass Level ${state.passLevel}, and ${state.streak.count}-day streak.`);
+  document.getElementById('shareLinkedIn').href = `https://www.linkedin.com/sharing/share-offsite/?url=https://skillhex.app&summary=${shareText}`;
+  document.getElementById('shareWhatsApp').href = `https://wa.me/?text=${shareText}`;
+  document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?text=${shareText}`;
+}
+
+function render(){
+  resetDailyIfNeeded();
+  const {event,end} = currentEvent();
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  document.getElementById('seasonChip').textContent = `Season ${new Date().getFullYear()}.${new Date().getMonth()+1}`;
+  document.getElementById('dailyReset').textContent = `Daily reset stamp: ${state.daily.stamp}`;
+  document.getElementById('tokenBank').textContent = `Tokens: ${state.tokens}`;
+  document.getElementById('passLevel').textContent = state.passLevel;
+  document.getElementById('passXp').textContent = `${state.xp}/${state.passLevel*100}`;
+  document.getElementById('passBar').style.width = `${Math.min(100,(state.xp/(state.passLevel*100))*100)}%`;
+  document.getElementById('passUnlocks').textContent = passLevels.map(p=>`L${p.level}: ${p.unlock}`).join(' • ');
+
+  document.getElementById('playerSr').textContent = `Your SR: ${state.sr}`;
+  const board = [...state.leaderboardBots].sort((a,b)=>b.sr-a.sr).map((p,i)=>`<div class="mission"><div class="row"><strong>#${i+1} ${p.name}</strong><span class="grow"></span><span>${p.sr} SR</span></div></div>`).join('');
+  document.getElementById('leaderboard').innerHTML = board;
+
+  document.getElementById('streakCount').textContent = state.streak.count;
+  document.getElementById('streakRewards').innerHTML = `3 day → bonus tokens · 7 day → rare mission · 30 day → elite badge`;
+
+  document.getElementById('eventInfo').innerHTML = `<strong>${event.name}</strong><div class="mini">${event.desc}<br/>Reward: ${event.reward}</div>`;
+  const sec = Math.max(0, Math.floor((end-now())/1000));
+  const hh = String(Math.floor(sec/3600)).padStart(2,'0');
+  const mm = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+  const ss = String(sec%60).padStart(2,'0');
+  document.getElementById('eventTimer').textContent = `Ends in ${hh}:${mm}:${ss}`;
+
+  document.getElementById('roomState').innerHTML = state.squad.room
+    ? `Room <strong>${state.squad.room}</strong> · Members (${state.squad.members.length}/3): ${state.squad.members.join(', ')}`
+    : 'No active room';
+
+  document.getElementById('rewardLog').innerHTML = state.rewardLog.map(r=>`<div class="mission mini">${r}</div>`).join('') || '<div class="mini">No rewards yet.</div>';
+
+  missionActions();
+  renderShareCard();
+  save();
+}
+
+document.getElementById('loginBtn').onclick = registerLogin;
+document.getElementById('createRoom').onclick = createSquadRoom;
+document.getElementById('addMember').onclick = addSquadMember;
+
+setInterval(render, 1000);
+render();
+</script>
 </body>
 </html>
