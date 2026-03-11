@@ -127,14 +127,34 @@
   <div id="threadWheel" class="wheel" role="application" aria-label="Thread command wheel"><div id="wheelCenter" class="center">Idle</div></div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getAnalytics, logEvent as firebaseLogEvent, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+
 (() => {
   "use strict";
 
-  // Firebase readiness placeholders
-  const enableFirebase = false;
-  const firebaseConfig = { apiKey:"", authDomain:"", projectId:"", appId:"" };
-  const hasFirebase = enableFirebase && window.firebase && firebaseConfig.apiKey;
+  const firebaseConfig = {
+    apiKey: "AIzaSyBixS7kmf5R5BbsCecSgfGqagGrY2cme6Y",
+    authDomain: "skillhex-mission-control.firebaseapp.com",
+    projectId: "skillhex-mission-control",
+    storageBucket: "skillhex-mission-control.firebasestorage.app",
+    messagingSenderId: "859943015449",
+    appId: "1:859943015449:web:42dcdbe56a64574060c688",
+    measurementId: "G-JTFLZSJHWK"
+  };
+
+  let app = null, auth = null, db = null, analytics = null;
+  const hasFirebase = !!firebaseConfig.apiKey;
+  if(hasFirebase){
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    analyticsSupported().then(ok=>{ if(ok) analytics=getAnalytics(app); }).catch(()=>{});
+    setPersistence(auth, browserLocalPersistence).catch(()=>{});
+  }
 
   const STORAGE_KEY = "skillhex-mission-control-v4";
   const tabs = ["Demo Mode","Solo Mission Mode","Skill Dashboard","Proof Vault","Recruiter View","Analytics","Room Mode","Settings"];
@@ -464,6 +484,156 @@
   }
 
   async function persistCloud(){
+    if(!hasFirebase || !db) return;
+    const u=currentUser();
+    if(!u) return;
+    try {
+      await setDoc(doc(db,'players',u.id), {
+        name:u.displayName,
+        email:u.email||null,
+        userType:u.userType||'player',
+        skills:u.skills,
+        missionsPlayed:u.missionsPlayed||0,
+        missionsCompleted:u.missionsCompleted||0,
+        averageScore:u.averageScore||0,
+        averageDecisionTime:u.averageDecisionTime||0,
+        updatedAt:serverTimestamp(),
+        createdAt:u.createdAt||serverTimestamp()
+      }, {merge:true});
+      await setDoc(doc(db,'global','analytics'), {
+        totalPlayers:state.users.length,
+        missionsPlayed:state.globalAnalytics.missionsPlayed||0,
+        missionsCompleted:state.globalAnalytics.missionsCompleted||0,
+        skillSignalTotals:state.globalAnalytics.skillSignalTotals||{},
+        updatedAt:serverTimestamp()
+      }, {merge:true});
+    } catch(_e){}
+  }
+
+  function trackAnalyticsEvent(name,params={}){
+    if(analytics){
+      try { firebaseLogEvent(analytics,name,params); } catch(_e){}
+    }
+  }
+
+  async function signup(email,password,profile){
+    if(!hasFirebase || !auth || !db) throw new Error('Firebase unavailable');
+    const cred = await createUserWithEmailAndPassword(auth,email,password);
+    const player={
+      id:cred.user.uid,
+      displayName:profile.name||'Player',
+      email,
+      userType:profile.userType||'player',
+      rolePath:profile.rolePath||'Explorer',
+      ageGroup:profile.ageGroup||'18+',
+      region:profile.region||'Unknown',
+      skills:baseUser(),
+      missionsPlayed:0,
+      missionsCompleted:0,
+      createdAt:new Date().toISOString(),
+      tutorialCompleted:false,
+      playerStats:emptyPlayerStats(),
+      missionHistory:[],
+      proofVault:[],
+      roleFit:[],
+      recentSkillChanges:[]
+    };
+    ensurePlayerShape(player);
+    await setDoc(doc(db,'players',player.id), {
+      name:player.displayName,
+      email:player.email,
+      userType:player.userType,
+      rolePath:player.rolePath,
+      ageGroup:player.ageGroup,
+      region:player.region,
+      skills:player.skills,
+      missionsPlayed:0,
+      missionsCompleted:0,
+      createdAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+    }, {merge:true});
+    return player;
+  }
+
+  async function login(email,password){
+    if(!hasFirebase || !auth) throw new Error('Firebase unavailable');
+    const cred = await signInWithEmailAndPassword(auth,email,password);
+    return cred.user;
+  }
+
+  async function logout(){
+    if(hasFirebase && auth){
+      try { await signOut(auth); } catch(_e){}
+    }
+    state.currentUserId=null;
+    state.session=null;
+    saveState();
+    render();
+  }
+
+  async function hydrateUserFromCloud(uid){
+    if(!hasFirebase || !db) return null;
+    try {
+      const snap = await getDoc(doc(db,'players',uid));
+      if(!snap.exists()) return null;
+      const d=snap.data();
+      const player={
+        id:uid,
+        displayName:d.name||'Player',
+        email:d.email||'',
+        userType:d.userType||'player',
+        rolePath:d.rolePath||'Explorer',
+        ageGroup:d.ageGroup||'18+',
+        region:d.region||'Unknown',
+        skills:d.skills||baseUser(),
+        missionsPlayed:d.missionsPlayed||0,
+        missionsCompleted:d.missionsCompleted||0,
+        averageScore:d.averageScore||0,
+        averageDecisionTime:d.averageDecisionTime||0,
+        createdAt:d.createdAt?.toDate?.()?.toISOString?.()||new Date().toISOString(),
+        tutorialCompleted:d.tutorialCompleted||false,
+        playerStats:d.playerStats||emptyPlayerStats(),
+        missionHistory:[],
+        proofVault:[],
+        roleFit:d.roleFit||[],
+        recentSkillChanges:d.recentSkillChanges||[]
+      };
+      ensurePlayerShape(player);
+      const runs = await getDocs(query(collection(db,'missionRuns'), where('playerId','==',uid), orderBy('timestamp','desc'), limit(20)));
+      player.missionHistory = runs.docs.map(x=>{ const r=x.data(); return {missionId:r.missionId,missionTitle:r.missionTitle||r.missionId,score:r.score,skillDeltas:r.skillDeltas||{},timeline:r.timeline||[],outcome:r.outcome||'',timestamp:r.timestamp?.toDate?.()?.toISOString?.()||new Date().toISOString()}; });
+      const proofs = await getDocs(query(collection(db,'proofVault'), where('playerId','==',uid), orderBy('timestamp','desc'), limit(20)));
+      player.proofVault = proofs.docs.map(x=>{ const r=x.data(); return {missionId:r.missionId,missionTitle:r.missionTitle||r.missionId,score:r.score||0,skillDeltas:r.skillDeltas||{},timeline:r.timeline||[],outcome:r.outcome||'',timestamp:r.timestamp?.toDate?.()?.toISOString?.()||new Date().toISOString(),svg:r.svgProof||null,resultId:x.id}; });
+      return player;
+    } catch(_e){ return null; }
+  }
+
+  async function saveMissionRunToCloud(result,effects){
+    if(!hasFirebase || !db) return;
+    await addDoc(collection(db,'missionRuns'), {
+      playerId:result.playerId,
+      missionId:result.missionId,
+      missionTitle:result.missionTitle,
+      score:result.score.missionScore,
+      skillDeltas:effects,
+      timeline:result.timeline,
+      outcome:result.outcome,
+      timestamp:serverTimestamp()
+    });
+  }
+
+  async function saveProofToCloud(result,vaultItem,effects){
+    if(!hasFirebase || !db) return;
+    await addDoc(collection(db,'proofVault'), {
+      playerId:result.playerId,
+      missionId:result.missionId,
+      missionTitle:result.missionTitle,
+      score:result.score.missionScore,
+      skillDeltas:effects,
+      timeline:result.timeline,
+      outcome:result.outcome,
+      svgProof:vaultItem.svg||null,
+      timestamp:serverTimestamp()
+    });
     if(!hasFirebase) return;
     try{
       const db = window.firebase?.firestore?.();
@@ -481,6 +651,7 @@
       users:[], currentUserId:null, session:null, zones:seedZones(), selectedZone:null, missions:[], timeline:[],
       proofVault:[], roleFitHistory:[], recruiterActions:[], savedReports:[], rooms:[{code:"ALPHA7",name:"Demo Room",members:[]}],
       telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false, activeMissionRun:null,
+      globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}, recruiterTarget:""
       globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}
     };
   }
@@ -524,7 +695,7 @@
   function logEvent(type,payload={}){
     const evt={type,payload,at:new Date().toISOString()};
     state.telemetry.unshift(evt); state.telemetry=state.telemetry.slice(0,300);
-    if(hasFirebase){ /* Firebase analytics hook */ }
+    if(["mission_started","mission_completed","decision_made","result_viewed"].includes(type)) trackAnalyticsEvent(type,payload||{});
     saveState();
     renderTelemetry();
   }
@@ -552,13 +723,14 @@
   function renderAuth(){
     const u=currentUser();
     if(u){
-      el.authCard.innerHTML=`<div><b>${u.displayName}</b> · ${u.userType}</div><div class='mini'>${u.rolePath} · ${u.ageGroup} · ${u.region}</div>`;
+      el.authCard.innerHTML=`<div><b>${u.displayName}</b> · ${u.userType}</div><div class='mini'>${u.email||''}</div><div class='mini'>${u.rolePath} · ${u.ageGroup} · ${u.region}</div>`;
       return;
     }
     el.authCard.innerHTML=`
-      <div class='mini'>Sign up / log in (mock mode + Firebase-ready hooks)</div>
+      <div class='mini'>Sign up / log in (Firebase auth + local fallback)</div>
       <div class='auth-grid' style='margin-top:8px'>
         <input id='suName' placeholder='Display name' />
+        <input id='suEmail' placeholder='Email address' />
         <select id='suType'><option value='player'>Player</option><option value='recruiter'>Recruiter</option></select>
         <input id='suRole' placeholder='Role path' />
         <select id='suAge'><option>under 14</option><option>14-17</option><option selected>18+</option></select>
@@ -567,14 +739,45 @@
       </div>
       <div class='row' style='margin-top:8px'><button class='btn' id='signupBtn'>Sign up</button><button class='btn ghost' id='loginBtn'>Log in</button></div>`;
 
-    document.getElementById("signupBtn").onclick = () => {
+    document.getElementById("signupBtn").onclick = async () => {
       logEvent("signup_started",{});
-      const user={
-        id:crypto.randomUUID(),
-        displayName:val("suName")||"Player",
+      const profile={
+        name:val("suName")||"Player",
         userType:val("suType")||"player",
         rolePath:val("suRole")||"Explorer",
         ageGroup:val("suAge")||"18+",
+        region:val("suRegion")||"Unknown"
+      };
+      const email=val('suEmail');
+      const password=val('suPass')||"123456";
+      try{
+        let user;
+        if(hasFirebase){
+          user = await signup(email,password,profile);
+        } else {
+          user={
+            id:crypto.randomUUID(),
+            displayName:profile.name,
+            email,
+            userType:profile.userType,
+            rolePath:profile.rolePath,
+            ageGroup:profile.ageGroup,
+            region:profile.region,
+            password,
+            skills:baseUser(), tutorialCompleted:false, playerStats:emptyPlayerStats(), missionHistory:[], proofVault:[], roleFit:[], recentSkillChanges:[]
+          };
+        }
+        ensurePlayerShape(user);
+        if(!state.users.find(x=>x.id===user.id)) state.users.push(user);
+        state.globalAnalytics.totalPlayers=state.users.length;
+        state.currentUserId=user.id;
+        state.session={id:user.id};
+        saveState();
+        logEvent("signup_completed",{id:user.id});
+        render();
+      }catch(e){
+        alert(`Signup failed: ${e?.message||'Please check credentials.'}`);
+      }
         region:val("suRegion")||"Unknown",
         password:val("suPass")||"1234",
         skills:baseUser(), tutorialCompleted:false, playerStats:emptyPlayerStats(), missionHistory:[], proofVault:[], roleFit:[], recentSkillChanges:[]
@@ -589,15 +792,33 @@
       render();
     };
 
-    document.getElementById("loginBtn").onclick = () => {
-      const n=val("suName"), p=val("suPass");
-      const u=state.users.find(x=>x.displayName===n && x.password===p);
-      if(!u){ alert("Invalid credentials in local mock mode."); return; }
-      state.currentUserId=u.id;
-      state.session={id:u.id};
-      saveState();
-      logEvent("login_completed",{id:u.id});
-      render();
+    document.getElementById("loginBtn").onclick = async () => {
+      const email=val('suEmail'), p=val("suPass");
+      try{
+        if(hasFirebase){
+          const fbUser=await login(email,p);
+          let u=await hydrateUserFromCloud(fbUser.uid);
+          if(!u){
+            u={id:fbUser.uid,displayName:email.split('@')[0],email,userType:'player',rolePath:'Explorer',ageGroup:'18+',region:'Unknown',skills:baseUser(),playerStats:emptyPlayerStats(),missionHistory:[],proofVault:[],roleFit:[],recentSkillChanges:[]};
+            ensurePlayerShape(u);
+            await persistCloud();
+          }
+          state.users=state.users.filter(x=>x.id!==u.id);
+          state.users.push(u);
+          state.currentUserId=u.id;
+          state.session={id:u.id};
+        } else {
+          const u=state.users.find(x=>x.email===email && x.password===p);
+          if(!u){ alert("Invalid credentials in local mode."); return; }
+          state.currentUserId=u.id;
+          state.session={id:u.id};
+        }
+        saveState();
+        logEvent("login_completed",{id:state.currentUserId});
+        render();
+      }catch(e){
+        alert(`Login failed: ${e?.message||'Please retry.'}`);
+      }
     };
   }
 
@@ -819,6 +1040,7 @@
     const option=optionSet.find(o=>o.id===optionId);
     if(!option) return;
     run.selections.push({step:isFinal?"final":mission.steps[run.stepIndex].id,option:option.text,effects:option.effects});
+    logEvent("decision_made",{missionId:mission.id,step:isFinal?"final":mission.steps[run.stepIndex].id,option:option.id});
     run.timeline.push({time:`T+${run.selections.length*2}m`,event:isFinal?"Final Decision":(mission.steps[run.stepIndex]?.text||"Decision"),playerDecision:option.text,skillChanges:option.effects});
     if(!isFinal && run.stepIndex===2 && !run.contextEventShown){
       run.timeline.push({time:`T+${run.selections.length*2+1}m`,event:"Unexpected Event",playerDecision:"Responded under pressure",skillChanges:{},details:mission.unexpectedEvent});
@@ -842,6 +1064,11 @@
       state.missions.unshift(result);
       updatePlayerProgress(user,result,effects);
       state.roleFitHistory.unshift(result.roleFit);
+      if(hasFirebase){
+        saveMissionRunToCloud(result,effects).catch(()=>{});
+        saveProofToCloud(result,vaultItem,effects).catch(()=>{});
+        persistCloud();
+      }
       state.activeMissionRun=null;
       markAgent("proof_vault: proof_saved");
       logEvent("proof_saved",{id:result.id});
@@ -912,6 +1139,7 @@
       const v=state.proofVault.find(x=>x.id===b.dataset.view);
       if(!v) return;
       const tgt=document.getElementById(`pv-${v.id}`);
+      logEvent("result_viewed",{resultId:v.id,missionId:v.raw?.missionId||v.missionId});
       if(!tgt) return;
       tgt.innerHTML = v.svg
         ? `<div class='mini'>SVG Preview</div>${v.svg}`
@@ -933,14 +1161,16 @@
 
   function renderRecruiter(){
     const user=currentUser();
-    const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist"};
+    const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist",missionHistory:[],proofVault:[]};
     const fit=roleFitFromSkills(candidate.skills||baseUser());
     const recentRuns=state.missions.slice(0,5);
     const missionHistory=(candidate.missionHistory||[]).slice(0,5).map(m=>`<li>${escapeXml(m.missionTitle)} · score ${m.score} · ${escapeXml(m.timestamp)}</li>`).join("") || "<li>No missions yet</li>";
     const timeline=(candidate.missionHistory||[])[0]?.timeline?.slice(0,5).map(t=>`<li>${escapeXml(t.time)} - ${escapeXml(t.event)}: ${escapeXml(t.playerDecision||'')}</li>`).join("") || "<li>No timeline yet</li>";
     const consistency=recentRuns.length?Math.round(recentRuns.reduce((a,m)=>a+m.score.decisionConsistency,0)/recentRuns.length):0;
     const skillGraph=Object.entries(candidate.skills||{}).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>`<div class='mini'>${skillLabelMap[k]}: ${Math.round(v)}</div>`).join('');
+    const recruiterTools = user?.userType==='recruiter' ? `<div class='row' style='margin-top:6px'><input class='input grow' id='candidateId' placeholder='Candidate player ID' value='${escapeXml(state.recruiterTarget||'')}'/><button class='btn ghost' id='loadCandidateBtn'>Load Candidate</button></div>` : '';
     el.recruiterBox.innerHTML=`<b>Recruiter Evidence Panel</b><br><span class='mini'>${escapeXml(candidate.displayName)} · ${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
+      ${recruiterTools}
       <div class='mini' style='margin-top:6px'><b>Role Fit</b>: ${fit.slice(0,3).map(f=>`${f.role} (${f.confidence}%)`).join(' · ')}</div>
       <div class='mini' style='margin-top:6px'><b>Consistency Score</b>: ${consistency}</div>
       <div class='mini' style='margin-top:6px'><b>Mission History</b></div><ul>${missionHistory}</ul>
@@ -956,6 +1186,26 @@
       renderRecruiter();
       saveState();
     };
+
+    if(user?.userType==='recruiter'){
+      document.getElementById('loadCandidateBtn')?.addEventListener('click', async ()=>{
+        const cid=val('candidateId');
+        state.recruiterTarget=cid;
+        if(!cid) return;
+        if(hasFirebase){
+          const candidateData = await hydrateUserFromCloud(cid);
+          if(candidateData){
+            state.users=state.users.filter(x=>x.id!==candidateData.id);
+            state.users.push(candidateData);
+            state.currentUserId=candidateData.id;
+            logEvent('recruiter_loaded_candidate',{candidateId:cid});
+            render();
+            return;
+          }
+          alert('Candidate not found');
+        }
+      });
+    }
 
     if (!state.recruiterViewed) {
       state.recruiterViewed = true;
@@ -1177,7 +1427,7 @@
   el.replayTutorialBtn.onclick=openTutorial;
   el.toggleInputBtn.onclick=()=>{ state.inputMode=state.inputMode==="thread"?"standard":"thread"; logEvent("input_mode_selected",{mode:state.inputMode}); render(); };
   el.toggleWheelBtn.onclick=()=>{ state.wheelDocked=!state.wheelDocked; saveState(); renderChips(); };
-  el.logoutBtn.onclick=()=>{ state.currentUserId=null; state.session=null; saveState(); render(); };
+  el.logoutBtn.onclick=()=>{ logout(); };
 
   document.addEventListener("keydown",(e)=>{
     if(e.key==="ArrowRight") { cycleTab(1); render(); }
@@ -1185,6 +1435,22 @@
     if(e.key==="Enter" && state.inputMode==="thread") dispatchThread((wheelState.active+12)%12,1,true);
     if(e.key.toLowerCase()==="t") { state.inputMode=state.inputMode==="thread"?"standard":"thread"; logEvent("input_mode_selected",{mode:state.inputMode}); render(); }
   });
+
+  if(hasFirebase && auth){
+    onAuthStateChanged(auth, async (fbUser)=>{
+      if(fbUser){
+        const cloudUser = await hydrateUserFromCloud(fbUser.uid);
+        if(cloudUser){
+          state.users = state.users.filter(u=>u.id!==cloudUser.id);
+          state.users.push(cloudUser);
+          state.currentUserId=cloudUser.id;
+          state.session={id:cloudUser.id};
+          saveState();
+          render();
+        }
+      }
+    });
+  }
 
   bindWheelPointer();
   if(!state.tutorial.seen) openTutorial();
