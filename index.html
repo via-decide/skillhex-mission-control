@@ -80,6 +80,7 @@
       .feed { max-height: 220px; overflow: auto; display: grid; gap: 8px; }
       .event { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #0d1529; font-size: .87rem; }
       .tiny { font-size: .78rem; color: var(--muted); }
+      .status-line { margin-top: 6px; }
 
       @media (max-width: 980px) {
         .layout { grid-template-columns: 1fr; }
@@ -158,6 +159,19 @@
           <div class="skills" id="skills"></div>
           <h2 style="margin-top:14px;">Telemetry Feed</h2>
           <div class="feed" id="telemetry"></div>
+          <h2 style="margin-top:14px;">Proof Artifact</h2>
+          <div class="mission-card">
+            <div class="tiny">Export your skill proof report, print a PDF summary, or recover prior artifacts.</div>
+            <div class="flex" style="margin-top:8px;">
+              <button id="exportProofBtn" class="primary">Export Proof JSON</button>
+              <button id="printProofBtn">Print Proof Summary</button>
+            </div>
+            <div class="flex" style="margin-top:8px;">
+              <input id="recoverProofInput" type="file" accept="application/json" />
+              <button id="recoverProofBtn">Recover Artifact</button>
+            </div>
+            <div id="proofStatus" class="tiny status-line">No export/recovery activity yet.</div>
+          </div>
           <div class="flex" style="margin-top:10px;">
             <button id="resetBtn" class="ghost">Reset Local Data</button>
           </div>
@@ -168,6 +182,8 @@
     <script>
       (() => {
         const STORAGE_KEY = "skillhex-mission-control-v1";
+        const PROOF_REPORT_VERSION = "1.0.0";
+        const PROOF_REPORT_SCHEMA = "skillhex-proof-report";
         const MODES = ["Demo", "Solo Missions", "Room Mode", "Recruiter View"];
         const SKILLS = ["Systems Thinking", "Communication", "Execution", "Adaptability", "Leadership"];
         const ROLE_PROFILES = {
@@ -231,7 +247,10 @@
           lastMission: null,
           mode: "Demo",
           selectedHex: 0,
-          shortlist: []
+          shortlist: [],
+          proofVault: [],
+          exportedReports: [],
+          recoveryMetadata: { status: "idle", events: [], lastError: null }
         });
 
         const loadState = () => {
@@ -240,6 +259,15 @@
         };
 
         let state = loadState();
+        state.proofVault = Array.isArray(state.proofVault) ? state.proofVault : [];
+        state.exportedReports = Array.isArray(state.exportedReports) ? state.exportedReports : [];
+        state.recoveryMetadata = state.recoveryMetadata && typeof state.recoveryMetadata === "object"
+          ? {
+              status: state.recoveryMetadata.status || "idle",
+              events: Array.isArray(state.recoveryMetadata.events) ? state.recoveryMetadata.events : [],
+              lastError: state.recoveryMetadata.lastError || null
+            }
+          : { status: "idle", events: [], lastError: null };
 
         const el = {
           modeTabs: document.getElementById("modeTabs"),
@@ -264,7 +292,12 @@
           persistenceBadge: document.getElementById("persistenceBadge"),
           playerBadge: document.getElementById("playerBadge"),
           territoryBadge: document.getElementById("territoryBadge"),
-          resetBtn: document.getElementById("resetBtn")
+          resetBtn: document.getElementById("resetBtn"),
+          exportProofBtn: document.getElementById("exportProofBtn"),
+          printProofBtn: document.getElementById("printProofBtn"),
+          recoverProofInput: document.getElementById("recoverProofInput"),
+          recoverProofBtn: document.getElementById("recoverProofBtn"),
+          proofStatus: document.getElementById("proofStatus")
         };
 
         const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -280,6 +313,134 @@
         function save() {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           firebaseHooks.saveState(state);
+        }
+
+        function exportProofReport() {
+          const now = new Date();
+          const owned = state.map.filter(h => h.owner === "player").length;
+          return {
+            schema: PROOF_REPORT_SCHEMA,
+            version: PROOF_REPORT_VERSION,
+            exportedAtIso: now.toISOString(),
+            exportedAtLocale: now.toLocaleString(),
+            metadata: {
+              mode: state.mode,
+              telemetryCount: state.telemetry.length,
+              shortlistCount: state.shortlist.length,
+              firebaseEnabled: firebaseHooks.enabled,
+              source: "skillhex-mission-control"
+            },
+            user: {
+              name: state.player.name,
+              growthPath: state.player.growth.slice(-5),
+              shortlistCount: state.player.shortlistCount || state.shortlist.length
+            },
+            skills: { ...state.player.skills },
+            territory: {
+              owned,
+              total: state.map.length,
+              selectedHex: state.selectedHex + 1,
+              mapSnapshot: state.map.map(({ id, owner, control, missionType }) => ({ id, owner, control, missionType }))
+            },
+            missions: {
+              lastMission: state.lastMission,
+              growthEvents: state.player.growth,
+              telemetry: state.telemetry.slice(0, 25)
+            }
+          };
+        }
+
+        function downloadProofReport(report) {
+          const stamp = report.exportedAtIso.replace(/[:.]/g, "-");
+          const filename = `skillhex-proof-${report.version}-${stamp}.json`;
+          const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = filename;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        }
+
+        function openPrintSummary(report) {
+          const rows = SKILLS.map(skill => `<tr><td>${skill}</td><td>${state.player.skills[skill]}</td></tr>`).join("");
+          const win = window.open("", "_blank", "width=900,height=700");
+          if (!win) return false;
+          win.document.write(`<!doctype html><html><head><title>SkillHex Proof Summary</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}h1{margin:0 0 4px;}small{color:#555;}</style></head><body><h1>SkillHex Proof-of-Skill Summary</h1><small>Version ${report.version} · ${report.exportedAtLocale}</small><h2>Player</h2><p>${report.user.name}</p><h2>Territory</h2><p>${report.territory.owned}/${report.territory.total}</p><h2>Skills</h2><table><thead><tr><th>Skill</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table><h2>Last Mission</h2><p>${report.missions.lastMission ? `${report.missions.lastMission.missionType} · ${report.missions.lastMission.choice}` : "No mission recorded"}</p></body></html>`);
+          win.document.close();
+          win.focus();
+          win.print();
+          return true;
+        }
+
+        function validateProofPayload(payload) {
+          if (!payload || typeof payload !== "object") return "Invalid JSON payload.";
+          if (payload.schema !== PROOF_REPORT_SCHEMA) return "Unsupported proof schema.";
+          if (payload.version !== PROOF_REPORT_VERSION) return `Unsupported version: ${payload.version || "unknown"}.`;
+          if (!payload.user || !payload.skills || !payload.territory || !payload.missions || !payload.metadata) {
+            return "Proof report is missing required sections.";
+          }
+          return null;
+        }
+
+        function recoverProofArtifact(file) {
+          return new Promise((resolve, reject) => {
+            if (!file) { reject(new Error("Choose a JSON artifact file first.")); return; }
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const payload = JSON.parse(reader.result);
+                const validationError = validateProofPayload(payload);
+                if (validationError) throw new Error(validationError);
+
+                const recoveredAt = new Date().toISOString();
+                const reportRecord = { ...payload, recoveredAt };
+                state.proofVault.unshift(reportRecord);
+                state.proofVault = state.proofVault.slice(0, 20);
+                state.exportedReports.unshift({
+                  exportedAtIso: payload.exportedAtIso,
+                  version: payload.version,
+                  source: "recovered"
+                });
+                state.exportedReports = state.exportedReports.slice(0, 50);
+
+                const event = {
+                  recoveredAt,
+                  fileName: file.name,
+                  version: payload.version,
+                  exportTimestamp: payload.exportedAtIso,
+                  status: "success"
+                };
+                state.recoveryMetadata.events.unshift(event);
+                state.recoveryMetadata.events = state.recoveryMetadata.events.slice(0, 15);
+                state.recoveryMetadata.status = "success";
+                state.recoveryMetadata.lastError = null;
+                log("proof.recovered", event);
+                save();
+                render();
+                resolve(event);
+              } catch (error) {
+                const failure = {
+                  recoveredAt: new Date().toISOString(),
+                  fileName: file.name,
+                  status: "error",
+                  error: error.message
+                };
+                state.recoveryMetadata.events.unshift(failure);
+                state.recoveryMetadata.events = state.recoveryMetadata.events.slice(0, 15);
+                state.recoveryMetadata.status = "error";
+                state.recoveryMetadata.lastError = error.message;
+                log("proof.recovery_failed", failure);
+                save();
+                render();
+                reject(error);
+              }
+            };
+            reader.onerror = () => reject(new Error("Unable to read selected file."));
+            reader.readAsText(file);
+          });
         }
 
         function applyChoice(missionType, choice) {
@@ -465,6 +626,20 @@
           el.persistenceBadge.textContent = firebaseHooks.enabled ? "Persistence: Firebase + Local" : "Persistence: Local Mock Mode";
         }
 
+        function renderProofStatus() {
+          const latest = state.recoveryMetadata.events[0];
+          const exportCount = state.exportedReports.length;
+          if (!latest) {
+            el.proofStatus.innerHTML = `Reports exported: ${exportCount}. No recovery activity yet.`;
+            return;
+          }
+          if (latest.status === "error") {
+            el.proofStatus.innerHTML = `<span class="bad">Recovery failed: ${latest.error}</span>`;
+            return;
+          }
+          el.proofStatus.innerHTML = `<span class="good">Recovered ${latest.fileName}</span> · ${new Date(latest.recoveredAt).toLocaleString()} · Reports: ${exportCount}`;
+        }
+
         el.createRoomBtn.onclick = () => {
           const name = (el.roomName.value || "Untitled Room").trim();
           const c = code();
@@ -503,6 +678,39 @@
           log("state.reset");
           save(); render();
         };
+        el.exportProofBtn.onclick = () => {
+          const report = exportProofReport();
+          state.proofVault.unshift(report);
+          state.proofVault = state.proofVault.slice(0, 20);
+          state.exportedReports.unshift({ exportedAtIso: report.exportedAtIso, version: report.version, source: "local-export" });
+          state.exportedReports = state.exportedReports.slice(0, 50);
+          log("proof.exported", { version: report.version, exportedAtIso: report.exportedAtIso });
+          save();
+          downloadProofReport(report);
+          render();
+        };
+        el.printProofBtn.onclick = () => {
+          const report = exportProofReport();
+          const opened = openPrintSummary(report);
+          if (!opened) {
+            state.recoveryMetadata.status = "error";
+            state.recoveryMetadata.lastError = "Pop-up blocked; allow pop-ups to print proof summary.";
+          } else {
+            state.recoveryMetadata.status = "success";
+            state.recoveryMetadata.lastError = null;
+            log("proof.print_requested", { version: report.version, exportedAtIso: report.exportedAtIso });
+          }
+          save();
+          render();
+        };
+        el.recoverProofBtn.onclick = async () => {
+          const file = el.recoverProofInput.files && el.recoverProofInput.files[0];
+          try {
+            await recoverProofArtifact(file);
+          } catch (error) {
+            alert(`Proof recovery failed: ${error.message}`);
+          }
+        };
 
         function render() {
           renderModeTabs();
@@ -514,6 +722,7 @@
           renderRoom();
           renderRecruiter();
           renderTopMeta();
+          renderProofStatus();
         }
 
         bindMapClick();
