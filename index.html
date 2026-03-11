@@ -305,6 +305,7 @@
           recoveryMetadata: { status: "idle", events: [], lastError: null },
           input: { mode: "standard", tutorialSeen: false, lastCommand: null },
           threadTelemetry: []
+          recoveryMetadata: { status: "idle", events: [], lastError: null }
         });
 
         const loadState = () => {
@@ -361,6 +362,7 @@
           threadHint: document.getElementById("threadHint"),
           threadWheel: document.getElementById("threadWheel"),
           threadCenter: document.getElementById("threadCenter")
+          proofStatus: document.getElementById("proofStatus")
         };
 
         const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
