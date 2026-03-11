@@ -76,6 +76,8 @@
       </div>
 
       <div class="pane" data-pane="Solo Mission Mode"><div class="box" id="soloBox"></div></div>
+      <div class="pane" data-pane="Skill Dashboard"><div class="box" id="skillDashboardBox"></div></div>
+      <div class="pane" data-pane="Analytics"><div class="box" id="analyticsBox"></div></div>
       <div class="pane" data-pane="Room Mode">
         <div class="box">
           <div class="row"><input id="roomName" class="input grow" placeholder="Room name"/><button class="btn" id="createRoomBtn">Create Room</button></div>
@@ -134,8 +136,8 @@
   const firebaseConfig = { apiKey:"", authDomain:"", projectId:"", appId:"" };
   const hasFirebase = enableFirebase && window.firebase && firebaseConfig.apiKey;
 
-  const STORAGE_KEY = "skillhex-mission-control-v3";
-  const tabs = ["Demo Mode","Solo Mission Mode","Room Mode","Recruiter View","Proof Vault","Settings"];
+  const STORAGE_KEY = "skillhex-mission-control-v4";
+  const tabs = ["Demo Mode","Solo Mission Mode","Skill Dashboard","Proof Vault","Recruiter View","Analytics","Room Mode","Settings"];
   const skillConfig = [
     {key:"systemsThinking",label:"Systems Thinking"},
     {key:"analyticalThinking",label:"Analytical Thinking"},
@@ -442,12 +444,44 @@
 
   function baseUser(){ const s={}; skillsList.forEach(k=>s[k]=50); return s; }
 
+  function emptyPlayerStats(){
+    return {missionsPlayed:0,missionsCompleted:0,averageScore:0,averageDecisionTime:0,skillDistribution:{}};
+  }
+
+  function ensurePlayerShape(u){
+    if(!u) return;
+    u.skills = Object.assign(baseUser(), u.skills||{});
+    u.playerStats = Object.assign(emptyPlayerStats(), u.playerStats||{});
+    u.missionsPlayed = Number(u.missionsPlayed||u.playerStats.missionsPlayed||0);
+    u.missionsCompleted = Number(u.missionsCompleted||u.playerStats.missionsCompleted||0);
+    u.averageScore = Number(u.averageScore||u.playerStats.averageScore||0);
+    u.averageDecisionTime = Number(u.averageDecisionTime||u.playerStats.averageDecisionTime||0);
+    u.skillDistribution = Object.assign({}, u.skillDistribution||u.playerStats.skillDistribution||{});
+    u.missionHistory = Array.isArray(u.missionHistory)?u.missionHistory:[];
+    u.proofVault = Array.isArray(u.proofVault)?u.proofVault:[];
+    u.roleFit = Array.isArray(u.roleFit)?u.roleFit:[];
+    u.recentSkillChanges = Array.isArray(u.recentSkillChanges)?u.recentSkillChanges:[];
+  }
+
+  async function persistCloud(){
+    if(!hasFirebase) return;
+    try{
+      const db = window.firebase?.firestore?.();
+      const u=currentUser();
+      if(db && u){
+        await db.collection('players').doc(u.id).set(u,{merge:true});
+        await db.collection('global').doc('analytics').set(state.globalAnalytics,{merge:true});
+      }
+    }catch(_e){}
+  }
+
   function defaultState(){
     return {
       mode:"Demo Mode", inputMode:"standard", wheelDocked:false, tutorial:{seen:false,step:0,active:false}, agents:true,
       users:[], currentUserId:null, session:null, zones:seedZones(), selectedZone:null, missions:[], timeline:[],
       proofVault:[], roleFitHistory:[], recruiterActions:[], savedReports:[], rooms:[{code:"ALPHA7",name:"Demo Room",members:[]}],
-      telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false, activeMissionRun:null
+      telemetry:[], jobs:seededJobs, resultExamples:[], recruiterViewed:false, activeMissionRun:null,
+      globalAnalytics:{totalPlayers:0,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}
     };
   }
 
@@ -461,7 +495,9 @@
       const next=baseUser();
       Object.entries(u.skills||{}).forEach(([k,v])=>{ next[legacySkillMap[k]||k]=v; });
       u.skills=next;
+      ensurePlayerShape(u);
     });
+    s.globalAnalytics = Object.assign({totalPlayers:s.users.length,missionsPlayed:0,missionsCompleted:0,skillSignalTotals:{}}, s.globalAnalytics||{});
     if (!s.currentUserId && s.currentUser && s.currentUser.id) s.currentUserId = s.currentUser.id; // migration
     delete s.currentUser;
     return s;
@@ -469,13 +505,14 @@
 
   const state = loadState();
 
-  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); persistCloud(); }
   function currentUser(){ return state.users.find(u=>u.id===state.currentUserId) || null; }
 
   const el = {
     tabs:document.getElementById("tabs"), panes:[...document.querySelectorAll(".pane")], mapSvg:document.getElementById("mapSvg"),
     zoneBox:document.getElementById("zoneBox"), missionBox:document.getElementById("missionBox"), soloBox:document.getElementById("soloBox"),
     recruiterBox:document.getElementById("recruiterBox"), vaultBox:document.getElementById("vaultBox"), settingsBox:document.getElementById("settingsBox"),
+    skillDashboardBox:document.getElementById("skillDashboardBox"), analyticsBox:document.getElementById("analyticsBox"),
     authCard:document.getElementById("authCard"), skills:document.getElementById("skills"), telemetry:document.getElementById("telemetry"), activity:document.getElementById("activity"),
     persistChip:document.getElementById("persistChip"), userChip:document.getElementById("userChip"), inputChip:document.getElementById("inputChip"), logoutBtn:document.getElementById("logoutBtn"),
     replayTutorialBtn:document.getElementById("replayTutorialBtn"), tOverlay:document.getElementById("tutorialOverlay"), tTitle:document.getElementById("tTitle"), tBody:document.getElementById("tBody"),
@@ -540,9 +577,11 @@
         ageGroup:val("suAge")||"18+",
         region:val("suRegion")||"Unknown",
         password:val("suPass")||"1234",
-        skills:baseUser(), tutorialCompleted:false
+        skills:baseUser(), tutorialCompleted:false, playerStats:emptyPlayerStats(), missionHistory:[], proofVault:[], roleFit:[], recentSkillChanges:[]
       };
+      ensurePlayerShape(user);
       state.users.push(user);
+      state.globalAnalytics.totalPlayers=state.users.length;
       state.currentUserId=user.id;
       state.session={id:user.id};
       saveState();
@@ -617,6 +656,9 @@
 
   function beginMission(zone, mission){
     state.activeMissionRun={zoneId:zone.id,missionId:mission.id,stepIndex:0,selections:[],effects:{},timeline:[{time:"T+0m",event:"Scenario",playerDecision:"Mission initialized",skillChanges:{}}],contextEventShown:false,startedAt:Date.now()};
+    const u=currentUser();
+    if(u){ ensurePlayerShape(u); u.missionsPlayed +=1; u.playerStats.missionsPlayed=u.missionsPlayed; }
+    state.globalAnalytics.missionsPlayed=(state.globalAnalytics.missionsPlayed||0)+1;
     logEvent("mission_started",{zone:zone.id,missionId:mission.id});
     markAgent("mission_engine: mission_started");
     renderMissionPanel();
@@ -795,7 +837,10 @@
       const rendered=renderResult(result, valid);
       const vaultItem={id:result.id,createdAt:new Date().toISOString(),raw:result,normalized:result,svg:rendered.svg||null,fallback:rendered.fallback||null,report:summarizeResultPayload(result),roleFit:result.roleFit};
       state.proofVault.unshift(vaultItem); state.proofVault=state.proofVault.slice(0,120);
+      user.proofVault.unshift({missionId:result.missionId,missionTitle:result.missionTitle,score:result.score.missionScore,skillDeltas:effects,timeline:result.timeline,outcome:result.outcome,timestamp:new Date().toISOString(),svg:vaultItem.svg||null,resultId:result.id});
+      user.proofVault=user.proofVault.slice(0,80);
       state.missions.unshift(result);
+      updatePlayerProgress(user,result,effects);
       state.roleFitHistory.unshift(result.roleFit);
       state.activeMissionRun=null;
       markAgent("proof_vault: proof_saved");
@@ -808,15 +853,63 @@
     renderMissionPanel();
   }
 
+  function updatePlayerProgress(user, result, effects){
+    ensurePlayerShape(user);
+    user.missionsCompleted += 1;
+    user.playerStats.missionsCompleted = user.missionsCompleted;
+    user.averageScore = ((user.averageScore*(user.missionsCompleted-1))+result.score.missionScore)/user.missionsCompleted;
+    user.playerStats.averageScore = user.averageScore;
+    user.averageDecisionTime = ((user.averageDecisionTime*(user.missionsCompleted-1))+result.score.decisionTime)/user.missionsCompleted;
+    user.playerStats.averageDecisionTime = user.averageDecisionTime;
+    user.skillDistribution = Object.fromEntries(skillsList.map(k=>[k,Math.round(user.skills[k]||0)]));
+    user.playerStats.skillDistribution = user.skillDistribution;
+    user.missionHistory.unshift({missionId:result.missionId,missionTitle:result.missionTitle,score:result.score.missionScore,skillDeltas:effects,timeline:result.timeline,outcome:result.outcome,timestamp:new Date().toISOString()});
+    user.missionHistory=user.missionHistory.slice(0,80);
+    user.recentSkillChanges.unshift({missionId:result.missionId,skillDeltas:effects,timestamp:new Date().toISOString()});
+    user.recentSkillChanges=user.recentSkillChanges.slice(0,10);
+    user.roleFit=result.roleFit;
+    Object.entries(effects||{}).forEach(([k,v])=>{ state.globalAnalytics.skillSignalTotals[k]=(state.globalAnalytics.skillSignalTotals[k]||0)+v; });
+    state.globalAnalytics.missionsCompleted=(state.globalAnalytics.missionsCompleted||0)+1;
+  }
+
+
+  function deriveRoleSuggestions(skills){
+    const out=[];
+    if((skills.systemsThinking||0)>70) out.push({role:"Systems Engineer",confidence:Math.min(99,Math.round((skills.systemsThinking||0)*0.9))});
+    if((skills.prioritization||0)>60) out.push({role:"Operations Analyst",confidence:Math.min(99,Math.round((skills.prioritization||0)*0.88))});
+    if((skills.analyticalThinking||0)>70) out.push({role:"Data Analyst",confidence:Math.min(99,Math.round((skills.analyticalThinking||0)*0.9))});
+    if(!out.length) out.push(...roleFitFromSkills(skills).slice(0,2).map(r=>({role:r.role,confidence:r.confidence})));
+    return out.slice(0,3);
+  }
+
+  function renderSkillDashboard(){
+    const u=currentUser();
+    if(!u){ el.skillDashboardBox.innerHTML='Sign in to see your skill dashboard.'; return; }
+    ensurePlayerShape(u);
+    const top=Object.entries(u.skills).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const recent=u.recentSkillChanges[0]?.skillDeltas||{};
+    const bars=skillsList.map(k=>`<div class='r'><div class='mini'>${skillLabelMap[k]}</div><div class='bar'><span style='width:${Math.min(100,Math.max(0,u.skills[k]))}%'></span></div><div>${Math.round(u.skills[k])}</div></div>`).join('');
+    const recentTxt=Object.entries(recent).map(([k,v])=>`${skillLabelMap[k]} ${v>0?'+':''}${v}`).join(' · ') || 'No recent changes';
+    const fit=deriveRoleSuggestions(u.skills).map(r=>`<li>${r.role} (${r.confidence}%)</li>`).join('');
+    el.skillDashboardBox.innerHTML=`<b>Skill Graph</b><div class='mini'>Current levels and trend signals</div><div class='skills'>${bars}</div><div class='mini' style='margin-top:8px'><b>Recent skill changes:</b> ${recentTxt}</div><div class='mini'><b>Top strengths:</b> ${top.map(([k,v])=>`${skillLabelMap[k]} (${Math.round(v)})`).join(' · ')}</div><div class='mini'><b>Role Fit Suggestions</b></div><ul>${fit}</ul>`;
+  }
+
+  function renderAnalytics(){
+    const ga=state.globalAnalytics||{};
+    const completion=(ga.missionsPlayed?Math.round(((ga.missionsCompleted||0)/ga.missionsPlayed)*100):0);
+    const common=Object.entries(ga.skillSignalTotals||{}).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,4).map(([k,v])=>`${skillLabelMap[k]||k} (${v>0?'+':''}${v})`).join(' · ') || 'No signals yet';
+    el.analyticsBox.innerHTML=`<b>Mission Analytics</b><div class='mini'>Total Players: ${state.users.length}</div><div class='mini'>Missions Played: ${ga.missionsPlayed||0}</div><div class='mini'>Average Completion Rate: ${completion}%</div><div class='mini'>Most Common Skill Signals: ${common}</div>`;
+  }
+
   function renderVault(){
     if(!state.proofVault.length){
       el.vaultBox.innerHTML="No proof entries yet. Complete a mission to save evidence.";
       return;
     }
-    el.vaultBox.innerHTML = state.proofVault.slice(0,8).map(v=>`<div class='evt'><b>${escapeXml(v.report)}</b><div class='mini'>${escapeXml(v.createdAt)}</div><div class='row' style='margin-top:6px'><button class='btn ghost' data-open='${v.id}'>Open</button><button class='btn ghost' data-dl='${v.id}'>Download SVG</button></div><div id='pv-${v.id}'></div></div>`).join("");
+    el.vaultBox.innerHTML = state.proofVault.slice(0,8).map(v=>`<div class='evt'><b>${escapeXml(v.report)}</b><div class='mini'>${escapeXml(v.createdAt)}</div><div class='row' style='margin-top:6px'><button class='btn ghost' data-view='${v.id}'>View Result</button><button class='btn ghost' data-dl='${v.id}'>Download SVG</button></div><div id='pv-${v.id}'></div></div>`).join("");
 
-    el.vaultBox.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{
-      const v=state.proofVault.find(x=>x.id===b.dataset.open);
+    el.vaultBox.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{
+      const v=state.proofVault.find(x=>x.id===b.dataset.view);
       if(!v) return;
       const tgt=document.getElementById(`pv-${v.id}`);
       if(!tgt) return;
@@ -843,8 +936,8 @@
     const candidate = user || {displayName:"Mock Candidate",skills:baseUser(),ageGroup:"18+",rolePath:"Generalist"};
     const fit=roleFitFromSkills(candidate.skills||baseUser());
     const recentRuns=state.missions.slice(0,5);
-    const missionHistory=recentRuns.map(m=>`<li>${escapeXml(m.missionTitle)} · score ${m.score.missionScore} · confidence ${m.score.confidenceScore}</li>`).join("") || "<li>No missions yet</li>";
-    const timeline=recentRuns[0]?.timeline?.slice(0,5).map(t=>`<li>${escapeXml(t.time)} - ${escapeXml(t.event)}: ${escapeXml(t.playerDecision||'')}</li>`).join("") || "<li>No timeline yet</li>";
+    const missionHistory=(candidate.missionHistory||[]).slice(0,5).map(m=>`<li>${escapeXml(m.missionTitle)} · score ${m.score} · ${escapeXml(m.timestamp)}</li>`).join("") || "<li>No missions yet</li>";
+    const timeline=(candidate.missionHistory||[])[0]?.timeline?.slice(0,5).map(t=>`<li>${escapeXml(t.time)} - ${escapeXml(t.event)}: ${escapeXml(t.playerDecision||'')}</li>`).join("") || "<li>No timeline yet</li>";
     const consistency=recentRuns.length?Math.round(recentRuns.reduce((a,m)=>a+m.score.decisionConsistency,0)/recentRuns.length):0;
     const skillGraph=Object.entries(candidate.skills||{}).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>`<div class='mini'>${skillLabelMap[k]}: ${Math.round(v)}</div>`).join('');
     el.recruiterBox.innerHTML=`<b>Recruiter Evidence Panel</b><br><span class='mini'>${escapeXml(candidate.displayName)} · ${escapeXml(candidate.rolePath)} · age ${escapeXml(candidate.ageGroup)}</span>
@@ -853,6 +946,7 @@
       <div class='mini' style='margin-top:6px'><b>Mission History</b></div><ul>${missionHistory}</ul>
       <div class='mini'><b>Decision Timeline (latest)</b></div><ul>${timeline}</ul>
       <div class='mini'><b>Skill Graph</b></div>${skillGraph}
+      <div class='mini'><b>Proof Artifacts</b>: ${(candidate.proofVault||[]).slice(0,3).map(p=>`${escapeXml(p.missionTitle)} (${p.score})`).join(' · ')||'None'}</div>
       <button class='btn' id='shortlistBtn'>Shortlist</button>`;
 
     document.getElementById("shortlistBtn").onclick=()=>{
@@ -1029,11 +1123,15 @@
     // Pane-specific renders to avoid side effects when hidden
     if(state.mode==="Recruiter View") renderRecruiter();
     if(state.mode==="Proof Vault") renderVault();
+    if(state.mode==="Skill Dashboard") renderSkillDashboard();
+    if(state.mode==="Analytics") renderAnalytics();
     if(state.mode==="Settings") renderSettings();
 
     // Keep content fresh without side effects
     if(state.mode!=="Proof Vault") el.vaultBox.innerHTML = "Proof vault ready. Open this mode to inspect artifacts.";
     if(state.mode!=="Recruiter View") el.recruiterBox.innerHTML = "Recruiter view ready. Open this mode to inspect candidate evidence.";
+    if(state.mode!=="Skill Dashboard") el.skillDashboardBox.innerHTML = "Skill dashboard ready. Open this mode to inspect growth.";
+    if(state.mode!=="Analytics") el.analyticsBox.innerHTML = "Analytics dashboard ready. Open this mode to inspect platform metrics.";
 
     buildWheel();
     saveState();
