@@ -80,6 +80,48 @@
       .feed { max-height: 220px; overflow: auto; display: grid; gap: 8px; }
       .event { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #0d1529; font-size: .87rem; }
       .tiny { font-size: .78rem; color: var(--muted); }
+      .status-line { margin-top: 6px; }
+      .thread-panel { margin-top: 14px; }
+      .thread-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+      .thread-wheel {
+        position: relative;
+        width: min(280px, 82vw);
+        height: min(280px, 82vw);
+        margin: 10px auto;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: radial-gradient(circle at 45% 30%, rgba(105,182,255,.12), rgba(0,0,0,.3));
+        touch-action: none;
+        user-select: none;
+      }
+      .thread-center {
+        position: absolute;
+        inset: 35% 35%;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: rgba(10,17,35,.9);
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 8px;
+        font-size: .72rem;
+        color: var(--muted);
+      }
+      .thread-segment {
+        position: absolute;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #162443;
+        color: var(--muted);
+        display: grid;
+        place-items: center;
+        font-size: .66rem;
+        transform: translate(-50%, -50%);
+      }
+      .thread-segment.active { border-color: var(--accent-2); color: var(--text); background: #1d3f4f; }
+      .thread-segment.dim { opacity: .5; }
 
       @media (max-width: 980px) {
         .layout { grid-template-columns: 1fr; }
@@ -158,8 +200,32 @@
           <div class="skills" id="skills"></div>
           <h2 style="margin-top:14px;">Telemetry Feed</h2>
           <div class="feed" id="telemetry"></div>
+          <h2 style="margin-top:14px;">Proof Artifact</h2>
+          <div class="mission-card">
+            <div class="tiny">Export your skill proof report, print a PDF summary, or recover prior artifacts.</div>
+            <div class="flex" style="margin-top:8px;">
+              <button id="exportProofBtn" class="primary">Export Proof JSON</button>
+              <button id="printProofBtn">Print Proof Summary</button>
+            </div>
+            <div class="flex" style="margin-top:8px;">
+              <input id="recoverProofInput" type="file" accept="application/json" />
+              <button id="recoverProofBtn">Recover Artifact</button>
+            </div>
+            <div id="proofStatus" class="tiny status-line">No export/recovery activity yet.</div>
+          </div>
           <div class="flex" style="margin-top:10px;">
             <button id="resetBtn" class="ghost">Reset Local Data</button>
+          </div>
+          <div class="thread-panel mission-card">
+            <h2>Adaptive Thread Input</h2>
+            <div class="thread-toolbar">
+              <button id="inputModeBtn">Mode: Standard</button>
+              <button id="replayThreadHintBtn" class="ghost">Replay Hint</button>
+            </div>
+            <div id="threadHint" class="tiny">Thread Mode: press/hold, drag toward a command, release to dispatch.</div>
+            <div id="threadWheel" class="thread-wheel" aria-label="Thread command wheel" role="application">
+              <div id="threadCenter" class="thread-center">Idle</div>
+            </div>
           </div>
         </aside>
       </div>
@@ -168,6 +234,8 @@
     <script>
       (() => {
         const STORAGE_KEY = "skillhex-mission-control-v1";
+        const PROOF_REPORT_VERSION = "1.0.0";
+        const PROOF_REPORT_SCHEMA = "skillhex-proof-report";
         const MODES = ["Demo", "Solo Missions", "Room Mode", "Recruiter View"];
         const SKILLS = ["Systems Thinking", "Communication", "Execution", "Adaptability", "Leadership"];
         const ROLE_PROFILES = {
@@ -231,7 +299,12 @@
           lastMission: null,
           mode: "Demo",
           selectedHex: 0,
-          shortlist: []
+          shortlist: [],
+          proofVault: [],
+          exportedReports: [],
+          recoveryMetadata: { status: "idle", events: [], lastError: null },
+          input: { mode: "standard", tutorialSeen: false, lastCommand: null },
+          threadTelemetry: []
         });
 
         const loadState = () => {
@@ -240,6 +313,19 @@
         };
 
         let state = loadState();
+        state.proofVault = Array.isArray(state.proofVault) ? state.proofVault : [];
+        state.exportedReports = Array.isArray(state.exportedReports) ? state.exportedReports : [];
+        state.recoveryMetadata = state.recoveryMetadata && typeof state.recoveryMetadata === "object"
+          ? {
+              status: state.recoveryMetadata.status || "idle",
+              events: Array.isArray(state.recoveryMetadata.events) ? state.recoveryMetadata.events : [],
+              lastError: state.recoveryMetadata.lastError || null
+            }
+          : { status: "idle", events: [], lastError: null };
+        state.input = state.input && typeof state.input === "object"
+          ? { mode: state.input.mode || "standard", tutorialSeen: !!state.input.tutorialSeen, lastCommand: state.input.lastCommand || null }
+          : { mode: "standard", tutorialSeen: false, lastCommand: null };
+        state.threadTelemetry = Array.isArray(state.threadTelemetry) ? state.threadTelemetry : [];
 
         const el = {
           modeTabs: document.getElementById("modeTabs"),
@@ -264,22 +350,166 @@
           persistenceBadge: document.getElementById("persistenceBadge"),
           playerBadge: document.getElementById("playerBadge"),
           territoryBadge: document.getElementById("territoryBadge"),
-          resetBtn: document.getElementById("resetBtn")
+          resetBtn: document.getElementById("resetBtn"),
+          exportProofBtn: document.getElementById("exportProofBtn"),
+          printProofBtn: document.getElementById("printProofBtn"),
+          recoverProofInput: document.getElementById("recoverProofInput"),
+          recoverProofBtn: document.getElementById("recoverProofBtn"),
+          proofStatus: document.getElementById("proofStatus"),
+          inputModeBtn: document.getElementById("inputModeBtn"),
+          replayThreadHintBtn: document.getElementById("replayThreadHintBtn"),
+          threadHint: document.getElementById("threadHint"),
+          threadWheel: document.getElementById("threadWheel"),
+          threadCenter: document.getElementById("threadCenter")
         };
 
         const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
         const code = () => Math.random().toString(36).slice(2, 7).toUpperCase();
 
-        function log(type, payload = {}) {
+        function logEvent(type, payload = {}) {
           const entry = { t: new Date().toISOString(), type, payload };
           state.telemetry.unshift(entry);
           state.telemetry = state.telemetry.slice(0, 50);
+          if (type.startsWith("thread_") || type.includes("input_mode")) {
+            state.threadTelemetry.unshift(entry);
+            state.threadTelemetry = state.threadTelemetry.slice(0, 100);
+          }
           firebaseHooks.logEvent(entry);
         }
+
+        const log = logEvent;
 
         function save() {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           firebaseHooks.saveState(state);
+        }
+
+        function exportProofReport() {
+          const now = new Date();
+          const owned = state.map.filter(h => h.owner === "player").length;
+          return {
+            schema: PROOF_REPORT_SCHEMA,
+            version: PROOF_REPORT_VERSION,
+            exportedAtIso: now.toISOString(),
+            exportedAtLocale: now.toLocaleString(),
+            metadata: {
+              mode: state.mode,
+              telemetryCount: state.telemetry.length,
+              shortlistCount: state.shortlist.length,
+              firebaseEnabled: firebaseHooks.enabled,
+              source: "skillhex-mission-control"
+            },
+            user: {
+              name: state.player.name,
+              growthPath: state.player.growth.slice(-5),
+              shortlistCount: state.player.shortlistCount || state.shortlist.length
+            },
+            skills: { ...state.player.skills },
+            territory: {
+              owned,
+              total: state.map.length,
+              selectedHex: state.selectedHex + 1,
+              mapSnapshot: state.map.map(({ id, owner, control, missionType }) => ({ id, owner, control, missionType }))
+            },
+            missions: {
+              lastMission: state.lastMission,
+              growthEvents: state.player.growth,
+              telemetry: state.telemetry.slice(0, 25)
+            }
+          };
+        }
+
+        function downloadProofReport(report) {
+          const stamp = report.exportedAtIso.replace(/[:.]/g, "-");
+          const filename = `skillhex-proof-${report.version}-${stamp}.json`;
+          const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = filename;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        }
+
+        function openPrintSummary(report) {
+          const rows = SKILLS.map(skill => `<tr><td>${skill}</td><td>${state.player.skills[skill]}</td></tr>`).join("");
+          const win = window.open("", "_blank", "width=900,height=700");
+          if (!win) return false;
+          win.document.write(`<!doctype html><html><head><title>SkillHex Proof Summary</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}h1{margin:0 0 4px;}small{color:#555;}</style></head><body><h1>SkillHex Proof-of-Skill Summary</h1><small>Version ${report.version} · ${report.exportedAtLocale}</small><h2>Player</h2><p>${report.user.name}</p><h2>Territory</h2><p>${report.territory.owned}/${report.territory.total}</p><h2>Skills</h2><table><thead><tr><th>Skill</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table><h2>Last Mission</h2><p>${report.missions.lastMission ? `${report.missions.lastMission.missionType} · ${report.missions.lastMission.choice}` : "No mission recorded"}</p></body></html>`);
+          win.document.close();
+          win.focus();
+          win.print();
+          return true;
+        }
+
+        function validateProofPayload(payload) {
+          if (!payload || typeof payload !== "object") return "Invalid JSON payload.";
+          if (payload.schema !== PROOF_REPORT_SCHEMA) return "Unsupported proof schema.";
+          if (payload.version !== PROOF_REPORT_VERSION) return `Unsupported version: ${payload.version || "unknown"}.`;
+          if (!payload.user || !payload.skills || !payload.territory || !payload.missions || !payload.metadata) {
+            return "Proof report is missing required sections.";
+          }
+          return null;
+        }
+
+        function recoverProofArtifact(file) {
+          return new Promise((resolve, reject) => {
+            if (!file) { reject(new Error("Choose a JSON artifact file first.")); return; }
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const payload = JSON.parse(reader.result);
+                const validationError = validateProofPayload(payload);
+                if (validationError) throw new Error(validationError);
+
+                const recoveredAt = new Date().toISOString();
+                const reportRecord = { ...payload, recoveredAt };
+                state.proofVault.unshift(reportRecord);
+                state.proofVault = state.proofVault.slice(0, 20);
+                state.exportedReports.unshift({
+                  exportedAtIso: payload.exportedAtIso,
+                  version: payload.version,
+                  source: "recovered"
+                });
+                state.exportedReports = state.exportedReports.slice(0, 50);
+
+                const event = {
+                  recoveredAt,
+                  fileName: file.name,
+                  version: payload.version,
+                  exportTimestamp: payload.exportedAtIso,
+                  status: "success"
+                };
+                state.recoveryMetadata.events.unshift(event);
+                state.recoveryMetadata.events = state.recoveryMetadata.events.slice(0, 15);
+                state.recoveryMetadata.status = "success";
+                state.recoveryMetadata.lastError = null;
+                log("proof.recovered", event);
+                save();
+                render();
+                resolve(event);
+              } catch (error) {
+                const failure = {
+                  recoveredAt: new Date().toISOString(),
+                  fileName: file.name,
+                  status: "error",
+                  error: error.message
+                };
+                state.recoveryMetadata.events.unshift(failure);
+                state.recoveryMetadata.events = state.recoveryMetadata.events.slice(0, 15);
+                state.recoveryMetadata.status = "error";
+                state.recoveryMetadata.lastError = error.message;
+                log("proof.recovery_failed", failure);
+                save();
+                render();
+                reject(error);
+              }
+            };
+            reader.onerror = () => reject(new Error("Unable to read selected file."));
+            reader.readAsText(file);
+          });
         }
 
         function applyChoice(missionType, choice) {
@@ -465,6 +695,168 @@
           el.persistenceBadge.textContent = firebaseHooks.enabled ? "Persistence: Firebase + Local" : "Persistence: Local Mock Mode";
         }
 
+        function renderProofStatus() {
+          const latest = state.recoveryMetadata.events[0];
+          const exportCount = state.exportedReports.length;
+          if (!latest) {
+            el.proofStatus.innerHTML = `Reports exported: ${exportCount}. No recovery activity yet.`;
+            return;
+          }
+          if (latest.status === "error") {
+            el.proofStatus.innerHTML = `<span class="bad">Recovery failed: ${latest.error}</span>`;
+            return;
+          }
+          el.proofStatus.innerHTML = `<span class="good">Recovered ${latest.fileName}</span> · ${new Date(latest.recoveredAt).toLocaleString()} · Reports: ${exportCount}`;
+        }
+
+        const THREAD_SEGMENTS = 12;
+        const threadUi = { segments: [], activeIndex: -1, gesture: null };
+        const contextCommands = {
+          Demo: ["Prev Mode", "Next Mode", "Hex -", "Hex +", "Run Mission", "Inspect", "Open Solo", "Open Room", "Recruiter", "Proof Export", "Cancel", "Confirm"],
+          "Solo Missions": ["Choice 1", "Choice 2", "Choice 3", "Replay", "Map", "Room", "Recruiter", "Proof Export", "Mode +", "Mode -", "Cancel", "Confirm"],
+          "Room Mode": ["Create Room", "Join Room", "Map", "Solo", "Recruiter", "Proof Export", "Mode +", "Mode -", "Hex +", "Hex -", "Cancel", "Confirm"],
+          "Recruiter View": ["Shortlist", "Replay", "Role Next", "Role Prev", "Map", "Solo", "Room", "Proof Export", "Mode +", "Mode -", "Cancel", "Confirm"]
+        };
+
+        function activeContextCommands() {
+          return contextCommands[state.mode] || contextCommands.Demo;
+        }
+
+        function buildThreadWheel() {
+          if (!el.threadWheel) return;
+          threadUi.segments.forEach(node => node.remove());
+          threadUi.segments = [];
+          for (let i = 0; i < THREAD_SEGMENTS; i += 1) {
+            const seg = document.createElement("button");
+            seg.type = "button";
+            seg.className = "thread-segment";
+            seg.dataset.index = String(i);
+            const angle = (Math.PI * 2 * i) / THREAD_SEGMENTS - Math.PI / 2;
+            const x = 50 + Math.cos(angle) * 43;
+            const y = 50 + Math.sin(angle) * 43;
+            seg.style.left = `${x}%`;
+            seg.style.top = `${y}%`;
+            seg.textContent = String(i + 1);
+            seg.onclick = () => {
+              if (state.input.mode !== "thread") return;
+              dispatchThreadCommand(i, { source: "tap-fallback", confidence: 0.64 });
+            };
+            el.threadWheel.appendChild(seg);
+            threadUi.segments.push(seg);
+          }
+          renderThreadWheel();
+        }
+
+        function segmentFromPoint(clientX, clientY) {
+          const r = el.threadWheel.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const dx = clientX - cx;
+          const dy = clientY - cy;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const angle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+          const shifted = (angle + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+          const idx = Math.floor(shifted / ((Math.PI * 2) / THREAD_SEGMENTS));
+          return { idx, radius, angle, cx, cy };
+        }
+
+        function renderThreadWheel() {
+          const labels = activeContextCommands();
+          threadUi.segments.forEach((seg, idx) => {
+            seg.classList.toggle("active", idx === threadUi.activeIndex);
+            seg.classList.toggle("dim", labels[idx] === undefined);
+            seg.title = labels[idx] || `Command ${idx + 1}`;
+          });
+          const label = threadUi.activeIndex >= 0 ? (labels[threadUi.activeIndex] || `Command ${threadUi.activeIndex + 1}`) : "Idle";
+          el.threadCenter.textContent = `${label}${state.input.lastCommand ? `\nLast: ${state.input.lastCommand}` : ""}`;
+          el.inputModeBtn.textContent = `Mode: ${state.input.mode === "thread" ? "Thread" : "Standard"}`;
+        }
+
+        function setThreadHint(text) {
+          el.threadHint.textContent = text;
+        }
+
+        function dispatchThreadCommand(index, meta = {}) {
+          const label = activeContextCommands()[index] || `Command ${index + 1}`;
+          state.input.lastCommand = label;
+          logEvent("thread_command_dispatched", { index, label, mode: state.mode, ...meta });
+          if (label === "Next Mode" || label === "Mode +") {
+            const i = MODES.indexOf(state.mode);
+            state.mode = MODES[(i + 1) % MODES.length];
+          } else if (label === "Prev Mode" || label === "Mode -") {
+            const i = MODES.indexOf(state.mode);
+            state.mode = MODES[(i - 1 + MODES.length) % MODES.length];
+          } else if (label === "Hex +") {
+            state.selectedHex = (state.selectedHex + 1) % state.map.length;
+          } else if (label === "Hex -") {
+            state.selectedHex = (state.selectedHex - 1 + state.map.length) % state.map.length;
+          } else if (label === "Run Mission" || label.startsWith("Choice ")) {
+            const choiceIdx = label.startsWith("Choice") ? Number(label.replace("Choice ", "")) - 1 : 0;
+            const hex = state.map[state.selectedHex];
+            runMission(hex.missionType, clamp(choiceIdx, 0, 2));
+          } else if (label === "Proof Export") {
+            el.exportProofBtn.click();
+          } else if (label === "Shortlist") {
+            el.shortlistBtn.click();
+          } else if (label === "Replay") {
+            el.replayBtn.click();
+          } else if (label === "Role Next" || label === "Role Prev") {
+            const opts = Array.from(el.roleTarget.options);
+            if (opts.length) {
+              const dir = label === "Role Next" ? 1 : -1;
+              const current = Math.max(0, opts.findIndex(o => o.value === el.roleTarget.value));
+              const next = (current + dir + opts.length) % opts.length;
+              el.roleTarget.value = opts[next].value;
+              renderRecruiter();
+            }
+          }
+          save();
+          render();
+        }
+
+        function bindThreadWheelGestures() {
+          if (!el.threadWheel) return;
+          const pointerDown = evt => {
+            if (state.input.mode !== "thread") return;
+            evt.preventDefault();
+            const point = segmentFromPoint(evt.clientX, evt.clientY);
+            threadUi.gesture = { startedAt: performance.now(), samples: [{ idx: point.idx, r: point.radius }], pointerId: evt.pointerId };
+            threadUi.activeIndex = point.idx;
+            setThreadHint("Aim and release to dispatch.");
+            logEvent("thread_gesture_started", { idx: point.idx, mode: state.mode });
+            renderThreadWheel();
+          };
+          const pointerMove = evt => {
+            if (!threadUi.gesture || state.input.mode !== "thread") return;
+            const point = segmentFromPoint(evt.clientX, evt.clientY);
+            threadUi.gesture.samples.push({ idx: point.idx, r: point.radius });
+            threadUi.activeIndex = point.idx;
+            renderThreadWheel();
+          };
+          const pointerEnd = evt => {
+            if (!threadUi.gesture || state.input.mode !== "thread") return;
+            const point = segmentFromPoint(evt.clientX, evt.clientY);
+            const elapsed = performance.now() - threadUi.gesture.startedAt;
+            const avgRadius = threadUi.gesture.samples.reduce((a, s) => a + s.r, 0) / threadUi.gesture.samples.length;
+            const confidence = clamp((avgRadius / 110) * 0.7 + (elapsed > 180 ? 0.3 : 0.1), 0, 1);
+            threadUi.activeIndex = point.idx;
+            if (confidence < 0.35) {
+              setThreadHint("Low confidence gesture. Tap a segment to confirm.");
+              logEvent("gesture_fallback_used", { confidence: Number(confidence.toFixed(2)), mode: state.mode });
+            } else {
+              dispatchThreadCommand(point.idx, { confidence: Number(confidence.toFixed(2)), elapsedMs: Math.round(elapsed) });
+              setThreadHint(`Dispatched: ${activeContextCommands()[point.idx] || `Command ${point.idx + 1}`}`);
+              logEvent("thread_gesture_completed", { idx: point.idx, confidence: Number(confidence.toFixed(2)) });
+            }
+            threadUi.gesture = null;
+            renderThreadWheel();
+          };
+          el.threadWheel.addEventListener("pointerdown", pointerDown);
+          el.threadWheel.addEventListener("pointermove", pointerMove);
+          el.threadWheel.addEventListener("pointerup", pointerEnd);
+          el.threadWheel.addEventListener("pointercancel", pointerEnd);
+        }
+
         el.createRoomBtn.onclick = () => {
           const name = (el.roomName.value || "Untitled Room").trim();
           const c = code();
@@ -503,6 +895,71 @@
           log("state.reset");
           save(); render();
         };
+        el.exportProofBtn.onclick = () => {
+          const report = exportProofReport();
+          state.proofVault.unshift(report);
+          state.proofVault = state.proofVault.slice(0, 20);
+          state.exportedReports.unshift({ exportedAtIso: report.exportedAtIso, version: report.version, source: "local-export" });
+          state.exportedReports = state.exportedReports.slice(0, 50);
+          log("proof.exported", { version: report.version, exportedAtIso: report.exportedAtIso });
+          save();
+          downloadProofReport(report);
+          render();
+        };
+        el.printProofBtn.onclick = () => {
+          const report = exportProofReport();
+          const opened = openPrintSummary(report);
+          if (!opened) {
+            state.recoveryMetadata.status = "error";
+            state.recoveryMetadata.lastError = "Pop-up blocked; allow pop-ups to print proof summary.";
+          } else {
+            state.recoveryMetadata.status = "success";
+            state.recoveryMetadata.lastError = null;
+            log("proof.print_requested", { version: report.version, exportedAtIso: report.exportedAtIso });
+          }
+          save();
+          render();
+        };
+        el.recoverProofBtn.onclick = async () => {
+          const file = el.recoverProofInput.files && el.recoverProofInput.files[0];
+          try {
+            await recoverProofArtifact(file);
+          } catch (error) {
+            alert(`Proof recovery failed: ${error.message}`);
+          }
+        };
+        el.inputModeBtn.onclick = () => {
+          state.input.mode = state.input.mode === "thread" ? "standard" : "thread";
+          state.input.tutorialSeen = true;
+          logEvent("input_mode_selected", { mode: state.input.mode });
+          setThreadHint(state.input.mode === "thread" ? "Thread mode enabled. Press, drag, release." : "Standard mode enabled. Use existing controls.");
+          save();
+          render();
+        };
+        el.replayThreadHintBtn.onclick = () => {
+          state.input.tutorialSeen = true;
+          setThreadHint("Thread walk-through: hold center, drag to highlight command, release to send. If uncertain, tap segment to confirm.");
+          renderThreadWheel();
+        };
+        window.addEventListener("keydown", evt => {
+          if (evt.key.toLowerCase() === "t") {
+            el.inputModeBtn.click();
+            return;
+          }
+          if (state.input.mode !== "thread") return;
+          const numeric = Number(evt.key);
+          if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= 9) {
+            dispatchThreadCommand(numeric - 1, { source: "keyboard", confidence: 0.75 });
+          }
+          if (evt.key === "0") dispatchThreadCommand(11, { source: "keyboard", confidence: 0.75 });
+          if (evt.key === "-") dispatchThreadCommand(9, { source: "keyboard", confidence: 0.75 });
+          if (evt.key === "=") dispatchThreadCommand(10, { source: "keyboard", confidence: 0.75 });
+          if (evt.key === "Escape") {
+            threadUi.activeIndex = -1;
+            setThreadHint("Gesture cancelled.");
+            renderThreadWheel();
+          }
+        });
 
         function render() {
           renderModeTabs();
@@ -514,8 +971,12 @@
           renderRoom();
           renderRecruiter();
           renderTopMeta();
+          renderProofStatus();
+          renderThreadWheel();
         }
 
+        buildThreadWheel();
+        bindThreadWheelGestures();
         bindMapClick();
         log("app.loaded", { mode: state.mode, firebase: firebaseHooks.enabled });
         render();
