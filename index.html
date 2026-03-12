@@ -1,654 +1,1718 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillHex Mission Control</title>
-  <link rel="stylesheet" href="css/theme.css" />
-  <link rel="stylesheet" href="css/layout.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkillHex — Mission Control v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<!-- Firebase 9 Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════════════ TOKENS */
+:root {
+  --bg:        #030508;
+  --bg2:       #060a14;
+  --panel:     #080d1a;
+  --panel2:    #0c1224;
+  --border:    #152240;
+  --border2:   #1e3060;
+
+  --cyan:      #00e5ff;
+  --cyan-d:    #007a8a;
+  --cyan-glow: 0 0 14px #00e5ff66, 0 0 40px #00e5ff22;
+
+  --green:     #00ff88;
+  --green-d:   #005533;
+  --green-glow:0 0 14px #00ff8866, 0 0 40px #00ff8822;
+
+  --amber:     #f59e0b;
+  --amber-d:   #713f12;
+  --amber-glow:0 0 14px #f59e0b66, 0 0 40px #f59e0b22;
+
+  --red:       #ff3a50;
+  --violet:    #a855f7;
+  --violet-d:  #3b0764;
+
+  --txt:       #c8d8f0;
+  --txt-dim:   #4a6080;
+  --txt-mute:  #1e3050;
+
+  --fhud:  'Orbitron', monospace;
+  --fbody: 'Rajdhani', sans-serif;
+  --fmono: 'Share Tech Mono', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════ RESET */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--fbody);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* scanline + grid */
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.14) 2px, rgba(0,0,0,.14) 4px);
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle at 1px 1px, #152240 1px, transparent 0);
+  background-size: 28px 28px;
+  opacity: .45;
+}
+
+/* ═══════════════════════════════════════════════════════ SCROLLBAR */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════════════════ LAYOUT */
+.root { position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════════════════ HEADER */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(90deg, #030508 0%, #060a14 50%, #030508 100%);
+  border-bottom: 1px solid var(--border);
+  padding: .55rem 1.25rem;
+  display: flex; align-items: center; gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.logo { display: flex; align-items: center; gap: .5rem; text-decoration: none; }
+.logo-gem {
+  width: 34px; height: 34px;
+  background: var(--cyan);
+  clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display: grid; place-items: center;
+  animation: gemPulse 3s ease-in-out infinite;
+}
+.logo-gem span { font-family: var(--fhud); font-size: .5rem; font-weight: 900; color: #030508; }
+@keyframes gemPulse { 0%,100% { box-shadow: var(--cyan-glow); } 50% { box-shadow: 0 0 30px #00e5ffcc, 0 0 60px #00e5ff44; } }
+
+.logo-name { font-family: var(--fhud); font-size: .8rem; font-weight: 700; color: var(--cyan); text-shadow: var(--cyan-glow); letter-spacing: .1em; line-height: 1; }
+.logo-sub  { font-family: var(--fmono); font-size: .5rem; color: var(--txt-dim); letter-spacing: .25em; display: block; }
+
+.hud-row { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; margin-left: auto; }
+
+.hud-stat { display: flex; flex-direction: column; align-items: flex-end; }
+.hud-lbl  { font-family: var(--fmono); font-size: .48rem; color: var(--txt-dim); letter-spacing: .2em; text-transform: uppercase; }
+.hud-val  { font-family: var(--fhud); font-size: .9rem; font-weight: 700; letter-spacing: .04em; }
+.hud-val.c { color: var(--green);  text-shadow: var(--green-glow); }
+.hud-val.a { color: var(--amber);  text-shadow: var(--amber-glow); }
+.hud-val.v { color: var(--violet); }
+
+.firebase-dot {
+  display: flex; align-items: center; gap: .35rem;
+  font-family: var(--fmono); font-size: .5rem; color: var(--txt-dim); letter-spacing: .15em;
+}
+.fb-led { width: 7px; height: 7px; border-radius: 50%; background: var(--txt-dim); }
+.fb-led.online  { background: var(--green); box-shadow: var(--green-glow); animation: blink 2.5s ease infinite; }
+.fb-led.offline { background: var(--red);   box-shadow: 0 0 10px #ff3a5088; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+.hdr-btn {
+  font-family: var(--fhud); font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: .38rem .75rem; border-radius: 5px; border: 1px solid var(--border2);
+  background: transparent; color: var(--txt-dim); cursor: pointer; transition: all .2s;
+}
+.hdr-btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--cyan-glow); background: #00e5ff0a; }
+
+/* ═══════════════════════════════════════════════════════ MAIN GRID */
+.grid-main {
+  display: grid;
+  grid-template-columns: 1fr 300px 280px;
+  gap: 1px;
+  background: var(--border);
+  min-height: calc(100vh - 52px);
+}
+@media(max-width:1100px){ .grid-main { grid-template-columns: 1fr 280px; } .col-right { display: none; } }
+@media(max-width:760px) { .grid-main { grid-template-columns: 1fr; } }
+
+/* ═══════════════════════════════════════════════════════ PANELS */
+.panel {
+  background: var(--panel);
+  padding: 1.25rem;
+  position: relative; overflow: hidden;
+}
+.panel::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 35% at 50% 0%, #00e5ff06, transparent);
+}
+
+.panel-hd {
+  font-family: var(--fmono); font-size: .55rem; color: var(--txt-dim); letter-spacing: .28em;
+  text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;
+}
+.panel-hd::before { content: ''; width: 3px; height: 1em; background: var(--cyan); box-shadow: var(--cyan-glow); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════════════════ MISSION CARD */
+#mission-card { display: flex; flex-direction: column; }
+
+.mission-meta { display: flex; align-items: center; gap: .6rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.badge {
+  font-family: var(--fmono); font-size: .52rem; letter-spacing: .15em; padding: .22rem .6rem;
+  border-radius: 20px; text-transform: uppercase;
+}
+.badge-c { background: #00e5ff0d; border: 1px solid #00e5ff22; color: var(--cyan); }
+.badge-a { background: #f59e0b0d; border: 1px solid #f59e0b22; color: var(--amber); }
+.badge-g { background: #00ff880d; border: 1px solid #00ff8822; color: var(--green); }
+
+.diff-pips { display: flex; gap: 3px; }
+.pip { width: 7px; height: 7px; border-radius: 50%; background: var(--txt-mute); transition: background .3s; }
+.pip.on { background: var(--amber); box-shadow: var(--amber-glow); }
+
+.m-title {
+  font-family: var(--fhud); font-size: 1.35rem; font-weight: 700; color: #fff; letter-spacing: .02em;
+  line-height: 1.2; margin-bottom: .6rem;
+}
+.m-desc { font-size: .95rem; line-height: 1.65; color: var(--txt); font-weight: 300; flex: 1; margin-bottom: 1.1rem; }
+
+/* progress */
+.prog-wrap { margin-bottom: 1.1rem; }
+.prog-row { display: flex; justify-content: space-between; font-family: var(--fmono); font-size: .5rem; color: var(--txt-dim); letter-spacing: .12em; margin-bottom: .35rem; }
+.prog-bar { height: 3px; background: var(--panel2); border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); border-radius: 2px; transition: width .6s cubic-bezier(.4,0,.2,1); position: relative; }
+.prog-fill::after { content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: var(--green-glow); }
+
+/* choice feedback list */
+.choices-list { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+@media(max-width:600px){ .choices-list { grid-template-columns: 1fr; } }
+
+.choice-item {
+  font-family: var(--fbody); font-size: .88rem; font-weight: 600; letter-spacing: .02em;
+  text-align: left; padding: .75rem .9rem;
+  background: var(--bg2); color: var(--txt-dim);
+  border: 1px solid var(--border); border-radius: 5px;
+  cursor: pointer; transition: all .15s; position: relative; overflow: hidden;
+  display: flex; align-items: flex-start; gap: .6rem; line-height: 1.4;
+}
+.choice-key-tag {
+  font-family: var(--fhud); font-size: .6rem; font-weight: 700; color: var(--cyan);
+  background: #00e5ff14; border: 1px solid #00e5ff33; border-radius: 3px;
+  width: 20px; height: 20px; display: grid; place-items: center; flex-shrink: 0; margin-top: 1px;
+}
+.choice-item:hover { background: #0c1830; border-color: var(--cyan); color: #fff; box-shadow: var(--cyan-glow); transform: translateY(-1px); }
+.choice-item.active-sector { border-color: var(--amber); background: #f59e0b14; color: #fff; box-shadow: var(--amber-glow); }
+.choice-item.correct { border-color: var(--green); background: #00ff880f; color: #fff; pointer-events: none; }
+.choice-item.wrong   { border-color: var(--red);   background: #ff3a500f; pointer-events: none; }
+.choice-item.lock    { opacity: .35; pointer-events: none; }
+
+/* ═══════════════════════════════════════════════════════ KADA WHEEL */
+#wheel-panel { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+
+.kada-wrap {
+  position: relative; width: 240px; height: 240px; margin: .5rem auto;
+  touch-action: none;
+}
+.kada-rotor {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, transparent 58%, #1e3060 59%, #080d1a 70%);
+  -webkit-mask: radial-gradient(transparent 88px, black 89px);
+  mask:         radial-gradient(transparent 88px, black 89px);
+  cursor: grab; z-index: 20; touch-action: none;
+}
+.kada-rotor:active { cursor: grabbing; }
+
+.kada-stator {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 130px; height: 130px; border-radius: 50%;
+  background: #050810; border: 3px solid #0c1628;
+  box-shadow: inset 0 8px 20px rgba(0,0,0,.9), 0 0 30px rgba(0,0,0,.8);
+  z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+
+/* tether node */
+.tether-wrap {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; z-index: 40; pointer-events: none;
+}
+.tether-node {
+  width: 28px; height: 28px; background: #0c1628; border: 2px solid var(--cyan);
+  border-radius: 50%; box-shadow: 0 0 12px rgba(0,229,255,.4);
+  cursor: grab; display: flex; justify-content: center; align-items: center;
+  transition: transform .15s cubic-bezier(.4,0,.2,1), border-color .15s, box-shadow .15s;
+  pointer-events: auto; touch-action: none;
+}
+.tether-core { width: 9px; height: 9px; background: var(--cyan); border-radius: 50%; transition: background .15s; }
+.tether-thread { width: 3px; height: 0; background: var(--amber); transition: height .15s cubic-bezier(.4,0,.2,1); box-shadow: 0 0 4px var(--amber); }
+.tether-node.pulled { transform: translateY(-22px); border-color: var(--amber); box-shadow: 0 0 22px rgba(245,158,11,.6); }
+.tether-node.pulled .tether-core { background: var(--amber); }
+.tether-wrap.pulled .tether-thread { height: 22px; }
+
+/* conic progress ring */
+.progress-ring {
+  position: absolute; inset: 3px; border-radius: 50%;
+  background: conic-gradient(var(--amber) var(--prog, 0%), transparent 0);
+  -webkit-mask: radial-gradient(transparent 60px, black 61px);
+  mask:         radial-gradient(transparent 60px, black 61px);
+  opacity: .8; pointer-events: none; transition: background .1s linear; z-index: 15;
+}
+
+/* sector SVG */
+#sector-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; overflow: visible; }
+.sector-arc { transition: fill .15s, stroke .15s, filter .15s; }
+.sector-arc.idle    { fill: rgba(21,34,64,.4);  stroke: #1e3060; stroke-width: 1; }
+.sector-arc.hover   { fill: rgba(245,158,11,.22); stroke: var(--amber); stroke-width: 1.5; filter: drop-shadow(0 0 5px rgba(245,158,11,.6)); }
+.sector-arc.confirm { fill: rgba(0,255,136,.22);  stroke: var(--green); stroke-width: 2;   filter: drop-shadow(0 0 8px rgba(0,255,136,.8)); }
+.sector-arc.wrong   { fill: rgba(255,58,80,.18);  stroke: var(--red);   stroke-width: 1.5; }
+
+.sector-label { font-family: var(--fhud); font-size: 8px; font-weight: 700; transition: fill .15s; pointer-events: none; }
+
+/* HUD center */
+.kada-hud-mode { font-family: var(--fmono); font-size: .45rem; color: var(--txt-dim); letter-spacing: .2em; text-transform: uppercase; margin-bottom: 2px; }
+.kada-hud-val  { font-family: var(--fhud); font-size: 1.1rem; font-weight: 900; color: var(--cyan); text-shadow: var(--cyan-glow); line-height: 1; transition: color .2s; }
+.kada-hud-val.pull { color: var(--amber); text-shadow: var(--amber-glow); }
+.kada-hud-sub  { font-family: var(--fmono); font-size: .42rem; color: var(--txt-dim); letter-spacing: .08em; margin-top: 2px; }
+
+/* spark layer */
+#spark-layer { position: absolute; inset: 0; z-index: 50; pointer-events: none; }
+
+.wheel-guide {
+  font-family: var(--fmono); font-size: .52rem; color: var(--txt-dim); letter-spacing: .1em;
+  text-align: center; line-height: 1.9; margin-top: .5rem;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 5px; padding: .5rem .75rem;
+  width: 100%;
+}
+.wheel-guide strong { color: var(--cyan); }
+
+/* ═══════════════════════════════════════════════════════ HEX MAP */
+.hex-svg { width: 100%; cursor: grab; }
+.hex-svg:active { cursor: grabbing; }
+
+.hex-poly { stroke: #d7e5ff; stroke-width: 1.5; opacity: .9; transition: transform .25s ease, filter .25s ease; }
+.hex-poly:hover { filter: drop-shadow(0 0 8px rgba(255,255,255,.6)); stroke-width: 2.2; transform: scale(1.06); transform-origin: center; }
+.hex-poly.upgraded { animation: hexBounce .6s ease; }
+@keyframes hexBounce { 0%{transform:scale(.8);} 60%{transform:scale(1.18);} 100%{transform:scale(1);} }
+.hex-special { stroke: var(--amber); stroke-dasharray: 5 3; filter: drop-shadow(0 0 10px rgba(245,158,11,.5)); }
+
+.map-tip {
+  position: fixed; pointer-events: none; background: #080d1aee; border: 1px solid var(--cyan);
+  border-radius: 5px; padding: .4rem .65rem; font-family: var(--fmono); font-size: .6rem;
+  color: var(--txt); display: none; z-index: 200; white-space: nowrap; box-shadow: var(--cyan-glow);
+}
+
+/* ═══════════════════════════════════════════════════════ LEADERBOARD */
+.lb-row {
+  display: grid; grid-template-columns: 26px 1fr auto;
+  gap: .4rem; align-items: center; padding: .4rem .55rem;
+  border-radius: 4px; margin-bottom: .3rem;
+  font-family: var(--fmono); font-size: .65rem;
+  transition: background .2s; position: relative;
+}
+.lb-row.me { background: #00e5ff0a; border: 1px solid #00e5ff1a; }
+.lb-row.me::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--cyan); box-shadow: var(--cyan-glow); border-radius: 2px; }
+.lb-rank { color: var(--txt-dim); font-weight: 700; text-align: center; font-size: .7rem; }
+.lb-rank.gold   { color: #ffd700; text-shadow: 0 0 8px #ffd70066; }
+.lb-rank.silver { color: #c0c0c0; }
+.lb-rank.bronze { color: #cd7f32; }
+.lb-name { color: var(--txt); font-size: .62rem; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-name.me-n { color: var(--cyan); }
+.lb-score { color: var(--green); font-weight: 700; text-shadow: 0 0 6px #00ff8844; }
+
+/* ═══════════════════════════════════════════════════════ BOTTOM SECTIONS */
+.sections-bottom {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+}
+@media(max-width:900px){ .sections-bottom { grid-template-columns: 1fr 1fr; } }
+@media(max-width:600px){ .sections-bottom { grid-template-columns: 1fr; } }
+
+/* ═══════════════════════════════════════════════════════ SVG PIPELINE */
+.pipeline-header {
+  display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; flex-wrap: wrap;
+}
+.scene-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: .4rem; margin-bottom: .75rem;
+}
+@media(max-width:700px){ .scene-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.scene-thumb {
+  aspect-ratio: 16/9; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--panel2); cursor: pointer; overflow: hidden; position: relative;
+  transition: border-color .2s, transform .15s;
+}
+.scene-thumb:hover { border-color: var(--cyan); transform: scale(1.04); box-shadow: var(--cyan-glow); }
+.scene-thumb.active-scene { border-color: var(--amber); box-shadow: var(--amber-glow); }
+.scene-thumb svg { width: 100%; height: 100%; }
+
+.scene-preview {
+  width: 100%; aspect-ratio: 16/9; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--panel2); overflow: hidden; margin-bottom: .75rem;
+}
+.scene-preview svg { width: 100%; height: 100%; }
+
+.capture-pipeline {
+  display: flex; align-items: center; gap: .3rem; overflow-x: auto; padding: .5rem 0;
+}
+.pipe-node {
+  background: var(--panel2); border: 1px solid var(--border);
+  padding: .35rem .55rem; border-radius: 5px; font-family: var(--fmono); font-size: .52rem;
+  color: var(--txt-dim); white-space: nowrap; flex-shrink: 0; transition: all .25s;
+}
+.pipe-node.running { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--cyan-glow); animation: pipeFlash .5s ease infinite; }
+.pipe-node.done    { border-color: var(--green); color: var(--green); }
+.pipe-node.fail    { border-color: var(--red); color: var(--red); }
+@keyframes pipeFlash { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+.pipe-arrow { color: var(--txt-mute); font-size: .8rem; flex-shrink: 0; }
+
+/* branch tree */
+.branch-tree {
+  display: flex; gap: .4rem; align-items: flex-start; overflow-x: auto; padding-bottom: .5rem;
+}
+.branch-col { display: flex; flex-direction: column; gap: .3rem; }
+.branch-chip {
+  font-family: var(--fmono); font-size: .5rem; padding: .25rem .45rem; border-radius: 3px;
+  border: 1px solid var(--border); color: var(--txt-dim); white-space: nowrap; cursor: pointer; transition: all .15s;
+}
+.branch-chip.main { border-color: var(--cyan-d); color: var(--cyan); }
+.branch-chip.A    { border-color: #2563eb44; color: #60a5fa; }
+.branch-chip.B    { border-color: #7c3aed44; color: #a78bfa; }
+.branch-chip.C    { border-color: #0f766e44; color: #2dd4bf; }
+.branch-chip.D    { border-color: #92400e44; color: #fb923c; }
+.branch-chip:hover { filter: brightness(1.4); transform: scale(1.05); }
+
+/* ═══════════════════════════════════════════════════════ SQUAD ROOM */
+.room-tabs { display: flex; gap: .35rem; margin-bottom: .9rem; }
+.room-tab {
+  font-family: var(--fhud); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: .35rem .7rem; border-radius: 4px; border: 1px solid var(--border);
+  background: transparent; color: var(--txt-dim); cursor: pointer; transition: all .2s;
+}
+.room-tab.on { border-color: var(--cyan); color: var(--cyan); background: #00e5ff0a; }
+
+.room-pane { display: none; }
+.room-pane.on { display: block; animation: fadeUp .2s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:none;} }
+
+.inp {
+  width: 100%; padding: .55rem .85rem; background: var(--panel2);
+  border: 1px solid var(--border); border-radius: 5px;
+  color: var(--txt); font-family: var(--fmono); font-size: .85rem; outline: none;
+  transition: border-color .2s, box-shadow .2s; margin-bottom: .65rem;
+}
+.inp:focus { border-color: var(--cyan); box-shadow: var(--cyan-glow); }
+.inp::placeholder { color: var(--txt-dim); }
+.inp-label { font-family: var(--fmono); font-size: .5rem; color: var(--txt-dim); letter-spacing: .2em; text-transform: uppercase; display: block; margin-bottom: .3rem; }
+
+.room-code-box {
+  font-family: var(--fhud); font-size: 1.8rem; font-weight: 900; letter-spacing: .35em;
+  color: var(--cyan); text-shadow: var(--cyan-glow); text-align: center;
+  padding: .8rem; background: var(--panel2); border: 1px solid #00e5ff1a; border-radius: 5px; margin: .7rem 0;
+}
+
+/* ═══════════════════════════════════════════════════════ SHARE CARD */
+#share-card-wrap svg { width: 100%; border-radius: 6px; }
+
+/* ═══════════════════════════════════════════════════════ BUTTONS */
+.btn {
+  font-family: var(--fhud); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: .55rem 1.2rem; border-radius: 5px; border: 1px solid transparent;
+  cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: .4rem;
+}
+.btn-c { background: var(--cyan); color: #030508; font-weight: 700; border-color: var(--cyan); }
+.btn-c:hover { background: #fff; box-shadow: var(--cyan-glow); transform: translateY(-1px); }
+.btn-g { background: var(--green); color: #030508; font-weight: 700; border-color: var(--green); }
+.btn-g:hover { box-shadow: var(--green-glow); transform: translateY(-1px); }
+.btn-o { background: transparent; color: var(--amber); border-color: var(--amber-d); }
+.btn-o:hover { border-color: var(--amber); box-shadow: var(--amber-glow); background: #f59e0b0a; }
+.btn-ghost { background: transparent; color: var(--txt-dim); border-color: var(--border); }
+.btn-ghost:hover { color: var(--txt); border-color: var(--txt-dim); }
+.btn-row { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+
+/* ═══════════════════════════════════════════════════════ STATUS BAR */
+footer {
+  background: var(--bg2); border-top: 1px solid var(--border);
+  padding: .35rem 1.25rem; display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;
+}
+.stat-item { font-family: var(--fmono); font-size: .5rem; color: var(--txt-dim); letter-spacing: .15em; display: flex; align-items: center; gap: .4rem; }
+.stat-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: var(--green-glow); animation: blink 2s ease infinite; }
+
+/* ═══════════════════════════════════════════════════════ TOASTS / OVERLAYS */
+#toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 600;
+  padding: .65rem 1.1rem; border-radius: 5px; font-family: var(--fmono); font-size: .72rem;
+  transform: translateY(60px); opacity: 0; transition: all .3s cubic-bezier(.4,0,.2,1);
+  max-width: 280px; pointer-events: none;
+}
+#toast.show { transform: none; opacity: 1; }
+#toast.ok   { background: var(--panel); border: 1px solid var(--green); color: var(--green); box-shadow: var(--green-glow); }
+#toast.err  { background: var(--panel); border: 1px solid var(--red);   color: var(--red);   box-shadow: 0 0 14px #ff3a5066; }
+#toast.info { background: var(--panel); border: 1px solid var(--cyan);  color: var(--cyan);  box-shadow: var(--cyan-glow); }
+
+/* ═══════════════════════════════════════════════════════ REWARD LOG */
+.reward-list { max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: .3rem; }
+.reward-item { font-family: var(--fmono); font-size: .58rem; color: var(--txt-dim); padding: .3rem .5rem; background: var(--panel2); border-radius: 3px; }
+
+/* skill pass bars */
+.bar { height: 5px; background: var(--panel2); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, #00e5ff, #00ff88); border-radius: 3px; transition: width .7s ease; }
+
+/* stat grid */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.stat-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: .6rem .75rem; }
+.sc-val { font-family: var(--fhud); font-size: 1rem; font-weight: 700; color: var(--cyan); text-shadow: var(--cyan-glow); }
+.sc-lbl { font-family: var(--fmono); font-size: .5rem; color: var(--txt-dim); letter-spacing: .15em; text-transform: uppercase; margin-top: .15rem; }
+
+/* ═══════════════════════════════════════════════════════ SPARKS */
+@keyframes sparkOut {
+  0%   { transform: translate(var(--sx,0), var(--sy,0)) scale(1); opacity: 1; }
+  100% { transform: translate(calc(var(--sx,0)*3), calc(var(--sy,0)*3)) scale(0); opacity: 0; }
+}
+.spark { position: absolute; width: 4px; height: 4px; border-radius: 50%; pointer-events: none; animation: sparkOut .5s ease forwards; }
+
+/* ═══════════════════════════════════════════════════════ STREAK */
+.streak-pips { display: flex; gap: .3rem; flex-wrap: wrap; margin: .4rem 0; }
+.streak-pip { width: 9px; height: 9px; border-radius: 50%; background: var(--txt-mute); border: 1px solid var(--border); transition: all .3s; }
+.streak-pip.done { background: var(--amber); box-shadow: var(--amber-glow); border-color: var(--amber); }
+</style>
 </head>
 <body>
-  <header class="topbar">SkillHex Mission Control</header>
+<div class="root">
 
-  <main id="app">
-    <section id="mission-container" class="card">
-      <h2 id="mission-title"></h2>
-      <p id="mission-text"></p>
-      <div id="choices" class="choices"></div>
-      <div id="result" class="result"></div>
-    </section>
-
-    <section id="leaderboard" class="card"></section>
-  </main>
-
-  <script type="module" src="js/app.js"></script>
-  <title>SkillHex Progression Control</title>
-  <style>
-    :root{--bg:#0b1020;--card:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--green:#55d38a;--gold:#f4c35d;--science:#58a6ff;--engineering:#55d38a;--business:#f4c35d;--leadership:#ae8cff;--logic:#72d1ff;--crisis:#ff7d8a;--special:#ffb86b}
-    *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(circle at 85% -20%,#2f4b9f,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
-    .app{max-width:1160px;margin:auto;padding:16px;display:grid;gap:12px}
-    :root{--bg:#0b1020;--card:#121a33;--line:#2a3a66;--txt:#eef3ff;--muted:#9db0df;--blue:#4ea1ff;--green:#55d38a;--gold:#f4c35d}
-    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 85% -20%,#2f4b9f,#0b1020 55%);color:var(--txt);font-family:Inter,system-ui,sans-serif}
-    .app{max-width:1100px;margin:auto;padding:16px;display:grid;gap:12px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1}
-    button,input{font:inherit;border-radius:8px;border:1px solid var(--line)}
-    button{background:#1a2750;color:var(--txt);padding:8px 10px;cursor:pointer}
-    input{background:#0f1730;color:var(--txt);padding:8px}
-    .grid{display:grid;gap:10px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .mini{font-size:.88rem;color:var(--muted)} .pill{padding:3px 8px;border-radius:999px;background:#1b2a59;font-size:.8rem}
-    .mission{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0f1730;display:grid;gap:6px}
-    .bar{height:10px;background:#091125;border:1px solid #335090;border-radius:999px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,#6ab4ff,#68e2ad)}
-    .list{max-height:240px;overflow:auto;display:grid;gap:6px}
-    .badge{background:#2f245a;color:#d9c7ff;border:1px solid #5e4fa3;padding:2px 8px;border-radius:999px;font-size:.75rem}
-    svg{max-width:100%;border:1px solid var(--line);border-radius:10px;background:#0e1731}
-
-    .map-wrap{position:relative}
-    #hexMapSvg{height:420px;width:100%;cursor:grab;touch-action:none}
-    #hexMapSvg.dragging{cursor:grabbing}
-    .hex{stroke:#d7e5ff;stroke-width:1.5;opacity:.92;transition:transform .25s ease,filter .25s ease,stroke-width .25s ease}
-    .hex:hover{filter:drop-shadow(0 0 9px rgba(255,255,255,.6));stroke-width:2.2}
-    .hex.upgraded{animation:hexPulse .8s ease}
-    .hex.special{stroke:#ffd08a;stroke-dasharray:5 3;filter:drop-shadow(0 0 10px rgba(255,192,110,.5))}
-    @keyframes hexPulse{0%{transform:scale(.85)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
-    .map-tip{position:absolute;pointer-events:none;background:#0d1838;border:1px solid #3b5da0;border-radius:10px;padding:8px 10px;font-size:.84rem;color:#e9f2ff;min-width:170px;display:none;z-index:2}
-
-    @media(max-width:900px){.cols{grid-template-columns:1fr}}
-  </style>
-</head>
-<body>
-<div class="app">
-  <section class="card row">
-    <h2 style="margin:0" class="grow">SkillHex Progression System</h2>
-    <span id="seasonChip" class="pill"></span>
-    <span id="clock" class="pill"></span>
-  </section>
-
-  <section class="cols">
-    <div class="card grid">
-      <h3 style="margin:0">Section 1 — Daily Missions</h3>
-      <div id="dailyList" class="grid"></div>
-      <div class="row mini"><span id="dailyReset"></span><span class="grow"></span><strong id="tokenBank"></strong></div>
+<!-- ═══════════════════ HEADER ═══════════════════════════════════ -->
+<header>
+  <a class="logo" href="#">
+    <div class="logo-gem"><span>SHX</span></div>
+    <div>
+      <div class="logo-name">SkillHex</div>
+      <span class="logo-sub">Mission Control v3</span>
     </div>
-
-    <div class="card grid">
-      <h3 style="margin:0">Section 2 — SkillHex Pass</h3>
-      <div class="mini">XP from mission completions unlocks levels: missions, hex territories, and skill badges.</div>
-      <div>Pass Level <strong id="passLevel"></strong> · XP <strong id="passXp"></strong></div>
-      <div class="bar"><span id="passBar"></span></div>
-      <div id="passUnlocks" class="mini"></div>
+  </a>
+  <div class="hud-row">
+    <div class="hud-stat"><span class="hud-lbl">SR</span><span class="hud-val c" id="hdr-sr">1000</span></div>
+    <div class="hud-stat"><span class="hud-lbl">XP</span><span class="hud-val a" id="hdr-xp">0</span></div>
+    <div class="hud-stat"><span class="hud-lbl">Tokens</span><span class="hud-val v" id="hdr-tok">0</span></div>
+    <div class="hud-stat"><span class="hud-lbl">Streak</span><span class="hud-val" style="color:var(--amber)" id="hdr-streak">0d</span></div>
+    <div class="firebase-dot">
+      <div class="fb-led" id="fb-led"></div>
+      <span id="fb-status">CONNECTING</span>
     </div>
-  </section>
+    <button class="hdr-btn" onclick="showRoom()">⊕ Room</button>
+    <button class="hdr-btn" onclick="triggerLogin()">⬡ Login</button>
+  </div>
+</header>
 
-  <section class="cols">
-    <div class="card grid">
-      <h3 style="margin:0">Section 3 — Skill Rating (SR)</h3>
-      <div class="row"><strong id="playerSr"></strong><span class="mini">SR changes with mission score.</span></div>
-      <div class="list" id="leaderboard"></div>
-    </div>
+<!-- ═══════════════════ MAIN 3-COL GRID ═══════════════════════════ -->
+<div class="grid-main">
 
-    <div class="card grid">
-      <h3 style="margin:0">Section 4 — Streak System</h3>
-      <div>Current streak: <strong id="streakCount"></strong> days</div>
-      <div id="streakRewards" class="mini"></div>
-      <button id="loginBtn">Register Daily Login</button>
-    </div>
-  </section>
-
-  <section class="cols">
-    <div class="card grid">
-      <h3 style="margin:0">Section 5 — Event Missions</h3>
-      <div id="eventInfo"></div>
-      <div class="mini" id="eventTimer"></div>
-    </div>
-
-    <div class="card grid">
-      <h3 style="margin:0">Section 6 — Squad Missions</h3>
-      <div class="row"><input id="roomName" class="grow" placeholder="Room name" /><button id="createRoom">Create Room</button></div>
-      <div class="row"><input id="memberName" class="grow" placeholder="Member name" /><button id="addMember">Add Member</button></div>
-      <div class="mini">Room supports up to 3 players.</div>
-      <div id="roomState" class="mini"></div>
-    </div>
-  </section>
-
-  <section class="cols">
-    <div class="card grid">
-      <h3 style="margin:0">Section 7 — Reward System</h3>
-      <div id="rewardLog" class="list"></div>
-    </div>
-
-    <div class="card grid">
-      <h3 style="margin:0">Section 8 — Result Share Card</h3>
-      <div id="shareCard"></div>
-      <div class="row">
-        <a id="shareLinkedIn" target="_blank"><button>LinkedIn</button></a>
-        <a id="shareWhatsApp" target="_blank"><button>WhatsApp</button></a>
-        <a id="shareTwitter" target="_blank"><button>Twitter</button></a>
+  <!-- COL 1: MISSION CARD -->
+  <div class="panel" id="mission-card" style="min-height:400px">
+    <div class="panel-hd">Active Mission</div>
+    <div class="mission-meta">
+      <span class="badge badge-c" id="m-num">MISSION 01</span>
+      <span class="badge badge-a" id="m-cat">⬡ LOADING</span>
+      <div class="diff-pips" id="m-diff">
+        <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div>
       </div>
     </div>
-  </section>
-
-  <section class="card grid">
-    <div class="row">
-      <h3 style="margin:0" class="grow">Hex Skill Map (JSON-driven)</h3>
-      <span class="mini">Zoom: mouse wheel · Pan: drag map</span>
+    <h2 class="m-title" id="m-title">Initialising…</h2>
+    <p class="m-desc" id="m-desc">Awaiting mission briefing from command.</p>
+    <div class="prog-wrap">
+      <div class="prog-row"><span>Mission Progress</span><span id="prog-txt">1/6</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:10%"></div></div>
     </div>
-    <div class="map-wrap">
-      <div id="mapTooltip" class="map-tip"></div>
-      <svg id="hexMapSvg" viewBox="0 0 900 520" aria-label="SkillHex map"></svg>
+    <div class="choices-list" id="choices-list"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="wheel-hint-btn" onclick="toggleWheelGuide()">⬡ Wheel Mode</button>
     </div>
-    <div class="mini">Stored player hex state JSON:</div>
-    <pre id="hexJson" class="mission mini"></pre>
-  </section>
-</div>
+  </div>
 
+  <!-- COL 2: KADA WHEEL -->
+  <div class="panel" id="wheel-panel">
+    <div class="panel-hd">KADA Input Wheel</div>
+
+    <div class="kada-wrap" id="kada-wrap">
+      <!-- Sector SVG -->
+      <svg id="sector-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <!-- Rotor -->
+      <div class="kada-rotor" id="rotor">
+        <div class="tether-wrap" id="tether-wrap">
+          <div class="tether-node" id="tether-node">
+            <div class="tether-core" id="tether-core"></div>
+          </div>
+          <div class="tether-thread" id="tether-thread"></div>
+        </div>
+      </div>
+
+      <!-- Stator HUD -->
+      <div class="kada-stator">
+        <div class="progress-ring" id="progress-ring"></div>
+        <div class="kada-hud-mode" id="kad-mode">Rotate</div>
+        <div class="kada-hud-val" id="kad-val">—</div>
+        <div class="kada-hud-sub" id="kad-sub">No mission</div>
+      </div>
+
+      <div id="spark-layer"></div>
+    </div>
+
+    <div class="wheel-guide" id="wheel-guide">
+      <strong>Rotate ring</strong> to browse choices<br>
+      <strong>Pull node</strong> outward to aim<br>
+      <strong>Release</strong> to confirm selection
+    </div>
+
+    <!-- Streak / Pass mini-display -->
+    <div style="margin-top:.75rem">
+      <div class="panel-hd" style="margin-bottom:.5rem">Pass Level</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:.3rem">
+        <span style="font-family:var(--fhud);font-size:.8rem;color:var(--cyan)">LVL <span id="pass-lv">1</span></span>
+        <span style="font-family:var(--fmono);font-size:.55rem;color:var(--txt-dim)"><span id="pass-xp">0</span>/<span id="pass-next">100</span> XP</span>
+      </div>
+      <div class="bar"><div class="bar-fill" id="pass-bar" style="width:0%"></div></div>
+
+      <div class="panel-hd" style="margin-top:.9rem;margin-bottom:.4rem">Streak</div>
+      <div class="streak-pips" id="streak-pips"></div>
+      <button class="btn btn-o" style="width:100%;margin-top:.4rem;justify-content:center" onclick="triggerLogin()">⬆ Register Login</button>
+    </div>
+  </div>
+
+  <!-- COL 3: HEX MAP + LEADERBOARD -->
+  <div class="col-right" style="display:flex;flex-direction:column;gap:1px;background:var(--border)">
+
+    <div class="panel" style="flex:1">
+      <div class="panel-hd">Skill Matrix</div>
+      <div style="position:relative">
+        <div id="map-tip" class="map-tip"></div>
+        <svg id="hex-svg" class="hex-svg" viewBox="0 0 260 200" style="height:200px"></svg>
+      </div>
+      <pre id="hex-json" style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);background:var(--panel2);padding:.5rem;border-radius:4px;border:1px solid var(--border);margin-top:.6rem;overflow:auto;max-height:70px"></pre>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd">Live Leaderboard <span id="fb-sync-badge" style="font-size:.45rem;color:var(--txt-dim);margin-left:.3rem">(local)</span></div>
+      <div id="lb-list"></div>
+    </div>
+
+  </div><!-- /col-right -->
+
+</div><!-- /grid-main -->
+
+<!-- ═══════════════════ BOTTOM SECTIONS ════════════════════════════ -->
+<div class="sections-bottom">
+
+  <!-- SVG PIPELINE -->
+  <div class="panel">
+    <div class="panel-hd">Scene Pipeline — SVG → Video</div>
+    <div class="pipeline-header">
+      <button class="btn btn-c" onclick="runCaptureSim()">▶ Simulate Capture</button>
+      <button class="btn btn-ghost" onclick="resetCapture()">↺ Reset</button>
+      <span style="font-family:var(--fmono);font-size:.55rem;color:var(--txt-dim);margin-left:.3rem" id="cap-status">IDLE</span>
+    </div>
+
+    <div style="font-family:var(--fmono);font-size:.5rem;color:var(--txt-dim);letter-spacing:.1em;margin-bottom:.4rem">LINEAR PATH</div>
+    <div class="scene-grid" id="scene-grid-main"></div>
+
+    <div style="font-family:var(--fmono);font-size:.5rem;color:var(--txt-dim);letter-spacing:.1em;margin-bottom:.4rem;margin-top:.5rem">BRANCH VARIANTS</div>
+    <div class="branch-tree" id="branch-tree"></div>
+
+    <div style="margin-top:.75rem">
+      <div style="font-family:var(--fmono);font-size:.5rem;color:var(--txt-dim);letter-spacing:.1em;margin-bottom:.4rem">PREVIEW</div>
+      <div class="scene-preview" id="scene-preview"></div>
+      <div class="capture-pipeline" id="cap-pipeline">
+        <div class="pipe-node" id="pn-read">1. SVG Load</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" id="pn-page">2. Puppeteer Page</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" id="pn-shot">3. Screenshot</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" id="pn-enc">4. FFmpeg Encode</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node" id="pn-out">5. MP4 Output</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SQUAD ROOM -->
+  <div class="panel">
+    <div class="panel-hd">Squad Room</div>
+    <div class="room-tabs">
+      <button class="room-tab on" onclick="switchRoomTab('create')">Create</button>
+      <button class="room-tab" onclick="switchRoomTab('join')">Join</button>
+      <button class="room-tab" onclick="switchRoomTab('lobby')">Lobby</button>
+    </div>
+
+    <div class="room-pane on" id="rt-create">
+      <label class="inp-label">Room Name</label>
+      <input class="inp" id="room-name" placeholder="Alpha Squadron…" maxlength="20">
+      <label class="inp-label">Max Players</label>
+      <select class="inp" id="room-max">
+        <option value="2">2 Players</option>
+        <option value="4" selected>4 Players</option>
+        <option value="8">8 Players</option>
+      </select>
+      <div class="btn-row"><button class="btn btn-g" onclick="createRoom()">⊕ Create Room</button></div>
+    </div>
+
+    <div class="room-pane" id="rt-join">
+      <label class="inp-label">Room Code</label>
+      <input class="inp" id="room-code-in" placeholder="HX-XXXX" maxlength="8" style="text-transform:uppercase;letter-spacing:.3em;font-size:1.1rem">
+      <div class="btn-row"><button class="btn btn-c" onclick="joinRoom()">→ Join</button></div>
+    </div>
+
+    <div class="room-pane" id="rt-lobby">
+      <div class="panel-hd" style="margin-bottom:.4rem">Room Code</div>
+      <div class="room-code-box" id="room-code-display">—</div>
+      <div style="font-family:var(--fmono);font-size:.55rem;color:var(--txt-dim);text-align:center;margin-bottom:.75rem">Share with teammates</div>
+      <div id="lobby-members" style="display:flex;flex-direction:column;gap:.3rem"></div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="launchRoom()">▶ Start Game</button>
+        <button class="btn btn-ghost" onclick="leaveRoom()">Leave</button>
+      </div>
+    </div>
+
+    <div style="margin-top:.9rem">
+      <div class="panel-hd" style="margin-bottom:.5rem">Reward Log</div>
+      <div class="reward-list" id="reward-log"></div>
+    </div>
+  </div>
+
+  <!-- PROGRESSION + SHARE -->
+  <div class="panel">
+    <div class="panel-hd">Mission Stats</div>
+    <div class="stat-grid" style="margin-bottom:.9rem">
+      <div class="stat-card"><div class="sc-val" id="st-sr">1000</div><div class="sc-lbl">Skill Rating</div></div>
+      <div class="stat-card"><div class="sc-val" id="st-score">0</div><div class="sc-lbl">Last Score</div></div>
+      <div class="stat-card"><div class="sc-val" id="st-tokens">0</div><div class="sc-lbl">Tokens</div></div>
+      <div class="stat-card"><div class="sc-val" id="st-streak">0</div><div class="sc-lbl">Day Streak</div></div>
+    </div>
+
+    <div class="panel-hd" style="margin-bottom:.6rem">Result Share Card</div>
+    <div id="share-card-wrap"></div>
+    <div class="btn-row">
+      <button class="btn btn-c" onclick="shareCard()">⤴ Share</button>
+      <button class="btn btn-ghost" onclick="renderShareCard()">↺ Refresh</button>
+    </div>
+
+    <div class="panel-hd" style="margin-top:.9rem;margin-bottom:.6rem">Event Mission</div>
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:.65rem">
+      <div style="font-family:var(--fhud);font-size:.75rem;color:#fff" id="evt-name">Loading…</div>
+      <div style="font-family:var(--fmono);font-size:.58rem;color:var(--txt-dim);margin:.25rem 0" id="evt-desc"></div>
+      <div style="font-family:var(--fmono);font-size:.6rem;color:var(--amber)" id="evt-timer"></div>
+    </div>
+  </div>
+
+</div><!-- /sections-bottom -->
+
+<!-- ═══════════════════ FOOTER ═════════════════════════════════════ -->
+<footer>
+  <div class="stat-item"><div class="stat-dot"></div>LIVE</div>
+  <div class="stat-item">ROOM: <span id="ft-room" style="color:var(--txt);margin-left:.3rem">—</span></div>
+  <div class="stat-item">PLAYERS: <span id="ft-players" style="color:var(--txt);margin-left:.3rem">1</span></div>
+  <div class="stat-item">SEASON <span style="color:var(--txt);margin-left:.3rem" id="ft-season"></span></div>
+  <div class="stat-item" style="margin-left:auto">SkillHex v3.0 · @geogebra.in</div>
+</footer>
+
+</div><!-- /root -->
+
+<!-- toast -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════════════════════════════════ -->
 <script>
-const KEY = "skillhex-progression-v2";
-const MAX_LEVEL = 5;
+"use strict";
+
+/* ═══ FIREBASE CONFIG ═══════════════════════════════════════════════
+   Replace with your own Firebase project config.
+   Get it from: console.firebase.google.com → Project Settings → Your Apps
+ ═════════════════════════════════════════════════════════════════════ */
+const FB_CONFIG = {
+  apiKey:            "AIzaSyPLACEHOLDER_REPLACE_ME",
+  authDomain:        "skillhex-mc.firebaseapp.com",
+  projectId:         "skillhex-mc",
+  storageBucket:     "skillhex-mc.appspot.com",
+  messagingSenderId: "000000000000",
+  appId:             "1:000000000000:web:PLACEHOLDER"
+};
+
+let db = null;
+let fbOnline = false;
+
+(function initFirebase() {
+  try {
+    firebase.initializeApp(FB_CONFIG);
+    db = firebase.firestore();
+    // Enable offline persistence
+    db.enablePersistence().catch(() => {});
+    fbOnline = true;
+    setFbStatus(true);
+    startLeaderboardListener();
+  } catch (e) {
+    setFbStatus(false);
+    console.warn('[Firebase] Using local-only mode:', e.message);
+  }
+})();
+
+function setFbStatus(online) {
+  fbOnline = online;
+  const led = document.getElementById('fb-led');
+  const st  = document.getElementById('fb-status');
+  if (led) { led.className = 'fb-led ' + (online ? 'online' : 'offline'); }
+  if (st)  { st.textContent = online ? 'FIREBASE LIVE' : 'LOCAL ONLY'; }
+  const badge = document.getElementById('fb-sync-badge');
+  if (badge) badge.textContent = online ? '(firebase live)' : '(local)';
+}
+
+/* ═══ FIREBASE LEADERBOARD ══════════════════════════════════════════ */
+function startLeaderboardListener() {
+  if (!db) return;
+  try {
+    db.collection('skillhex_leaderboard')
+      .orderBy('sr', 'desc')
+      .limit(12)
+      .onSnapshot(snap => {
+        const entries = [];
+        snap.forEach(doc => entries.push({ name: doc.id, ...doc.data() }));
+        LIVE_LEADERBOARD = entries;
+        renderLeaderboard();
+      }, err => {
+        console.warn('[Firebase] Leaderboard listener error:', err);
+        setFbStatus(false);
+      });
+  } catch(e) { setFbStatus(false); }
+}
+
+async function fbWritePlayer() {
+  if (!db || !STATE.playerName || STATE.playerName === 'OPERATIVE') return;
+  try {
+    await db.collection('skillhex_leaderboard').doc(STATE.playerName).set({
+      sr:      STATE.sr,
+      xp:      STATE.xp,
+      tokens:  STATE.tokens,
+      streak:  STATE.streak.count,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch(e) { console.warn('[Firebase] Write error:', e); }
+}
+
+/* ═══ CONSTANTS ════════════════════════════════════════════════════ */
+const MAX_LEVEL    = 5;
 const XP_PER_LEVEL = 100;
-const skillPalette = {
-  science:'var(--science)', engineering:'var(--engineering)', business:'var(--business)',
-  leadership:'var(--leadership)', logic:'var(--logic)', crisis:'var(--crisis)', techLeader:'var(--special)'
-};
+const KEY          = 'skillhex-v3';
 
-const skillMeta = [
-  {key:'science',label:'Science',q:0,r:0},
-  {key:'engineering',label:'Engineering',q:1,r:0},
-  {key:'business',label:'Business',q:-1,r:1},
-  {key:'leadership',label:'Leadership',q:0,r:1},
-  {key:'logic',label:'Logic',q:1,r:1},
-  {key:'crisis',label:'Crisis',q:0,r:2}
-];
-
-const now = () => Date.now();
-const dayStamp = (ts = now()) => new Date(ts).toISOString().slice(0,10);
-const missionsTemplate = [
-  { id:'complete_any', title:'Complete any mission', target:1, type:'count', reward:20, skill:'logic' },
-  { id:'score_700', title:'Score above 700', target:700, type:'score', reward:30, skill:'science' },
-  { id:'improve_skill', title:'Improve a skill category', target:1, type:'improve', reward:25, skill:'engineering' }
-];
-const events = [
-  { id:'asteroid_rush', name:'Asteroid Rush', desc:'Clear 5 threats in tactical mode', reward:'+40 tokens + Hex Territory' },
-  { id:'signal_blackout', name:'Signal Blackout', desc:'Solve comms puzzle with your squad', reward:'Rare Badge + 50 XP' },
-  { id:'reactor_peak', name:'Reactor Peak', desc:'Score 900+ in calibration mission', reward:'Skill Upgrade Core' }
-];
-const passLevels = [
-  {level:1, unlock:'Mission Slot +1'}, {level:2, unlock:'Hex Territory: Delta-3'}, {level:3, unlock:'Badge: Pathfinder'},
-  {level:4, unlock:'Mission: Elite Circuit'}, {level:5, unlock:'Hex Territory: Nova Ring'}, {level:6, unlock:'Badge: Tactical Ace'}
+const SKILL_META = [
+  { key:'Systems',     color:'#00e5ff', q:0,  r:0  },
+  { key:'Analytics',  color:'#00ff88', q:1,  r:0  },
+  { key:'Security',   color:'#ff3a50', q:-1, r:1  },
+  { key:'Execution',  color:'#a855f7', q:0,  r:1  },
+  { key:'Negotiation',color:'#f59e0b', q:1,  r:1  },
+  { key:'AI Ops',     color:'#22d3ee', q:0,  r:2  },
+  { key:'Strategy',   color:'#fde047', q:-1, r:2  },
+  { key:'Leadership', color:'#f472b6', q:2,  r:0  },
 ];
 
-const defaultState = {
-  tokens:0,xp:0,passLevel:1,sr:1000,lastMissionScore:0,territories:0,skillUpgrades:0,badges:[],
-  daily:{stamp:'',missions:[]},streak:{count:0,lastLogin:''},rewardLog:[],
-  squad:{room:'',members:[]},leaderboardBots:[
-    {name:'NovaPilot',sr:1210},{name:'HexRanger',sr:1155},{name:'OrbitMind',sr:1108},{name:'You',sr:1000}
-  ],
-  hexSkills:{
-    science:{xp:0,level:1}, engineering:{xp:0,level:1}, business:{xp:0,level:1},
-    leadership:{xp:0,level:1}, logic:{xp:0,level:1}, crisis:{xp:0,level:1}
+const PALETTE = { Systems:'var(--cyan)', Analytics:'var(--green)', Security:'var(--red)', Execution:'var(--violet)', Negotiation:'var(--amber)', 'AI Ops':'#22d3ee', Strategy:'#fde047', Leadership:'#f472b6' };
+
+const MISSIONS = [
+  {
+    id:'cold-boot', title:'Cold Boot Protocol', category:'⬡ SYSTEMS THINKING', diff:2, skill:'Systems',
+    desc:'A critical cluster failed during peak traffic. 60 seconds to triage. First action?',
+    choices:[
+      { v:'restart', l:'Force-restart all nodes simultaneously', ok:false, fb:'Simultaneous restart risks cascading failure.' },
+      { v:'isolate', l:'Isolate failing nodes, reroute traffic',  ok:true,  fb:'Correct! Isolation prevents cascade while traffic reroutes.' },
+      { v:'wait',    l:'Wait for auto-recovery to respond',       ok:false, fb:'Auto-recovery is too slow for peak-load outages.' },
+      { v:'escalate',l:'Escalate immediately to senior engineering',ok:false,fb:'Triage before escalating.' },
+    ]
   },
-  specialHexes:{techLeader:false},
-  mapViewport:{x:0,y:0,w:900,h:520}
+  {
+    id:'signal-noise', title:'Signal / Noise Ratio', category:'⬡ ANALYTICS', diff:3, skill:'Analytics',
+    desc:'400 alerts flooding your dashboard. 3 are critical. Fastest path to root cause?',
+    choices:[
+      { v:'severity', l:'Filter severity + service dependency tree', ok:true,  fb:'Correct — severity + dependency eliminates noise in <90s.' },
+      { v:'oldest',   l:'Sort oldest-first to trace root cause',     ok:false, fb:'Timestamps mislead in cascading failures.' },
+      { v:'volume',   l:'Prioritise highest-volume services',        ok:false, fb:'Volume inflates in downstream services, not origins.' },
+      { v:'manual',   l:'Read all 400 alerts sequentially',          ok:false, fb:'Sequential review under pressure misses critical signals.' },
+    ]
+  },
+  {
+    id:'adversarial-neg', title:'Adversarial Negotiation', category:'⬡ NEGOTIATION', diff:2, skill:'Negotiation',
+    desc:'Vendor threatening to terminate mid-project unless you accept a 40% price increase. Your move?',
+    choices:[
+      { v:'accept',  l:'Accept to avoid disruption',               ok:false, fb:'Capitulation invites further demands.' },
+      { v:'refuse',  l:'Refuse, immediately seek alternatives',    ok:false, fb:'Abrupt refusal risks project failure.' },
+      { v:'leverage',l:'Document breach risk, engage legal, counter-offer',ok:true,fb:'Correct — documented leverage forces real negotiation.' },
+      { v:'ceo',     l:'Escalate to your CEO for political pressure',ok:false,fb:'Executive escalation too early removes tactical options.' },
+    ]
+  },
+  {
+    id:'rogue-model', title:'The Rogue Model', category:'⬡ AI GOVERNANCE', diff:5, skill:'AI Ops',
+    desc:'Deployed ML model returns biased predictions post-update. Users complaining in real time. First move?',
+    choices:[
+      { v:'rollback', l:'Immediately rollback to stable version',   ok:true,  fb:'Correct — rollback stops active harm while RCA begins.' },
+      { v:'patch',    l:'Push rapid patch without staging',         ok:false, fb:'Unvalidated patches compound the incident.' },
+      { v:'monitor',  l:'Increase monitoring, observe 24 hours',   ok:false, fb:'Passive observation during active bias causes ongoing harm.' },
+      { v:'pr',       l:'Issue public apology statement immediately',ok:false,fb:'Public comms without technical resolution is theatre.' },
+    ]
+  },
+  {
+    id:'phantom-bottleneck', title:'Phantom Bottleneck', category:'⬡ SYSTEMS THINKING', diff:4, skill:'Systems',
+    desc:'Throughput dropped 30% but all service metrics look normal. Pattern indicates what?',
+    choices:[
+      { v:'network', l:'Network layer issue between services',               ok:false, fb:'Network issues typically show in error rates differently.' },
+      { v:'hidden',  l:'Hidden lock contention or queue saturation',         ok:true,  fb:'Correct — silent bottlenecks between healthy services = lock saturation.' },
+      { v:'corrupt', l:'Data corruption in upstream feed',                   ok:false, fb:'Corruption would show in error rates, not pure throughput.' },
+      { v:'false',   l:'False alarm — ignore the 30% drop',                  ok:false, fb:'Never dismiss a 30% throughput drop without verification.' },
+    ]
+  },
+  {
+    id:'last-hex', title:'The Last Hex', category:'⬡ STRATEGIC SYNTHESIS', diff:5, skill:'Strategy',
+    desc:'Final mission. One skill remains locked. The right answer completes your grid and sets your rank.',
+    choices:[
+      { v:'short',    l:'Optimise for short-term wins to build morale', ok:false, fb:'Short-term focus without vision creates brittle orgs.' },
+      { v:'balance',  l:'Balance capability building with immediate delivery',ok:true,fb:'Correct — sustained capability enables compound delivery.' },
+      { v:'delegate', l:'Delegate all strategic decisions to reduce cognitive load',ok:false,fb:'Delegation without direction is abdication.' },
+      { v:'consult',  l:'Hire consultants to define long-term strategy', ok:false, fb:'External strategy without internal ownership fails execution.' },
+    ]
+  },
+];
+
+const SVG_SCENES = {
+  linear: Array.from({length:10}, (_,i)=>`V${String(i+1).padStart(2,'0')}`),
+  branches: {
+    A: ['A01','A01a','A01b','A01c','A01d'],
+    B: ['B01','B01a','B01b','B01c','B01d'],
+    C: ['C01','C01a','C01b','C01c','C01d'],
+    D: ['D01','D01a','D01b','D01c','D01d'],
+  }
 };
 
-const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
-const state = {
-  ...defaultState,
-  ...saved,
-  daily:{...defaultState.daily,...saved.daily},
-  streak:{...defaultState.streak,...saved.streak},
-  squad:{...defaultState.squad,...saved.squad},
-  specialHexes:{...defaultState.specialHexes,...saved.specialHexes},
-  mapViewport:{...defaultState.mapViewport,...saved.mapViewport},
-  hexSkills:{...defaultState.hexSkills,...saved.hexSkills}
+const EVENTS = [
+  { name:'Asteroid Rush',    desc:'Clear 5 tactical threats in sequence',    reward:'+40 tokens + Hex territory' },
+  { name:'Signal Blackout',  desc:'Solve comms puzzle with your squad',       reward:'Rare badge + 50 XP' },
+  { name:'Reactor Peak',     desc:'Score 900+ in calibration run',            reward:'Skill Upgrade Core' },
+];
+
+/* ═══ STATE ════════════════════════════════════════════════════════ */
+const DEFAULT = {
+  playerName: 'OPERATIVE',
+  sr: 1000, xp: 0, tokens: 0, passLevel: 1, lastScore: 0,
+  daily: { stamp:'', missions:[] },
+  streak: { count:0, lastLogin:'' },
+  squad: { room:'', members:[] },
+  rewardLog: [],
+  leaderboardBots: [
+    { name:'CIPHER',   sr:9800 },
+    { name:'SPECTER',  sr:8750 },
+    { name:'NOVA',     sr:7900 },
+    { name:'AXIOM',    sr:7200 },
+  ],
+  hexSkills: Object.fromEntries(SKILL_META.map(s=>[s.key,{xp:0,level:1}])),
+  specialHexes: { TechLeader: false },
+  mapViewport: { x:0, y:0, w:260, h:200 },
 };
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
-function pushReward(text){ state.rewardLog.unshift(`${new Date().toLocaleTimeString()} — ${text}`); state.rewardLog = state.rewardLog.slice(0,20); }
-
-function xpForLevel(level){ return Math.max(0,(level-1)*XP_PER_LEVEL); }
-function computeLevel(xp){ return Math.min(MAX_LEVEL, Math.floor(xp / XP_PER_LEVEL) + 1); }
-function skillLevelsJSON(){
-  return Object.fromEntries(Object.entries(state.hexSkills).map(([k,v])=>[k,v.level]));
-}
-
-</div>
-
-<script>
-const KEY = "skillhex-progression-v1";
-const now = () => Date.now();
-const dayStamp = (ts = now()) => new Date(ts).toISOString().slice(0,10);
-const missionsTemplate = [
-  { id:"complete_any", title:"Complete any mission", target:1, type:"count", reward:20 },
-  { id:"score_700", title:"Score above 700", target:700, type:"score", reward:30 },
-  { id:"improve_skill", title:"Improve a skill category", target:1, type:"improve", reward:25 }
-];
-const events = [
-  { id:"asteroid_rush", name:"Asteroid Rush", desc:"Clear 5 threats in tactical mode", durationHrs:12, reward:"+40 tokens + Hex Territory" },
-  { id:"signal_blackout", name:"Signal Blackout", desc:"Solve comms puzzle with your squad", durationHrs:12, reward:"Rare Badge + 50 XP" },
-  { id:"reactor_peak", name:"Reactor Peak", desc:"Score 900+ in calibration mission", durationHrs:12, reward:"Skill Upgrade Core" }
-];
-const passLevels = [
-  {level:1, unlock:"Mission Slot +1"}, {level:2, unlock:"Hex Territory: Delta-3"}, {level:3, unlock:"Badge: Pathfinder"},
-  {level:4, unlock:"Mission: Elite Circuit"}, {level:5, unlock:"Hex Territory: Nova Ring"}, {level:6, unlock:"Badge: Tactical Ace"}
-];
-
-const defaultState = {
-  tokens:0,xp:0,passLevel:1,sr:1000,lastMissionScore:0,territories:0,skillUpgrades:0,badges:[],
-  daily:{stamp:"",missions:[]},streak:{count:0,lastLogin:""},rewardLog:[],
-  squad:{room:"",members:[]},leaderboardBots:[
-    {name:"NovaPilot",sr:1210},{name:"HexRanger",sr:1155},{name:"OrbitMind",sr:1108},{name:"You",sr:1000}
-  ]
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(e){}
+const S = {
+  ...DEFAULT, ...saved,
+  daily:       { ...DEFAULT.daily,       ...(saved.daily||{}) },
+  streak:      { ...DEFAULT.streak,      ...(saved.streak||{}) },
+  squad:       { ...DEFAULT.squad,       ...(saved.squad||{}) },
+  specialHexes:{ ...DEFAULT.specialHexes,...(saved.specialHexes||{}) },
+  mapViewport: { ...DEFAULT.mapViewport, ...(saved.mapViewport||{}) },
+  hexSkills:   { ...DEFAULT.hexSkills,   ...(saved.hexSkills||{}) },
+  leaderboardBots: DEFAULT.leaderboardBots,
 };
+// treat S as STATE alias
+const STATE = S;
 
-const state = Object.assign({}, defaultState, JSON.parse(localStorage.getItem(KEY) || "{}"));
+let LIVE_LEADERBOARD = [];
+let missionIdx = 0;
+let choiceMade  = false;
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
-function pushReward(text){ state.rewardLog.unshift(`${new Date().toLocaleTimeString()} — ${text}`); state.rewardLog = state.rewardLog.slice(0,20); }
-
-function resetDailyIfNeeded(){
-  const today = dayStamp();
-  if(state.daily.stamp !== today){
-    state.daily.stamp = today;
-    state.daily.missions = missionsTemplate.map(m=>({...m,progress:0,done:false}));
-  }
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(STATE)); } catch(e){}
 }
 
-function addSkillXp(skill, amount){
-  if(!state.hexSkills[skill]) return;
-  const current = state.hexSkills[skill];
-  const oldLevel = current.level;
-  current.xp = Math.min((MAX_LEVEL-1)*XP_PER_LEVEL + (XP_PER_LEVEL-1), current.xp + amount);
-  current.level = computeLevel(current.xp);
-  if(current.level > oldLevel){
-    pushReward(`${skill} hex upgraded to level ${current.level}`);
-    animateHexUpgrade(skill);
-  }
-  unlockSpecialHexes();
+/* ═══ MISSION ENGINE ═══════════════════════════════════════════════ */
+function renderMission() {
+  const m = MISSIONS[missionIdx];
+  if (!m) return;
+  choiceMade = false;
+
+  document.getElementById('m-num').textContent  = `MISSION ${String(missionIdx+1).padStart(2,'0')}`;
+  document.getElementById('m-cat').textContent  = m.category;
+  document.getElementById('m-title').textContent = m.title;
+  document.getElementById('m-desc').textContent  = m.desc;
+  document.getElementById('prog-txt').textContent = `${missionIdx+1}/${MISSIONS.length}`;
+  document.getElementById('prog-fill').style.width = Math.max(4, (missionIdx/MISSIONS.length)*100) + '%';
+
+  const pips = document.querySelectorAll('#m-diff .pip');
+  pips.forEach((p,i) => p.classList.toggle('on', i < m.diff));
+
+  buildChoiceList(m);
+  buildSectors(m);
+  updateKadaHUD(`M-${String(missionIdx+1).padStart(2,'0')}`, m.title.slice(0,9));
 }
 
-function unlockSpecialHexes(){
-  const e = state.hexSkills.engineering.level >= 3;
-  const l = state.hexSkills.leadership.level >= 3;
-  if(e && l && !state.specialHexes.techLeader){
-    state.specialHexes.techLeader = true;
-    pushReward('Special hex unlocked: Tech Leader (engineering + leadership)');
-  }
+function buildChoiceList(m) {
+  const keys = ['A','B','C','D'];
+  const g = document.getElementById('choices-list');
+  g.innerHTML = '';
+  m.choices.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'choice-item';
+    div.dataset.v = c.v;
+    div.innerHTML = `<span class="choice-key-tag">${keys[i]}</span>${c.l}`;
+    div.addEventListener('click', () => handleChoice(c));
+    g.appendChild(div);
+  });
 }
 
-function addXp(amount){
-  state.xp += amount;
-  while(state.xp >= state.passLevel*100 && state.passLevel < passLevels.length){
-    state.xp -= state.passLevel*100;
-    state.passLevel += 1;
-    const unlock = passLevels.find(p=>p.level===state.passLevel)?.unlock;
-    if(unlock){ pushReward(`Pass Level ${state.passLevel} unlocked: ${unlock}`); }
-    if(unlock?.includes('Hex Territory')) state.territories += 1;
-    if(unlock?.includes('Badge')) state.badges.push(unlock.replace('Badge: ',''));
-  }
-}
+function handleChoice(choice) {
+  if (choiceMade) return;
+  choiceMade = true;
 
-function applyMissionResult(score, skill){
-  state.lastMissionScore = score;
-  const srDelta = Math.round((score - 700) / 25);
-  state.sr = Math.max(300, state.sr + srDelta);
-  state.leaderboardBots.find(p=>p.name==='You').sr = state.sr;
-  addXp(40 + Math.max(0, Math.round((score-600)/20)));
-  addSkillXp(skill, 45 + Math.max(0, Math.round((score-650)/8)));
-
-  state.daily.missions.forEach(m=>{
-    if(m.done) return;
-    if(m.type==='count') m.progress = Math.min(m.target, m.progress + 1);
-    if(m.type==='score' && score >= m.target) m.progress = m.target;
-    if(m.type==='improve' && score >= 650) m.progress = m.target;
-function addXp(amount){
-  state.xp += amount;
-  while(state.xp >= state.passLevel*100 && state.passLevel < passLevels.length){
-    state.xp -= state.passLevel*100;
-    state.passLevel += 1;
-    const unlock = passLevels.find(p=>p.level===state.passLevel)?.unlock;
-    if(unlock){ pushReward(`Pass Level ${state.passLevel} unlocked: ${unlock}`); }
-    if(unlock?.includes("Hex Territory")) state.territories += 1;
-    if(unlock?.includes("Badge")) state.badges.push(unlock.replace("Badge: ",""));
-  }
-}
-
-function applyMissionResult(score){
-  state.lastMissionScore = score;
-  const srDelta = Math.round((score - 700) / 25);
-  state.sr = Math.max(300, state.sr + srDelta);
-  state.leaderboardBots.find(p=>p.name==="You").sr = state.sr;
-  addXp(40 + Math.max(0, Math.round((score-600)/20)));
-
-  state.daily.missions.forEach(m=>{
-    if(m.done) return;
-    if(m.type==="count") m.progress = Math.min(m.target, m.progress + 1);
-    if(m.type==="score" && score >= m.target) m.progress = m.target;
-    if(m.type==="improve" && score >= 650) m.progress = m.target;
-    if(m.progress >= m.target){
-      m.done = true;
-      state.tokens += m.reward;
-      pushReward(`Daily Mission complete: ${m.title} (+${m.reward} tokens)`);
-    }
+  document.querySelectorAll('.choice-item').forEach(el => {
+    const m = MISSIONS[missionIdx];
+    const mc = m.choices.find(c => c.v === el.dataset.v);
+    if (!mc) return;
+    el.classList.add(mc.ok ? 'correct' : (mc.v === choice.v ? 'wrong' : 'lock'));
   });
 
-  if(score >= 850){ state.skillUpgrades += 1; pushReward('Skill upgrade core earned'); }
+  if (choice.ok) {
+    const pts = 500 + (30 - kadaTimer) * 20 + MISSIONS[missionIdx].diff * 100;
+    const srDelta = Math.round((pts - 600) / 25);
+    STATE.sr = Math.max(300, STATE.sr + srDelta);
+    STATE.xp += 40 + Math.max(0, Math.round((pts-600)/20));
+    STATE.lastScore = pts;
+    addSkillXp(MISSIONS[missionIdx].skill, 45);
+    addSkillXp(SKILL_META[Math.floor(Math.random()*SKILL_META.length)].key, 20);
+    pushReward(`Mission ${missionIdx+1} complete: +${srDelta} SR, +${pts} pts`);
+    spawnSparks();
+    showToast('✓ ' + choice.fb, 'ok');
+    flashKadaCorrect();
+  } else {
+    showToast('✗ ' + choice.fb, 'err');
+    flashKadaWrong();
+  }
+
+  advancePassLevel();
+  updateStats();
   save();
+  fbWritePlayer();
+
+  setTimeout(() => {
+    missionIdx = (missionIdx + 1) % MISSIONS.length;
+    renderMission();
+  }, 2400);
 }
 
-function registerLogin(){
-  const today = dayStamp();
-  const prev = state.streak.lastLogin;
-  if(prev === today) return;
-  const yesterday = dayStamp(now()-86400000);
-  state.streak.count = prev===yesterday ? state.streak.count+1 : 1;
-  state.streak.lastLogin = today;
-  if(state.streak.count===3){ state.tokens += 35; pushReward('3-day streak: bonus tokens (+35)'); }
-  if(state.streak.count===7){ state.badges.push('Rare Mission Voucher'); pushReward('7-day streak: rare mission unlocked'); }
-  if(state.streak.count===30){ state.badges.push('Elite Consistency Badge'); pushReward('30-day streak: elite badge unlocked'); }
-  save(); render();
+/* ═══ SKILL XP ════════════════════════════════════════════════════ */
+function addSkillXp(skill, amount) {
+  if (!STATE.hexSkills[skill]) return;
+  const s = STATE.hexSkills[skill];
+  const prev = s.level;
+  s.xp = Math.min((MAX_LEVEL-1)*XP_PER_LEVEL + XP_PER_LEVEL - 1, s.xp + amount);
+  s.level = Math.min(MAX_LEVEL, Math.floor(s.xp / XP_PER_LEVEL) + 1);
+  if (s.level > prev) pushReward(`${skill} hex upgraded → Level ${s.level}`);
+  checkSpecialHexes();
+  renderHexMap();
 }
 
-function currentEvent(){
-  const cycle = 12*60*60*1000;
-  const idx = Math.floor(now()/cycle)%events.length;
-  const end = (Math.floor(now()/cycle)+1)*cycle;
-  return {event:events[idx], end};
+function checkSpecialHexes() {
+  if (STATE.hexSkills.Systems?.level >= 3 && STATE.hexSkills.Strategy?.level >= 3 && !STATE.specialHexes.TechLeader) {
+    STATE.specialHexes.TechLeader = true;
+    pushReward('SPECIAL HEX UNLOCKED: Tech Leader (Systems + Strategy)');
+  }
 }
 
-function createSquadRoom(){
-  const name = document.getElementById('roomName').value.trim();
-  if(!name) return;
-  state.squad.room = name;
-  state.squad.members = ['You'];
-  save(); render();
-}
-function addSquadMember(){
-  const m = document.getElementById('memberName').value.trim();
-  if(!m || !state.squad.room || state.squad.members.length>=3) return;
-  if(!state.squad.members.includes(m)) state.squad.members.push(m);
-  if(state.squad.members.length===3) pushReward(`Squad mission ready in room ${state.squad.room}`);
-  save(); render();
-}
-
-function missionActions(){
-  const html = state.daily.missions.map(m=>`<div class="mission"><strong>${m.title}</strong><div class="mini">Progress ${m.progress}/${m.target} · Reward ${m.reward} tokens · Skill XP: ${m.skill}</div>${m.done?'<span class="badge">Completed</span>':`<button data-score="${m.type==='score'?760:710}" data-skill="${m.skill}">Simulate Completion</button>`}</div>`).join('');
-  document.getElementById('dailyList').innerHTML = html;
-  document.querySelectorAll('#dailyList button').forEach(btn=>btn.onclick=()=>{ applyMissionResult(Number(btn.dataset.score), btn.dataset.skill); render(); });
+/* ═══ PASS LEVEL ══════════════════════════════════════════════════ */
+function advancePassLevel() {
+  while (STATE.xp >= STATE.passLevel * XP_PER_LEVEL && STATE.passLevel < 20) {
+    STATE.xp -= STATE.passLevel * XP_PER_LEVEL;
+    STATE.passLevel++;
+    pushReward(`Pass Level ${STATE.passLevel} unlocked!`);
+  }
+  const lv  = document.getElementById('pass-lv');
+  const xpE = document.getElementById('pass-xp');
+  const nx  = document.getElementById('pass-next');
+  const bar = document.getElementById('pass-bar');
+  if (lv)  lv.textContent  = STATE.passLevel;
+  if (xpE) xpE.textContent = STATE.xp;
+  if (nx)  nx.textContent  = STATE.passLevel * XP_PER_LEVEL;
+  if (bar) bar.style.width = Math.min(100, (STATE.xp / (STATE.passLevel * XP_PER_LEVEL)) * 100).toFixed(1) + '%';
 }
 
-function renderShareCard(){
-  const svg = `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#4ea1ff"/><stop offset="1" stop-color="#55d38a"/></linearGradient></defs><rect width="480" height="240" fill="#0f1730"/><rect x="14" y="14" width="452" height="212" rx="16" fill="#131f42" stroke="#335090"/><text x="30" y="48" fill="#eef3ff" font-size="22" font-family="Inter">SkillHex Result Card</text><text x="30" y="84" fill="#9db0df" font-size="15">SR: ${state.sr}  •  Pass Lvl: ${state.passLevel}  •  Tokens: ${state.tokens}</text><text x="30" y="112" fill="#9db0df" font-size="15">Streak: ${state.streak.count} days  •  Last Score: ${state.lastMissionScore}</text><rect x="30" y="140" width="320" height="12" rx="6" fill="#091125" stroke="#335090"/><rect x="30" y="140" width="${Math.min(320,(state.xp/(state.passLevel*100))*320)}" height="12" rx="6" fill="url(#g)"/><text x="30" y="177" fill="#eef3ff" font-size="14">Badges: ${(state.badges.slice(-3).join(', ') || 'None yet')}</text><text x="30" y="204" fill="#f4c35d" font-size="14">#SkillHex #MissionControl</text></svg>`;
-  document.getElementById('shareCard').innerHTML = svg;
-  const shareText = encodeURIComponent(`My SkillHex SR is ${state.sr}, Pass Level ${state.passLevel}, and ${state.streak.count}-day streak.`);
-  document.getElementById('shareLinkedIn').href = `https://www.linkedin.com/sharing/share-offsite/?url=https://skillhex.app&summary=${shareText}`;
-  document.getElementById('shareWhatsApp').href = `https://wa.me/?text=${shareText}`;
-  document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?text=${shareText}`;
+/* ═══ REWARD LOG ═══════════════════════════════════════════════════ */
+function pushReward(text) {
+  STATE.rewardLog.unshift(`${new Date().toLocaleTimeString()} · ${text}`);
+  STATE.rewardLog = STATE.rewardLog.slice(0, 20);
+  renderRewardLog();
 }
 
-function hexPoints(cx, cy, size){
+function renderRewardLog() {
+  const el = document.getElementById('reward-log');
+  if (!el) return;
+  el.innerHTML = STATE.rewardLog.map(r => `<div class="reward-item">${r}</div>`).join('') || '<div class="reward-item" style="color:var(--txt-dim)">No rewards yet.</div>';
+}
+
+/* ═══ DAILY LOGIN / STREAK ═════════════════════════════════════════ */
+const dayOf = (ts = Date.now()) => new Date(ts).toISOString().slice(0,10);
+
+function triggerLogin() {
+  const today = dayOf();
+  if (STATE.streak.lastLogin === today) { showToast('Already logged in today', 'info'); return; }
+  const prev = STATE.streak.lastLogin;
+  const yesterday = dayOf(Date.now() - 86400000);
+  STATE.streak.count = prev === yesterday ? STATE.streak.count + 1 : 1;
+  STATE.streak.lastLogin = today;
+  STATE.tokens += 5;
+  pushReward(`Daily login! Streak: ${STATE.streak.count} days · +5 tokens`);
+  if (STATE.streak.count === 3)  { STATE.tokens += 30; pushReward('3-day streak bonus: +30 tokens!'); }
+  if (STATE.streak.count === 7)  { pushReward('7-day streak: Rare Mission Voucher unlocked!'); }
+  if (STATE.streak.count === 30) { pushReward('30-day streak: Elite Consistency Badge!'); }
+  updateStats();
+  renderStreak();
+  save();
+  fbWritePlayer();
+  showToast('Login registered · Streak: ' + STATE.streak.count, 'ok');
+}
+
+function renderStreak() {
+  const el = document.getElementById('streak-pips');
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const d = document.createElement('div');
+    d.className = 'streak-pip' + (i < STATE.streak.count ? ' done' : '');
+    el.appendChild(d);
+  }
+}
+
+/* ═══ LEADERBOARD ══════════════════════════════════════════════════ */
+function renderLeaderboard() {
+  let combined = [...(LIVE_LEADERBOARD.length ? LIVE_LEADERBOARD : STATE.leaderboardBots)];
+  const meIdx = combined.findIndex(p => p.name === STATE.playerName);
+  if (meIdx === -1) combined.push({ name: STATE.playerName, sr: STATE.sr, isMe: true });
+  else combined[meIdx].isMe = true;
+  combined.sort((a,b) => b.sr - a.sr);
+
+  const myRank = combined.findIndex(p => p.isMe);
+  const start  = Math.max(0, myRank - 2);
+  const slice  = combined.slice(start, start + 5);
+  const el = document.getElementById('lb-list');
+  if (!el) return;
+  el.innerHTML = '';
+  slice.forEach((p, i) => {
+    const rank = start + i + 1;
+    const mc   = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const row  = document.createElement('div');
+    row.className = 'lb-row' + (p.isMe ? ' me' : '');
+    row.innerHTML = `<span class="lb-rank ${mc}">${rank}</span><span class="lb-name ${p.isMe?'me-n':''}">${p.isMe?'▶ ':''} ${p.name}</span><span class="lb-score">${String(p.sr).padStart(4,'0')}</span>`;
+    el.appendChild(row);
+  });
+}
+
+/* ═══ STATS UPDATE ═════════════════════════════════════════════════ */
+function updateStats() {
+  const ids = ['hdr-sr','st-sr'];
+  ids.forEach(id => { const e=document.getElementById(id); if(e) e.textContent = STATE.sr; });
+  ['hdr-xp'].forEach(id=>{const e=document.getElementById(id);if(e) e.textContent=STATE.xp;});
+  ['hdr-tok','st-tokens'].forEach(id=>{const e=document.getElementById(id);if(e) e.textContent=STATE.tokens;});
+  ['st-streak'].forEach(id=>{const e=document.getElementById(id);if(e) e.textContent=STATE.streak.count;});
+  ['hdr-streak'].forEach(id=>{const e=document.getElementById(id);if(e) e.textContent=STATE.streak.count+'d';});
+  ['st-score'].forEach(id=>{const e=document.getElementById(id);if(e) e.textContent=STATE.lastScore;});
+  renderLeaderboard();
+  renderShareCard();
+}
+
+/* ═══ HEX MAP ══════════════════════════════════════════════════════ */
+function hexPoints(cx, cy, size) {
   const pts = [];
-  for(let i=0;i<6;i++){
-    const ang = (Math.PI/180)*(60*i-30);
-    pts.push(`${(cx + size*Math.cos(ang)).toFixed(1)},${(cy + size*Math.sin(ang)).toFixed(1)}`);
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI/180) * (60*i - 30);
+    pts.push(`${(cx + size*Math.cos(a)).toFixed(1)},${(cy + size*Math.sin(a)).toFixed(1)}`);
   }
   return pts.join(' ');
 }
-function axialToPixel(q,r,size){
-  return { x:size*Math.sqrt(3)*(q + r/2), y:size*1.5*r };
+function axialToPixel(q, r, size) {
+  return { x: size*Math.sqrt(3)*(q + r/2), y: size*1.5*r };
 }
 
-function renderHexMap(){
-  const svg = document.getElementById('hexMapSvg');
-  svg.setAttribute('viewBox', `${state.mapViewport.x} ${state.mapViewport.y} ${state.mapViewport.w} ${state.mapViewport.h}`);
-  const baseX = 350, baseY = 120, size = 52;
+function renderHexMap() {
+  const svg  = document.getElementById('hex-svg');
+  const tip  = document.getElementById('map-tip');
+  if (!svg) return;
+  const bx = 120, by = 60, size = 28;
 
-  const hexes = skillMeta.map(meta=>{
-    const pos = axialToPixel(meta.q, meta.r, size);
-    const s = state.hexSkills[meta.key];
-    const currentLevelXp = xpForLevel(s.level);
-    const nextThreshold = Math.min(MAX_LEVEL*XP_PER_LEVEL, xpForLevel(s.level+1));
-    const progress = s.level===MAX_LEVEL ? XP_PER_LEVEL : Math.max(0, Math.min(XP_PER_LEVEL, s.xp-currentLevelXp));
-    return { ...meta, x:baseX+pos.x, y:baseY+pos.y, level:s.level, xp:s.xp, progress, nextThreshold };
-  });
-
-  let out = `<g id="hexLayer">`;
-  hexes.forEach(h=>{
-    out += `<g class="hex-group" data-skill="${h.key}" data-level="${h.level}" data-xp="${h.xp}" data-progress="${h.progress}/${XP_PER_LEVEL}">
-      <polygon class="hex" id="hex-${h.key}" fill="${skillPalette[h.key]}" points="${hexPoints(h.x,h.y,size)}" />
-      <text x="${h.x}" y="${h.y-5}" text-anchor="middle" font-size="13" fill="#0b1020" font-weight="700">${h.label}</text>
-      <text x="${h.x}" y="${h.y+15}" text-anchor="middle" font-size="14" fill="#0b1020" font-weight="800">L${h.level}</text>
+  let out = '<g id="hexLayer">';
+  SKILL_META.forEach(meta => {
+    const pos  = axialToPixel(meta.q, meta.r, size);
+    const s    = STATE.hexSkills[meta.key];
+    const col  = meta.color;
+    const alpha = (.3 + (s.level/MAX_LEVEL) * .7).toFixed(2);
+    const cx   = bx + pos.x, cy = by + pos.y;
+    out += `<g class="hex-group" data-skill="${meta.key}" data-level="${s.level}">
+      <polygon class="hex-poly" id="hx-${meta.key}" fill="${col}" fill-opacity="${alpha}" points="${hexPoints(cx,cy,size)}"/>
+      <text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="8" fill="#030508" font-weight="700" font-family="Orbitron">${meta.key.slice(0,3).toUpperCase()}</text>
+      <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="9" fill="#030508" font-weight="900" font-family="Orbitron">L${s.level}</text>
     </g>`;
   });
-
-  if(state.specialHexes.techLeader){
-    const sp = axialToPixel(2,0,size);
-    const sx = baseX+sp.x, sy = baseY+sp.y;
-    out += `<g class="hex-group" data-skill="techLeader" data-level="Special" data-xp="Unlocked" data-progress="engineering + leadership">
-      <polygon class="hex special" id="hex-techLeader" fill="${skillPalette.techLeader}" points="${hexPoints(sx,sy,size)}" />
-      <text x="${sx}" y="${sy-4}" text-anchor="middle" font-size="12" fill="#311f00" font-weight="700">Tech Leader</text>
-      <text x="${sx}" y="${sy+14}" text-anchor="middle" font-size="11" fill="#311f00" font-weight="800">SPECIAL</text>
-    </g>`;
+  if (STATE.specialHexes.TechLeader) {
+    const sp = axialToPixel(2,1,size);
+    const cx = bx+sp.x, cy = by+sp.y;
+    out += `<g><polygon class="hex-poly hex-special" fill="#fde047" fill-opacity=".9" points="${hexPoints(cx,cy,size)}"/>
+      <text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="7" fill="#030508" font-weight="700">TECH</text>
+      <text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="7" fill="#030508" font-weight="900">LEAD</text></g>`;
   }
-
-  out += `</g>`;
+  out += '</g>';
   svg.innerHTML = out;
 
-  bindHexTooltip();
-}
-
-function bindHexTooltip(){
-  const tip = document.getElementById('mapTooltip');
-  document.querySelectorAll('.hex-group').forEach(g=>{
-    g.addEventListener('mousemove', e=>{
-      const skill = g.dataset.skill;
-      const level = g.dataset.level;
-      const progress = g.dataset.progress;
+  document.querySelectorAll('.hex-group').forEach(g => {
+    g.addEventListener('mousemove', e => {
       tip.style.display = 'block';
-      tip.style.left = `${e.offsetX+18}px`;
-      tip.style.top = `${e.offsetY+18}px`;
-      tip.innerHTML = `<strong>${skill}</strong><br/>Level: ${level}<br/>XP progress: ${progress}`;
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 32) + 'px';
+      tip.textContent = `${g.dataset.skill} — Level ${g.dataset.level} / ${MAX_LEVEL}`;
     });
-    g.addEventListener('mouseleave', ()=>{ tip.style.display = 'none'; });
-  });
-}
-
-function animateHexUpgrade(skill){
-  setTimeout(()=>{
-    const el = document.getElementById(`hex-${skill}`);
-    if(!el) return;
-    el.classList.remove('upgraded');
-    void el.offsetWidth;
-    el.classList.add('upgraded');
-  }, 40);
-}
-
-function bindMapNavigation(){
-  const svg = document.getElementById('hexMapSvg');
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let startView = null;
-
-  svg.addEventListener('wheel', e=>{
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 1.1 : 0.9;
-    const minW = 380, maxW = 1300;
-    const newW = Math.max(minW, Math.min(maxW, state.mapViewport.w*factor));
-    const ratio = newW/state.mapViewport.w;
-    state.mapViewport.w = newW;
-    state.mapViewport.h = 520 * (state.mapViewport.w/900);
-    state.mapViewport.x += (state.mapViewport.w*(1-ratio))/2;
-    state.mapViewport.y += (state.mapViewport.h*(1-ratio))/2;
-    renderHexMap();
-    save();
-  }, {passive:false});
-
-  svg.addEventListener('pointerdown', e=>{
-    dragging = true;
-    svg.classList.add('dragging');
-    startX = e.clientX; startY = e.clientY;
-    startView = {...state.mapViewport};
-    svg.setPointerCapture(e.pointerId);
+    g.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   });
 
-  svg.addEventListener('pointermove', e=>{
-    if(!dragging) return;
-    const scaleX = state.mapViewport.w / svg.clientWidth;
-    const scaleY = state.mapViewport.h / svg.clientHeight;
-    state.mapViewport.x = startView.x - (e.clientX - startX)*scaleX;
-    state.mapViewport.y = startView.y - (e.clientY - startY)*scaleY;
-    renderHexMap();
-  });
-
-  const endDrag = ()=>{ dragging=false; svg.classList.remove('dragging'); save(); };
-  svg.addEventListener('pointerup', endDrag);
-  svg.addEventListener('pointercancel', endDrag);
+  document.getElementById('hex-json').textContent = JSON.stringify(
+    Object.fromEntries(SKILL_META.map(s=>[s.key, STATE.hexSkills[s.key].level])), null, 2
+  );
 }
 
-function render(){
-  resetDailyIfNeeded();
-  const {event,end} = currentEvent();
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-  document.getElementById('seasonChip').textContent = `Season ${new Date().getFullYear()}.${new Date().getMonth()+1}`;
-  document.getElementById('dailyReset').textContent = `Daily reset stamp: ${state.daily.stamp}`;
-  document.getElementById('tokenBank').textContent = `Tokens: ${state.tokens}`;
-  document.getElementById('passLevel').textContent = state.passLevel;
-  document.getElementById('passXp').textContent = `${state.xp}/${state.passLevel*100}`;
-  document.getElementById('passBar').style.width = `${Math.min(100,(state.xp/(state.passLevel*100))*100)}%`;
-  document.getElementById('passUnlocks').textContent = passLevels.map(p=>`L${p.level}: ${p.unlock}`).join(' • ');
+function animateHex(skill) {
+  const el = document.getElementById('hx-' + skill);
+  if (!el) return;
+  el.classList.remove('upgraded');
+  void el.offsetWidth;
+  el.classList.add('upgraded');
+}
 
-  document.getElementById('playerSr').textContent = `Your SR: ${state.sr}`;
-  const board = [...state.leaderboardBots].sort((a,b)=>b.sr-a.sr).map((p,i)=>`<div class="mission"><div class="row"><strong>#${i+1} ${p.name}</strong><span class="grow"></span><span>${p.sr} SR</span></div></div>`).join('');
-  document.getElementById('leaderboard').innerHTML = board;
+/* ═══ SHARE CARD ═══════════════════════════════════════════════════ */
+function renderShareCard() {
+  const el = document.getElementById('share-card-wrap');
+  if (!el) return;
+  el.innerHTML = `<svg viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="scg" x1="0" x2="1"><stop stop-color="#00e5ff"/><stop offset="1" stop-color="#00ff88"/></linearGradient></defs>
+    <rect width="480" height="200" fill="#080d1a"/>
+    <rect x="12" y="12" width="456" height="176" rx="10" fill="#0c1224" stroke="#152240"/>
+    <rect x="12" y="12" width="456" height="3" rx="1.5" fill="url(#scg)"/>
+    <text x="28" y="46" fill="#00e5ff" font-size="18" font-family="Orbitron" font-weight="700">SkillHex Mission Control</text>
+    <text x="28" y="72" fill="#c8d8f0" font-size="13" font-family="Share Tech Mono">${STATE.playerName} · SR: ${STATE.sr} · Pass Lv: ${STATE.passLevel}</text>
+    <text x="28" y="94" fill="#c8d8f0" font-size="13" font-family="Share Tech Mono">Tokens: ${STATE.tokens} · Streak: ${STATE.streak.count}d · Score: ${STATE.lastScore}</text>
+    <rect x="28" y="112" width="280" height="8" rx="4" fill="#050810"/>
+    <rect x="28" y="112" width="${Math.min(280,(STATE.xp/(STATE.passLevel*100))*280)}" height="8" rx="4" fill="url(#scg)"/>
+    <text x="28" y="148" fill="#4a6080" font-size="11" font-family="Share Tech Mono">Top Skills: ${Object.entries(STATE.hexSkills).sort((a,b)=>b[1].level-a[1].level).slice(0,3).map(([k,v])=>`${k} L${v.level}`).join(' · ')}</text>
+    <text x="28" y="176" fill="#f59e0b" font-size="12" font-family="Share Tech Mono">#SkillHex #MissionControl @geogebra.in</text>
+  </svg>`;
+}
 
-  document.getElementById('streakCount').textContent = state.streak.count;
-  document.getElementById('streakRewards').innerHTML = `3 day → bonus tokens · 7 day → rare mission · 30 day → elite badge`;
+function shareCard() {
+  const text = `🔷 SkillHex Mission Control\nCallsign: ${STATE.playerName}\nSR: ${STATE.sr} | Pass Lv: ${STATE.passLevel} | Streak: ${STATE.streak.count}d\n#SkillHex #MissionControl`;
+  if (navigator.share) navigator.share({ title: 'SkillHex Result', text });
+  else if (navigator.clipboard) { navigator.clipboard.writeText(text); showToast('Result copied to clipboard', 'ok'); }
+}
 
-  document.getElementById('eventInfo').innerHTML = `<strong>${event.name}</strong><div class="mini">${event.desc}<br/>Reward: ${event.reward}</div>`;
-  const sec = Math.max(0, Math.floor((end-now())/1000));
-  const hh = String(Math.floor(sec/3600)).padStart(2,'0');
-  const mm = String(Math.floor((sec%3600)/60)).padStart(2,'0');
-  const ss = String(sec%60).padStart(2,'0');
-  document.getElementById('eventTimer').textContent = `Ends in ${hh}:${mm}:${ss}`;
+/* ═══ EVENT MISSION ════════════════════════════════════════════════ */
+function updateEvent() {
+  const cycle = 12 * 3600 * 1000;
+  const idx   = Math.floor(Date.now() / cycle) % EVENTS.length;
+  const end   = (Math.floor(Date.now()/cycle)+1) * cycle;
+  const ev    = EVENTS[idx];
+  const sec   = Math.max(0, Math.floor((end - Date.now()) / 1000));
+  const hh    = String(Math.floor(sec/3600)).padStart(2,'0');
+  const mm    = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+  const ss    = String(sec%60).padStart(2,'0');
+  const en = document.getElementById('evt-name');
+  const ed = document.getElementById('evt-desc');
+  const et = document.getElementById('evt-timer');
+  if (en) en.textContent = ev.name;
+  if (ed) ed.textContent = ev.desc + ' · Reward: ' + ev.reward;
+  if (et) et.textContent = `Ends in ${hh}:${mm}:${ss}`;
+}
 
-  document.getElementById('roomState').innerHTML = state.squad.room
-    ? `Room <strong>${state.squad.room}</strong> · Members (${state.squad.members.length}/3): ${state.squad.members.join(', ')}`
-    : 'No active room';
+/* ═══ TOAST ════════════════════════════════════════════════════════ */
+let _toastT;
+function showToast(msg, type='info') {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  clearTimeout(_toastT);
+  el.textContent = msg; el.className = 'show ' + type;
+  _toastT = setTimeout(() => { el.className = ''; }, 2800);
+}
 
-  document.getElementById('rewardLog').innerHTML = state.rewardLog.map(r=>`<div class="mission mini">${r}</div>`).join('') || '<div class="mini">No rewards yet.</div>';
+/* ═══ SQUAD ROOM ═══════════════════════════════════════════════════ */
+function switchRoomTab(tab) {
+  document.querySelectorAll('.room-tab').forEach((t,i)=>t.classList.toggle('on',['create','join','lobby'][i]===tab));
+  document.querySelectorAll('.room-pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('rt-'+tab).classList.add('on');
+}
 
-  document.getElementById('hexJson').textContent = JSON.stringify(skillLevelsJSON(), null, 2);
+function genCode() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return 'HX-' + Array.from({length:4},()=>c[Math.floor(Math.random()*c.length)]).join('');
+}
 
-  missionActions();
-  renderShareCard();
+function createRoom() {
+  const name = document.getElementById('room-name').value.trim() || 'Alpha Squadron';
+  const max  = document.getElementById('room-max').value;
+  STATE.squad.room = genCode();
+  STATE.squad.members = [STATE.playerName];
+  document.getElementById('room-code-display').textContent = STATE.squad.room;
+  document.getElementById('ft-room').textContent = STATE.squad.room;
+  document.getElementById('ft-players').textContent = '1';
+  renderLobby();
+  switchRoomTab('lobby');
+  save();
+  showToast('Room created: ' + STATE.squad.room, 'ok');
+}
+
+function joinRoom() {
+  const code = document.getElementById('room-code-in').value.trim().toUpperCase();
+  if (!code || code.length < 4) { showToast('Enter a valid room code', 'err'); return; }
+  STATE.squad.room = code;
+  document.getElementById('room-code-display').textContent = code;
+  document.getElementById('ft-room').textContent = code;
+  document.getElementById('ft-players').textContent = '2';
+  switchRoomTab('lobby');
+  save();
+  showToast('Joined room ' + code, 'ok');
+}
+
+function renderLobby() {
+  const el = document.getElementById('lobby-members');
+  if (!el) return;
+  el.innerHTML = (STATE.squad.members.length ? STATE.squad.members : [STATE.playerName]).map((m,i)=>`<div class="lb-row${i===0?' me':''}" style="margin-bottom:.3rem"><span class="lb-rank">${i+1}</span><span class="lb-name">${m}</span><span style="font-family:var(--fmono);font-size:.55rem;color:var(--amber)">${i===0?'HOST':''}</span></div>`).join('');
+}
+
+function leaveRoom() { STATE.squad.room=''; STATE.squad.members=[]; document.getElementById('ft-room').textContent='—'; switchRoomTab('create'); save(); }
+function launchRoom() { if (!STATE.squad.room) return; switchRoomTab('create'); renderMission(); showToast('Game launched for room ' + STATE.squad.room, 'ok'); }
+function showRoom() { switchRoomTab('create'); document.getElementById('rt-create').scrollIntoView({behavior:'smooth'}); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   KADA WHEEL SYSTEM
+═══════════════════════════════════════════════════════════════════ */
+let rotorAngle  = 0;
+let isDragging  = false;
+let isPulled    = false;
+let startAngle  = 0;
+let lastAngle   = 0;
+let pullHoldStart = 0;
+let activeSector  = -1;
+let kadaTimer     = 30;
+let kadaInterval  = null;
+
+const SECTORS = [
+  { label:'A', angle: 270 },  // top
+  { label:'B', angle: 0   },  // right
+  { label:'C', angle: 90  },  // bottom
+  { label:'D', angle: 180 },  // left
+];
+
+function buildSectors(mission) {
+  const svg = document.getElementById('sector-svg');
+  if (!svg) return;
+  const cx = 120, cy = 120, ri = 105, ro = 118;
+
+  let html = '';
+  SECTORS.forEach((sec, i) => {
+    const aStart = (sec.angle - 45) * Math.PI / 180;
+    const aEnd   = (sec.angle + 45) * Math.PI / 180;
+    const cos1 = Math.cos(aStart), sin1 = Math.sin(aStart);
+    const cos2 = Math.cos(aEnd),   sin2 = Math.sin(aEnd);
+    const xI1 = cx + ri*cos1, yI1 = cy + ri*sin1;
+    const xO1 = cx + ro*cos1, yO1 = cy + ro*sin1;
+    const xI2 = cx + ri*cos2, yI2 = cy + ri*sin2;
+    const xO2 = cx + ro*cos2, yO2 = cy + ro*sin2;
+
+    const d = `M ${xI1} ${yI1} L ${xO1} ${yO1} A ${ro} ${ro} 0 0 1 ${xO2} ${yO2} L ${xI2} ${yI2} A ${ri} ${ri} 0 0 0 ${xI1} ${yI1} Z`;
+
+    const lAngle = sec.angle * Math.PI / 180;
+    const lr = ri - 16;
+    const lx = cx + lr * Math.cos(lAngle);
+    const ly = cy + lr * Math.sin(lAngle);
+
+    const choices = mission ? mission.choices : [];
+    const shortLabel = choices[i] ? choices[i].l.slice(0, 14) + (choices[i].l.length > 14 ? '…' : '') : sec.label;
+
+    html += `<path id="sec-${i}" class="sector-arc idle" d="${d}" data-idx="${i}"/>`;
+    html += `<text x="${lx}" y="${ly}" class="sector-label" id="sec-lbl-${i}" text-anchor="middle" dominant-baseline="middle" fill="#4a6080">${sec.label}</text>`;
+  });
+
+  // Zero marker line
+  html += `<line x1="120" y1="4" x2="120" y2="17" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+           <circle cx="120" cy="3" r="3" fill="var(--amber)" opacity=".7"/>`;
+
+  svg.innerHTML = html;
+
+  // Sector click
+  for (let i = 0; i < 4; i++) {
+    const p = document.getElementById('sec-' + i);
+    if (p) p.addEventListener('click', () => {
+      if (!choiceMade) confirmSector(i);
+    });
+  }
+}
+
+function getAngle(ex, ey) {
+  const wrap = document.getElementById('kada-wrap');
+  if (!wrap) return 0;
+  const rect = wrap.getBoundingClientRect();
+  return Math.atan2(ey - (rect.top + rect.height/2), ex - (rect.left + rect.width/2)) * (180/Math.PI);
+}
+
+function sectorFromAngle(deg) {
+  // normalise deg to 0-360
+  let a = ((deg % 360) + 360) % 360;
+  // sectors: A=270°, B=0°, C=90°, D=180° each ±45°
+  const sectors_a = [270, 0, 90, 180];
+  let best = 0, bestDist = Infinity;
+  sectors_a.forEach((sa, i) => {
+    let diff = Math.abs(a - sa);
+    if (diff > 180) diff = 360 - diff;
+    if (diff < bestDist) { bestDist = diff; best = i; }
+  });
+  return bestDist <= 45 ? best : -1;
+}
+
+function highlightSector(idx) {
+  for (let i = 0; i < 4; i++) {
+    const p  = document.getElementById('sec-' + i);
+    const lbl= document.getElementById('sec-lbl-' + i);
+    const isActive = i === idx;
+    if (p)   p.className.baseVal   = 'sector-arc ' + (isActive ? 'hover' : 'idle');
+    if (lbl) lbl.setAttribute('fill', isActive ? 'var(--amber)' : '#4a6080');
+    // also highlight choice item
+    const items = document.querySelectorAll('.choice-item');
+    if (items[i]) items[i].classList.toggle('active-sector', isActive && isPulled);
+  }
+  activeSector = idx;
+  updateKadaHUD(
+    isPulled ? SECTORS[idx >= 0 ? idx : 0].label : `M-${String(missionIdx+1).padStart(2,'0')}`,
+    isPulled ? 'PULL TO AIM' : MISSIONS[missionIdx]?.title?.slice(0,9) || '—'
+  );
+  const val = document.getElementById('kad-val');
+  if (val) val.className = 'kada-hud-val' + (isPulled ? ' pull' : '');
+}
+
+function confirmSector(idx) {
+  const m = MISSIONS[missionIdx];
+  if (!m || choiceMade || idx < 0) return;
+  const choice = m.choices[idx];
+  if (!choice) return;
+
+  // flash confirm
+  const p = document.getElementById('sec-' + idx);
+  if (p) { p.className.baseVal = 'sector-arc confirm'; setTimeout(() => { if(p) p.className.baseVal='sector-arc idle'; }, 600); }
+
+  handleChoice(choice);
+}
+
+function updateKadaHUD(val, sub) {
+  const v = document.getElementById('kad-val');
+  const s = document.getElementById('kad-sub');
+  if (v) v.textContent = val;
+  if (s) s.textContent = sub;
+}
+
+function updateTetherVisuals() {
+  const node = document.getElementById('tether-node');
+  const wrap = document.getElementById('tether-wrap');
+  if (node) node.classList.toggle('pulled', isPulled);
+  if (wrap) wrap.classList.toggle('pulled', isPulled);
+}
+
+function flashKadaCorrect() {
+  const stator = document.querySelector('.kada-stator');
+  if (stator) { stator.style.boxShadow = '0 0 30px #00ff8899, inset 0 0 20px #00ff8844'; setTimeout(()=>{stator.style.boxShadow='';},700); }
+}
+function flashKadaWrong() {
+  const stator = document.querySelector('.kada-stator');
+  if (stator) { stator.style.boxShadow = '0 0 30px #ff3a5099, inset 0 0 20px #ff3a5044'; setTimeout(()=>{stator.style.boxShadow='';},700); }
+}
+
+// Pointer handlers
+(function bindKada() {
+  window.addEventListener('pointerdown', e => {
+    const rotor = document.getElementById('rotor');
+    const node  = document.getElementById('tether-node');
+    if (!e.target.closest('#kada-wrap')) return;
+    if (e.target.closest('#rotor') || e.target.closest('#tether-node') || e.target.closest('#tether-wrap')) {
+      isDragging = true;
+      startAngle = getAngle(e.clientX, e.clientY);
+      lastAngle  = startAngle;
+      document.body.style.cursor = 'grabbing';
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('pointermove', e => {
+    if (!isDragging) return;
+    const wrap = document.getElementById('kada-wrap');
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
+    const wasPulled = isPulled;
+    isPulled = dist > 130;
+
+    if (isPulled !== wasPulled) {
+      updateTetherVisuals();
+      if (isPulled) { pullHoldStart = Date.now(); updatePullProgress(); }
+      else {
+        pullHoldStart = 0;
+        const ring = document.getElementById('progress-ring');
+        if (ring) ring.style.setProperty('--prog', '0%');
+        document.querySelectorAll('.choice-item').forEach(el => el.classList.remove('active-sector'));
+      }
+    }
+
+    const newAngle = getAngle(e.clientX, e.clientY);
+    let delta = newAngle - lastAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    rotorAngle += delta;
+    lastAngle = newAngle;
+
+    const rotor = document.getElementById('rotor');
+    if (rotor) rotor.style.transform = `rotate(${rotorAngle}deg)`;
+
+    if (isPulled) {
+      const sec = sectorFromAngle(rotorAngle);
+      highlightSector(sec);
+    }
+  });
+
+  window.addEventListener('pointerup', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    document.body.style.cursor = '';
+    const wasPulled = isPulled;
+    const sec = activeSector;
+    isPulled = false;
+    pullHoldStart = 0;
+    updateTetherVisuals();
+    const ring = document.getElementById('progress-ring');
+    if (ring) ring.style.setProperty('--prog', '0%');
+
+    if (wasPulled && sec >= 0 && !choiceMade) {
+      confirmSector(sec);
+    }
+    highlightSector(-1);
+    document.querySelectorAll('.choice-item').forEach(el => el.classList.remove('active-sector'));
+  });
+})();
+
+function updatePullProgress() {
+  if (!pullHoldStart || !isPulled) return;
+  const pct = Math.min(100, ((Date.now() - pullHoldStart) / 3000) * 100);
+  const ring = document.getElementById('progress-ring');
+  if (ring) ring.style.setProperty('--prog', pct.toFixed(1) + '%');
+  if (pct < 100 && isPulled) requestAnimationFrame(updatePullProgress);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea,select')) return;
+  const idx = {'a':0,'b':1,'c':2,'d':3}[e.key.toLowerCase()];
+  if (idx !== undefined && !choiceMade) {
+    const m = MISSIONS[missionIdx];
+    if (m) handleChoice(m.choices[idx]);
+  }
+});
+
+function spawnSparks() {
+  const layer = document.getElementById('spark-layer');
+  if (!layer) return;
+  for (let i = 0; i < 14; i++) {
+    const sp = document.createElement('div');
+    sp.className = 'spark';
+    const angle = Math.random() * 2 * Math.PI;
+    const r = 30 + Math.random() * 40;
+    sp.style.left = '50%'; sp.style.top = '50%';
+    sp.style.setProperty('--sx', Math.cos(angle)*r + 'px');
+    sp.style.setProperty('--sy', Math.sin(angle)*r + 'px');
+    sp.style.background = Math.random() > .5 ? 'var(--cyan)' : 'var(--green)';
+    sp.style.animationDelay = (Math.random() * 0.2) + 's';
+    layer.appendChild(sp);
+    setTimeout(() => sp.remove(), 700);
+  }
+}
+
+function toggleWheelGuide() {
+  const g = document.getElementById('wheel-guide');
+  if (g) g.style.display = g.style.display === 'none' ? '' : 'none';
+}
+
+/* ═══ TIMER ════════════════════════════════════════════════════════ */
+function startMissionTimer() {
+  clearInterval(kadaInterval);
+  kadaTimer = 30;
+  kadaInterval = setInterval(() => {
+    kadaTimer--;
+    const mode = document.getElementById('kad-mode');
+    if (mode) {
+      mode.textContent = kadaTimer + 's';
+      if (kadaTimer <= 8) mode.style.color = 'var(--red)';
+      else if (kadaTimer <= 15) mode.style.color = 'var(--amber)';
+      else mode.style.color = 'var(--txt-dim)';
+    }
+    if (kadaTimer <= 0 && !choiceMade) {
+      clearInterval(kadaInterval);
+      choiceMade = true;
+      document.querySelectorAll('.choice-item').forEach(el => el.classList.add('lock'));
+      showToast('Time expired — no points awarded', 'err');
+      setTimeout(() => { missionIdx = (missionIdx+1)%MISSIONS.length; renderMission(); startMissionTimer(); }, 2200);
+    }
+  }, 1000);
+}
+
+/* ═══ SVG PIPELINE ═════════════════════════════════════════════════ */
+function buildSceneInlineSVG(id) {
+  const colors = { V:'#00e5ff', A:'#60a5fa', B:'#a78bfa', C:'#2dd4bf', D:'#fb923c' };
+  const type   = id[0];
+  const num    = id.slice(1);
+  const col    = colors[type] || '#4a6080';
+  return `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+    <rect width="160" height="90" fill="#0c1224"/>
+    <rect x="6" y="6" width="148" height="78" rx="4" fill="#080d1a" stroke="${col}22"/>
+    <rect x="6" y="6" width="148" height="3" fill="${col}" opacity=".6"/>
+    <text x="12" y="28" fill="${col}" font-size="12" font-family="Orbitron" font-weight="700">${id}</text>
+    <text x="12" y="46" fill="#4a6080" font-size="8" font-family="Share Tech Mono">scene · ${type==='V'?'linear':'branch '+type}</text>
+    <circle cx="140" cy="20" r="6" fill="${col}" opacity=".3"/>
+    <circle cx="140" cy="20" r="3" fill="${col}" opacity=".8"/>
+  </svg>`;
+}
+
+function buildSceneGrids() {
+  const mg = document.getElementById('scene-grid-main');
+  if (mg) {
+    mg.innerHTML = SVG_SCENES.linear.map(id => `
+      <div class="scene-thumb" data-id="${id}" onclick="previewScene('${id}')">
+        ${buildSceneInlineSVG(id)}
+        <div style="position:absolute;bottom:2px;left:4px;font-family:var(--fmono);font-size:.4rem;color:var(--txt-dim)">${id}</div>
+      </div>`).join('');
+  }
+  const bt = document.getElementById('branch-tree');
+  if (bt) {
+    bt.innerHTML = Object.entries(SVG_SCENES.branches).map(([bk, ids]) => `
+      <div class="branch-col">
+        <div class="branch-chip ${bk}" style="font-weight:700;margin-bottom:.15rem">Branch ${bk}</div>
+        ${ids.map(id=>`<div class="branch-chip ${bk}" onclick="previewScene('${id}')">${id}</div>`).join('')}
+      </div>`).join('');
+  }
+}
+
+function previewScene(id) {
+  // highlight
+  document.querySelectorAll('.scene-thumb').forEach(el => el.classList.toggle('active-scene', el.dataset.id === id));
+  // render preview
+  const prev = document.getElementById('scene-preview');
+  if (prev) prev.innerHTML = `<svg viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg">
+    <rect width="800" height="450" fill="#0c1224"/>
+    <rect x="20" y="20" width="760" height="410" rx="8" fill="#080d1a" stroke="#00e5ff22"/>
+    <rect x="20" y="20" width="760" height="4" rx="2" fill="#00e5ff" opacity=".5"/>
+    <text x="40" y="80" fill="#00e5ff" font-size="42" font-family="Orbitron" font-weight="900">${id}</text>
+    <text x="40" y="125" fill="#c8d8f0" font-size="22" font-family="Share Tech Mono">Scene: ${id} — ${id[0]==='V'?'Linear Documentary Path':'Branch Decision Variant '+id[0]}</text>
+    <text x="40" y="165" fill="#4a6080" font-size="16" font-family="Share Tech Mono">Capture target: public/github/${id}.svg</text>
+    <text x="40" y="200" fill="#4a6080" font-size="16" font-family="Share Tech Mono">Output: public/footage/${id}.png → renders/final/${id}.mp4</text>
+    <rect x="40" y="240" width="720" height="1" fill="#152240"/>
+    <text x="40" y="280" fill="#f59e0b" font-size="15" font-family="Share Tech Mono">Puppeteer: goto(url) → waitForSelector('.scene') → screenshot()</text>
+    <text x="40" y="310" fill="#f59e0b" font-size="15" font-family="Share Tech Mono">FFmpeg: -r 30 -loop 1 -t 4 -i ${id}.png -c:v libx264 ${id}.mp4</text>
+    <rect x="40" y="360" width="120" height="30" rx="4" fill="#00e5ff22" stroke="#00e5ff44"/>
+    <text x="100" y="381" text-anchor="middle" fill="#00e5ff" font-size="13" font-family="Share Tech Mono">READY</text>
+  </svg>`;
+}
+
+const PIPE_NODES = ['pn-read','pn-page','pn-shot','pn-enc','pn-out'];
+let capRunning = false;
+
+async function runCaptureSim() {
+  if (capRunning) return;
+  capRunning = true;
+  const cap = document.getElementById('cap-status');
+  if (cap) cap.textContent = 'RUNNING…';
+  PIPE_NODES.forEach(id => { const e=document.getElementById(id); if(e) e.className='pipe-node'; });
+
+  const scenes = SVG_SCENES.linear;
+  for (let i = 0; i < scenes.length; i++) {
+    previewScene(scenes[i]);
+    // run each pipeline stage
+    for (let p = 0; p <= Math.min(i, PIPE_NODES.length-1); p++) {
+      const el = document.getElementById(PIPE_NODES[p]);
+      if (el) el.className = 'pipe-node running';
+      await delay(220);
+      if (el) el.className = 'pipe-node done';
+    }
+    await delay(180);
+  }
+  if (cap) cap.textContent = 'COMPLETE';
+  showToast('Capture simulation complete — 10 scenes processed', 'ok');
+  capRunning = false;
+}
+
+function resetCapture() {
+  capRunning = false;
+  PIPE_NODES.forEach(id => { const e=document.getElementById(id); if(e) e.className='pipe-node'; });
+  const cap = document.getElementById('cap-status');
+  if (cap) cap.textContent = 'IDLE';
+  document.querySelectorAll('.scene-thumb').forEach(e=>e.classList.remove('active-scene'));
+  const prev = document.getElementById('scene-preview');
+  if (prev) prev.innerHTML = '';
+}
+
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+/* ═══ FOOTER SEASON ════════════════════════════════════════════════ */
+function updateFooter() {
+  const d = new Date();
+  const el = document.getElementById('ft-season');
+  if (el) el.textContent = `${d.getFullYear()}.${d.getMonth()+1}`;
+}
+
+/* ═══ MAIN INIT ════════════════════════════════════════════════════ */
+function init() {
+  // Ensure player has a name
+  if (!STATE.playerName || STATE.playerName === 'OPERATIVE') {
+    const input = prompt('Enter your callsign:');
+    if (input && input.trim()) {
+      STATE.playerName = input.trim().toUpperCase().slice(0, 16);
+      save();
+    }
+  }
+
+  buildSceneGrids();
   renderHexMap();
-  save();
-}
-
-document.getElementById('loginBtn').onclick = registerLogin;
-document.getElementById('createRoom').onclick = createSquadRoom;
-document.getElementById('addMember').onclick = addSquadMember;
-
-bindMapNavigation();
-
-  if(score >= 850){ state.skillUpgrades += 1; pushReward("Skill upgrade core earned"); }
-  save();
-}
-
-function registerLogin(){
-  const today = dayStamp();
-  const prev = state.streak.lastLogin;
-  if(prev === today) return;
-  const yesterday = dayStamp(now()-86400000);
-  state.streak.count = prev===yesterday ? state.streak.count+1 : 1;
-  state.streak.lastLogin = today;
-  if(state.streak.count===3){ state.tokens += 35; pushReward("3-day streak: bonus tokens (+35)"); }
-  if(state.streak.count===7){ state.badges.push("Rare Mission Voucher"); pushReward("7-day streak: rare mission unlocked"); }
-  if(state.streak.count===30){ state.badges.push("Elite Consistency Badge"); pushReward("30-day streak: elite badge unlocked"); }
-  save(); render();
-}
-
-function currentEvent(){
-  const cycle = 12*60*60*1000;
-  const idx = Math.floor(now()/cycle)%events.length;
-  const end = (Math.floor(now()/cycle)+1)*cycle;
-  return {event:events[idx], end};
-}
-
-function createSquadRoom(){
-  const name = document.getElementById('roomName').value.trim();
-  if(!name) return;
-  state.squad.room = name;
-  state.squad.members = ["You"];
-  save(); render();
-}
-function addSquadMember(){
-  const m = document.getElementById('memberName').value.trim();
-  if(!m || !state.squad.room || state.squad.members.length>=3) return;
-  if(!state.squad.members.includes(m)) state.squad.members.push(m);
-  if(state.squad.members.length===3) pushReward(`Squad mission ready in room ${state.squad.room}`);
-  save(); render();
-}
-
-function missionActions(){
-  const html = state.daily.missions.map(m=>`<div class="mission"><strong>${m.title}</strong><div class="mini">Progress ${m.progress}/${m.target} · Reward ${m.reward} tokens</div>${m.done?'<span class="badge">Completed</span>':'<button data-score="'+(m.type==='score'?760:710)+'">Simulate Completion</button>'}</div>`).join('');
-  document.getElementById('dailyList').innerHTML = html;
-  document.querySelectorAll('#dailyList button').forEach(btn=>btn.onclick=()=>{ applyMissionResult(Number(btn.dataset.score)); render(); });
-}
-
-function renderShareCard(){
-  const svg = `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#4ea1ff"/><stop offset="1" stop-color="#55d38a"/></linearGradient></defs><rect width="480" height="240" fill="#0f1730"/><rect x="14" y="14" width="452" height="212" rx="16" fill="#131f42" stroke="#335090"/><text x="30" y="48" fill="#eef3ff" font-size="22" font-family="Inter">SkillHex Result Card</text><text x="30" y="84" fill="#9db0df" font-size="15">SR: ${state.sr}  •  Pass Lvl: ${state.passLevel}  •  Tokens: ${state.tokens}</text><text x="30" y="112" fill="#9db0df" font-size="15">Streak: ${state.streak.count} days  •  Last Score: ${state.lastMissionScore}</text><rect x="30" y="140" width="320" height="12" rx="6" fill="#091125" stroke="#335090"/><rect x="30" y="140" width="${Math.min(320,(state.xp/(state.passLevel*100))*320)}" height="12" rx="6" fill="url(#g)"/><text x="30" y="177" fill="#eef3ff" font-size="14">Badges: ${(state.badges.slice(-3).join(', ') || 'None yet')}</text><text x="30" y="204" fill="#f4c35d" font-size="14">#SkillHex #MissionControl</text></svg>`;
-  document.getElementById('shareCard').innerHTML = svg;
-  const shareText = encodeURIComponent(`My SkillHex SR is ${state.sr}, Pass Level ${state.passLevel}, and ${state.streak.count}-day streak.`);
-  document.getElementById('shareLinkedIn').href = `https://www.linkedin.com/sharing/share-offsite/?url=https://skillhex.app&summary=${shareText}`;
-  document.getElementById('shareWhatsApp').href = `https://wa.me/?text=${shareText}`;
-  document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?text=${shareText}`;
-}
-
-function render(){
-  resetDailyIfNeeded();
-  const {event,end} = currentEvent();
-  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-  document.getElementById('seasonChip').textContent = `Season ${new Date().getFullYear()}.${new Date().getMonth()+1}`;
-  document.getElementById('dailyReset').textContent = `Daily reset stamp: ${state.daily.stamp}`;
-  document.getElementById('tokenBank').textContent = `Tokens: ${state.tokens}`;
-  document.getElementById('passLevel').textContent = state.passLevel;
-  document.getElementById('passXp').textContent = `${state.xp}/${state.passLevel*100}`;
-  document.getElementById('passBar').style.width = `${Math.min(100,(state.xp/(state.passLevel*100))*100)}%`;
-  document.getElementById('passUnlocks').textContent = passLevels.map(p=>`L${p.level}: ${p.unlock}`).join(' • ');
-
-  document.getElementById('playerSr').textContent = `Your SR: ${state.sr}`;
-  const board = [...state.leaderboardBots].sort((a,b)=>b.sr-a.sr).map((p,i)=>`<div class="mission"><div class="row"><strong>#${i+1} ${p.name}</strong><span class="grow"></span><span>${p.sr} SR</span></div></div>`).join('');
-  document.getElementById('leaderboard').innerHTML = board;
-
-  document.getElementById('streakCount').textContent = state.streak.count;
-  document.getElementById('streakRewards').innerHTML = `3 day → bonus tokens · 7 day → rare mission · 30 day → elite badge`;
-
-  document.getElementById('eventInfo').innerHTML = `<strong>${event.name}</strong><div class="mini">${event.desc}<br/>Reward: ${event.reward}</div>`;
-  const sec = Math.max(0, Math.floor((end-now())/1000));
-  const hh = String(Math.floor(sec/3600)).padStart(2,'0');
-  const mm = String(Math.floor((sec%3600)/60)).padStart(2,'0');
-  const ss = String(sec%60).padStart(2,'0');
-  document.getElementById('eventTimer').textContent = `Ends in ${hh}:${mm}:${ss}`;
-
-  document.getElementById('roomState').innerHTML = state.squad.room
-    ? `Room <strong>${state.squad.room}</strong> · Members (${state.squad.members.length}/3): ${state.squad.members.join(', ')}`
-    : 'No active room';
-
-  document.getElementById('rewardLog').innerHTML = state.rewardLog.map(r=>`<div class="mission mini">${r}</div>`).join('') || '<div class="mini">No rewards yet.</div>';
-
-  missionActions();
+  renderLeaderboard();
+  renderRewardLog();
   renderShareCard();
-  save();
+  renderStreak();
+  advancePassLevel();
+  updateStats();
+  updateFooter();
+  updateEvent();
+  renderMission();
+  startMissionTimer();
+  setInterval(updateEvent, 1000);
+  setInterval(() => { if (!isDragging) rotorAngle *= .98; }, 50); // drift damping
 }
 
-document.getElementById('loginBtn').onclick = registerLogin;
-document.getElementById('createRoom').onclick = createSquadRoom;
-document.getElementById('addMember').onclick = addSquadMember;
-
-setInterval(render, 1000);
-render();
+// Wait for DOM + Firebase SDK load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 </script>
 </body>
 </html>
