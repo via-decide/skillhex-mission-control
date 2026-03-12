@@ -176,7 +176,11 @@ header {
   font-family: var(--fhud); font-size: 1.35rem; font-weight: 700; color: #fff; letter-spacing: .02em;
   line-height: 1.2; margin-bottom: .6rem;
 }
-.m-desc { font-size: .95rem; line-height: 1.65; color: var(--txt); font-weight: 300; flex: 1; margin-bottom: 1.1rem; }
+.m-desc { font-size: .95rem; line-height: 1.65; color: var(--txt); font-weight: 300; margin-bottom: .6rem; }
+.warmup-box { border:1px solid var(--border); background:var(--panel2); border-radius:6px; padding:.6rem; margin-bottom:.8rem; }
+.warmup-row { display:flex; gap:.45rem; align-items:flex-start; }
+.warmup-row textarea { flex:1; min-height:58px; background:var(--bg2); border:1px solid var(--border); color:var(--txt); border-radius:5px; padding:.45rem; font-family:var(--fmono); font-size:.55rem; }
+.warmup-meta { margin-top:.35rem; display:flex; justify-content:space-between; font-family:var(--fmono); font-size:.5rem; color:var(--txt-dim); }
 
 /* progress */
 .prog-wrap { margin-bottom: 1.1rem; }
@@ -323,12 +327,38 @@ header {
 /* ═══════════════════════════════════════════════════════ BOTTOM SECTIONS */
 .sections-bottom {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr;
   gap: 1px;
   background: var(--border);
 }
 @media(max-width:900px){ .sections-bottom { grid-template-columns: 1fr 1fr; } }
 @media(max-width:600px){ .sections-bottom { grid-template-columns: 1fr; } }
+
+/* ═══════════════════════════════════════════════════════ INTERVIEW PANEL */
+.interview-shell { display:grid; grid-template-columns: 1fr; gap:.55rem; }
+.interview-side { background:var(--panel2); border:1px solid var(--border); border-radius:6px; padding:.55rem; }
+.interview-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.4rem; }
+.interview-stream {
+  height: 220px; overflow:auto; background:#071021; border:1px solid #153154; border-radius:6px;
+  padding:.55rem; display:flex; flex-direction:column; gap:.45rem;
+}
+.bubble { border-radius:6px; padding:.45rem .55rem; font-family:var(--fmono); font-size:.56rem; line-height:1.5; }
+.bubble.ai { background:#0b1f3b; border:1px solid #1d3f70; color:#d5e8ff; }
+.bubble.user { background:#021f18; border:1px solid #0b6a5b; color:#c8ffea; align-self:flex-end; }
+.interview-composer { display:flex; gap:.45rem; }
+.interview-composer textarea {
+  flex:1; min-height:66px; max-height:100px; resize:vertical; background:var(--bg2); color:var(--txt);
+  border:1px solid var(--border); border-radius:6px; font-family:var(--fmono); font-size:.56rem; padding:.5rem;
+}
+.interview-meta { font-family:var(--fmono); font-size:.5rem; color:var(--txt-dim); display:flex; justify-content:space-between; margin-top:.35rem; }
+.cat-chip { font-size:.47rem; border:1px solid var(--border); padding:.2rem .4rem; border-radius:20px; cursor:pointer; color:var(--txt-dim); }
+.cat-chip.on { border-color:var(--cyan); color:var(--cyan); }
+.interview-modal {
+  position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:350;
+  background:rgba(3,9,18,.75); backdrop-filter: blur(2px);
+}
+.interview-modal.open { display:flex; }
+.interview-modal-card { width:min(980px, 94vw); max-height:92vh; overflow:auto; background:var(--bg); border:1px solid var(--cyan); box-shadow:var(--cyan-glow); border-radius:8px; padding:.8rem; }
 
 /* ═══════════════════════════════════════════════════════ SVG PIPELINE */
 .pipeline-header {
@@ -525,6 +555,21 @@ footer {
       <div class="prog-row"><span>Mission Progress</span><span id="prog-txt">1/6</span></div>
       <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:10%"></div></div>
     </div>
+    <div class="warmup-box" id="warmup-box" style="display:none">
+      <div style="font-family:var(--fhud);font-size:.58rem;color:var(--amber);margin-bottom:.35rem">MISSION PRE-BRIEF (OPTIONAL)</div>
+      <div id="warmup-q" style="font-family:var(--fmono);font-size:.56rem;color:var(--txt);line-height:1.5"></div>
+      <div class="warmup-row" style="margin-top:.45rem">
+        <textarea id="warmup-answer" placeholder="Type your warm-up answer (20–40 sec optional)"></textarea>
+        <div style="display:flex;flex-direction:column;gap:.35rem">
+          <button class="btn btn-c" onclick="submitWarmup()">Apply</button>
+          <button class="btn btn-ghost" onclick="skipWarmup()">Skip</button>
+        </div>
+      </div>
+      <div class="warmup-meta">
+        <span id="warmup-status">Multiplier: 1.00x</span>
+        <span id="warmup-followup"></span>
+      </div>
+    </div>
     <div class="choices-list" id="choices-list"></div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="wheel-hint-btn" onclick="toggleWheelGuide()">⬡ Wheel Mode</button>
@@ -614,7 +659,7 @@ footer {
       <div style="font-family:var(--fmono);font-size:.55rem;background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:.3rem .6rem;color:var(--txt-dim)">
         <span id="log-pass-count" style="color:var(--green);font-weight:700">0</span> passed &nbsp;·&nbsp;
         <span id="log-fail-count" style="color:var(--red);font-weight:700">0</span> failed &nbsp;·&nbsp;
-        <span id="log-pend-count" style="color:var(--txt-dim)">6</span> pending
+        <span id="log-pend-count" style="color:var(--txt-dim)">10</span> pending
       </div>
       <div style="margin-left:auto;display:flex;gap:.4rem">
         <button class="btn btn-o" onclick="demoFillLog()" style="font-size:.52rem;padding:.3rem .6rem" title="Populate with sample data to preview cards">⬡ Demo Fill</button>
@@ -622,7 +667,7 @@ footer {
       </div>
     </div>
 
-    <div style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);letter-spacing:.12em;margin-bottom:.4rem">MISSIONS — click card to inspect · click pending card to jump to that mission</div>
+    <div style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);letter-spacing:.12em;margin-bottom:.4rem">MISSIONS — click card to inspect · click pending card to jump/launch</div>
     <div class="scene-grid" id="scene-grid-main"></div>
 
     <div style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);letter-spacing:.12em;margin-bottom:.4rem;margin-top:.65rem">CHOICE PATHS — ✓ correct · ✗ wrong · faded = unchosen</div>
@@ -721,7 +766,23 @@ footer {
     </div>
   </div>
 
+  <!-- INTERVIEW SIMULATOR -->
+  <div class="panel" id="interview-panel">
+    <div class="panel-hd">Interview Simulator</div>
+    <div class="interview-shell" id="interview-shell"></div>
+  </div>
+
 </div><!-- /sections-bottom -->
+
+<div class="interview-modal" id="interview-modal">
+  <div class="interview-modal-card">
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem">
+      <div class="panel-hd" id="interview-modal-title">Interview Round</div>
+      <button class="btn btn-ghost" style="margin-left:auto" onclick="closeInterviewModal()">✕ Close</button>
+    </div>
+    <div id="interview-modal-body"></div>
+  </div>
+</div>
 
 <!-- ═══════════════════ FOOTER ═════════════════════════════════════ -->
 <footer>
@@ -913,9 +974,42 @@ const EVENTS = [
   { name:'Reactor Peak',     desc:'Score 900+ in calibration run',            reward:'Skill Upgrade Core' },
 ];
 
+const INTERVIEW_BANK = [
+  { q:'Apna quick intro do — background aur strengths kya hain?', cat:'Intro' },
+  { q:'College/project journey mein sabse bada learning kya raha?', cat:'Intro' },
+  { q:'Is role ke liye apply karne ki motivation kya hai?', cat:'Motivation' },
+  { q:'Aapko hamari company mein kya attract karta hai?', cat:'Motivation' },
+  { q:'Kisi project mein aapka exact contribution STAR format mein batao.', cat:'Projects' },
+  { q:'Hard deadline wale project ko kaise deliver kiya?', cat:'Projects' },
+  { q:'Team conflict solve ka real example do.', cat:'Teamwork' },
+  { q:'Communication breakdown hua toh recover kaise kiya?', cat:'Communication' },
+  { q:'Time complexity aur space complexity tradeoff simple words mein samjhao.', cat:'CS Basics' },
+  { q:'HashMap vs TreeMap kab choose karoge?', cat:'CS Basics' },
+  { q:'Normalization kya hota hai aur kab denormalize karna chahiye?', cat:'Databases' },
+  { q:'SQL indexing strategy ka koi practical example do.', cat:'Databases' },
+  { q:'Scale hone par URL shortener/service ko kaise design karoge?', cat:'System Design' },
+  { q:'Caching layer add karte waqt kya pitfalls hote hain?', cat:'System Design' },
+  { q:'Backend API ka auth + rate limit plan kaise banaoge?', cat:'Backend' },
+  { q:'Incident aane par debugging sequence kya hota hai?', cat:'Backend' },
+  { q:'Network timeout aur retry storms ko kaise handle karte ho?', cat:'Networking' },
+  { q:'Difficult stakeholder ko align karne ka example do.', cat:'Behavioral' },
+  { q:'Agar mistake ho jaye toh ownership kaise lete ho?', cat:'Behavioral' },
+  { q:'Aap leadership bina title ke kaise dikhate ho?', cat:'Leadership' },
+  { q:'HR expectation: salary + growth priorities kaise balance karte ho?', cat:'HR' },
+  { q:'Final wrap-up: agar join karo toh first 90 days ka focus kya hoga?', cat:'Wrap-up' },
+];
+
+const INTERVIEW_ROUNDS = {
+  V07: { label:'Round 1 · Story', cats:['Intro','Motivation','Projects'] },
+  V08: { label:'Round 2 · Technical', cats:['CS Basics','Databases','System Design','Backend','Networking'] },
+  V09: { label:'Round 3 · Soft Skills', cats:['Teamwork','Communication','Behavioral','HR','Leadership'] },
+  V10: { label:'Full Mock', cats:['Intro','Motivation','Projects','Teamwork','Communication','CS Basics','Databases','System Design','Backend','Networking','Behavioral','HR','Leadership','Wrap-up'], deepDive:true },
+};
+
 /* ═══ STATE ════════════════════════════════════════════════════════ */
 const DEFAULT = {
   playerName: 'OPERATIVE',
+  company: '', role: '', level: 'L1',
   sr: 1000, xp: 0, tokens: 0, passLevel: 1, lastScore: 0,
   missionLog: {},   // keyed by missionIdx: { title, result:'pass'|'fail', score, skill, choice, ts }
   daily: { stamp:'', missions:[] },
@@ -952,9 +1046,323 @@ const STATE = S;
 let LIVE_LEADERBOARD = [];
 let missionIdx = 0;
 let choiceMade  = false;
+let missionWarmup = null;
+
+const INTERVIEW = {
+  qIndex: 0,
+  asked: [],
+  transcript: [],
+  answers: [],
+  pendingFollowUp: null,
+  categories: [],
+  deepDive: false,
+  activeScene: null,
+};
 
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(STATE)); } catch(e){}
+  try {
+    localStorage.setItem('retroInterviewSession_v1', JSON.stringify({
+      qIndex: INTERVIEW.qIndex,
+      asked: INTERVIEW.asked,
+      transcript: INTERVIEW.transcript,
+      answers: INTERVIEW.answers,
+      pendingFollowUp: INTERVIEW.pendingFollowUp,
+    }));
+  } catch(e){}
+}
+
+function loadInterviewState() {
+  try {
+    const data = JSON.parse(localStorage.getItem('retroInterviewSession_v1') || '{}');
+    INTERVIEW.qIndex = data.qIndex || 0;
+    INTERVIEW.asked = Array.isArray(data.asked) ? data.asked : [];
+    INTERVIEW.transcript = Array.isArray(data.transcript) ? data.transcript : [];
+    INTERVIEW.answers = Array.isArray(data.answers) ? data.answers : [];
+    INTERVIEW.pendingFollowUp = data.pendingFollowUp || null;
+  } catch(e){}
+}
+
+function wordsOf(t='') { return (t.trim().match(/\S+/g) || []).length; }
+
+function pickQuestions(cats) {
+  const wanted = new Set(cats);
+  return INTERVIEW_BANK.filter(x => wanted.has(x.cat));
+}
+
+function chooseFollowUp(answer, cat) {
+  const wc = wordsOf(answer);
+  if (wc < 12) return `Nice start. ${cat} mein thoda depth do — situation, action, outcome cover karo.`;
+  if (wc < 25) return `Good. Ek concrete metric ya measurable impact add kar sakte ho?`;
+  return null;
+}
+
+function interviewAnalytics() {
+  const totalQ = Math.max(1, INTERVIEW.asked.length);
+  const answered = INTERVIEW.answers.filter(a => (a.answer||'').trim()).length;
+  const avgWords = answered ? Math.round(INTERVIEW.answers.reduce((s,a)=>s+wordsOf(a.answer),0) / answered) : 0;
+  const completion = answered / totalQ;
+  const score = Math.max(0, Math.min(100, Math.round((completion*60 + Math.min(avgWords,40)/40*40))));
+  return { score, avgWords, answered, totalQ };
+}
+
+function interviewAnswersByCategory() {
+  return INTERVIEW.answers.reduce((acc, a) => {
+    const wc = wordsOf(a.answer||'');
+    if (!wc) return acc;
+    acc[a.cat] = (acc[a.cat] || 0) + wc;
+    return acc;
+  }, {});
+}
+
+function mapCategoryToSkills(cat) {
+  const m = {
+    'Projects':['Systems','Analytics'], 'CS Basics':['Systems','Analytics'], 'System Design':['Systems','Analytics'], 'Backend':['Systems','Analytics'], 'Networking':['Systems','Analytics'],
+    'Motivation':['Strategy','Leadership'], 'Wrap-up':['Strategy','Leadership'],
+    'Teamwork':['Negotiation','Execution'], 'Communication':['Negotiation','Execution'],
+    'Behavioral':['Leadership'], 'Databases':['Analytics'], 'HR':['Negotiation'],
+    'Intro':['Leadership']
+  };
+  return m[cat] || ['Leadership'];
+}
+
+function handleInterviewResult(sessionData) {
+  const score = Math.max(0, Math.min(100, Number(sessionData.score || 0)));
+  const profile = sessionData.profile || {};
+  if ((profile.name || '').trim()) STATE.playerName = profile.name.trim().toUpperCase().slice(0, 16);
+  if ((profile.company || '').trim()) STATE.company = profile.company.trim();
+  if ((profile.role || '').trim()) STATE.role = profile.role.trim();
+  if ((profile.level || '').trim()) STATE.level = profile.level.trim();
+
+  const srDelta = Math.round((score - 65) / 3);
+  STATE.sr = Math.max(300, STATE.sr + srDelta);
+  STATE.lastScore = score;
+
+  const byCat = sessionData.answersByCategory || {};
+  Object.entries(byCat).forEach(([cat, words]) => {
+    const amt = Math.max(8, Math.round(Number(words || 0) / 3));
+    mapCategoryToSkills(cat).forEach(skill => addSkillXp(skill, amt));
+  });
+
+  const scene = sessionData.scene || 'V10';
+  const slotMap = { V07:6, V08:7, V09:8, V10:9 };
+  const idx = slotMap[scene] ?? 9;
+  const a = sessionData.analytics || interviewAnalytics();
+  STATE.missionLog[idx] = {
+    type:'interview',
+    title: `${scene} ${INTERVIEW_ROUNDS[scene]?.label || 'Interview Round'}`,
+    result: score >= 65 ? 'pass' : 'fail',
+    score,
+    avgWords: a.avgWords || 0,
+    skill:'Interview',
+    choice:`${a.answered||0}/${a.totalQ||0} answered`,
+    ts: Date.now(),
+  };
+
+  pushReward(`Interview ${scene} complete: ${score}/100 · SR ${srDelta >= 0 ? '+' : ''}${srDelta}`);
+  advancePassLevel();
+  updateStats();
+  save();
+  fbWritePlayer();
+  buildSceneGrids();
+}
+
+function getWarmupForMission(mission) {
+  const warmMap = {
+    Systems: ['CS Basics', 'System Design'],
+    Analytics: ['Databases', 'Projects'],
+    Negotiation: ['Teamwork', 'Behavioral', 'HR'],
+    Strategy: ['Motivation', 'Wrap-up'],
+    Leadership: ['Behavioral', 'Motivation'],
+    Execution: ['Communication', 'Teamwork'],
+    'AI Ops': ['Backend', 'System Design'],
+  };
+  const cats = warmMap[mission.skill] || ['Projects'];
+  const pool = INTERVIEW_BANK.filter(q => cats.includes(q.cat));
+  if (!pool.length) return null;
+  const picked = pool[(missionIdx + mission.title.length) % pool.length];
+  const prior = INTERVIEW.answers.find(a => a.fromWarmup && a.q === picked.q);
+  const wc = prior ? wordsOf(prior.answer || '') : 0;
+  const mult = prior ? (wc >= 30 ? 1.3 : wc >= 15 ? 1.15 : 1.0) : 1.0;
+  return { ...picked, mult, prior: prior?.answer || '', words: wc, done: !!prior };
+}
+
+function renderWarmupBox() {
+  const box = document.getElementById('warmup-box');
+  const q = document.getElementById('warmup-q');
+  const ans = document.getElementById('warmup-answer');
+  const status = document.getElementById('warmup-status');
+  const follow = document.getElementById('warmup-followup');
+  if (!box || !q || !ans || !status || !follow) return;
+  if (!missionWarmup) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  q.textContent = missionWarmup.q;
+  ans.value = missionWarmup.prior || '';
+  status.textContent = `Multiplier: ${(missionWarmup.mult || 1).toFixed(2)}x`;
+  follow.textContent = missionWarmup.followUp || '';
+}
+
+function submitWarmup() {
+  if (!missionWarmup) return;
+  const ta = document.getElementById('warmup-answer');
+  if (!ta) return;
+  const txt = ta.value.trim();
+  if (!txt) return;
+  const wc = wordsOf(txt);
+  missionWarmup.mult = wc >= 30 ? 1.3 : wc >= 15 ? 1.15 : 1.0;
+  missionWarmup.followUp = wc < 30 ? (chooseFollowUp(txt, missionWarmup.cat) || 'Thoda aur depth add karo for stronger multiplier.') : '';
+  missionWarmup.prior = txt;
+
+  const hit = INTERVIEW.answers.find(a => a.fromWarmup && a.q === missionWarmup.q);
+  if (hit) {
+    hit.answer = txt;
+    hit.ts = Date.now();
+  } else {
+    INTERVIEW.answers.push({ q: missionWarmup.q, cat: missionWarmup.cat, answer: txt, ts: Date.now(), fromWarmup: true });
+  }
+  INTERVIEW.transcript.push({ role:'user', text:txt, cat:missionWarmup.cat, ts:Date.now(), fromWarmup:true });
+  save();
+  renderWarmupBox();
+  showToast(`Warm-up applied · ${(missionWarmup.mult).toFixed(2)}x`, missionWarmup.mult > 1 ? 'ok' : 'info');
+}
+
+function skipWarmup() {
+  if (!missionWarmup) return;
+  missionWarmup.mult = 1.0;
+  missionWarmup.followUp = '';
+  renderWarmupBox();
+  showToast('Warm-up skipped · multiplier 1.00x', 'info');
+}
+
+function interviewTemplate(containerId, compact = false) {
+  return `<div class="interview-shell" data-compact="${compact ? 1 : 0}">
+    <div class="interview-side">
+      <div style="font-family:var(--fhud);font-size:.62rem;color:var(--cyan);margin-bottom:.4rem">INTERVIEWER // ORBIT</div>
+      <div class="interview-grid" style="margin-bottom:.45rem">
+        <input class="inp" id="${containerId}-name" placeholder="Name" value="${STATE.playerName || ''}">
+        <input class="inp" id="${containerId}-company" placeholder="Company" value="${STATE.company || ''}">
+        <input class="inp" id="${containerId}-role" placeholder="Role" value="${STATE.role || ''}">
+        <input class="inp" id="${containerId}-level" placeholder="Level" value="${STATE.level || 'L1'}">
+      </div>
+      <div id="${containerId}-cats" style="display:flex;gap:.28rem;flex-wrap:wrap;margin-bottom:.5rem"></div>
+      <div class="interview-stream" id="${containerId}-stream"></div>
+      <div class="interview-meta">
+        <span id="${containerId}-progress">Q0/0</span>
+        <span id="${containerId}-analytics">Score 0/100 · Avg 0w</span>
+      </div>
+      <div class="interview-composer" style="margin-top:.45rem">
+        <textarea id="${containerId}-answer" placeholder="Hinglish mein answer type karo… STAR method use kar sakte ho."></textarea>
+        <div style="display:flex;flex-direction:column;gap:.35rem">
+          <button class="btn btn-c" onclick="submitInterviewAnswer('${containerId}')">Send</button>
+          <button class="btn btn-o" onclick="skipInterviewQuestion('${containerId}')">Skip</button>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:.5rem">
+        <button class="btn btn-g" onclick="convertInterviewToSkillHex('${containerId}')">Convert to SkillHex XP</button>
+        <button class="btn btn-ghost" onclick="downloadInterviewTranscript()">Transcript .txt</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function mountInterview(containerId, categories, opts = {}) {
+  INTERVIEW.categories = categories.slice();
+  INTERVIEW.deepDive = !!opts.deepDive;
+  const bank = pickQuestions(categories);
+  INTERVIEW.asked = INTERVIEW.asked.filter(a => bank.some(b => b.q === a.q));
+  if (!INTERVIEW.asked.length) INTERVIEW.asked = bank;
+  INTERVIEW.qIndex = Math.min(INTERVIEW.qIndex, Math.max(0, INTERVIEW.asked.length - 1));
+
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.innerHTML = interviewTemplate(containerId, opts.compact);
+
+  const cats = document.getElementById(`${containerId}-cats`);
+  if (cats) {
+    cats.innerHTML = categories.map((c, i) => `<button class="cat-chip ${i===0?'on':''}" onclick="focusInterviewCategory('${containerId}','${c}',this)">${c}</button>`).join('');
+  }
+  renderInterviewStream(containerId);
+}
+
+function focusInterviewCategory(containerId, cat, el) {
+  document.querySelectorAll(`#${containerId}-cats .cat-chip`).forEach(x => x.classList.remove('on'));
+  if (el) el.classList.add('on');
+  const idx = INTERVIEW.asked.findIndex(q => q.cat === cat);
+  if (idx >= 0) INTERVIEW.qIndex = idx;
+  renderInterviewStream(containerId);
+}
+
+function renderInterviewStream(containerId) {
+  const stream = document.getElementById(`${containerId}-stream`);
+  const prog = document.getElementById(`${containerId}-progress`);
+  const ana = document.getElementById(`${containerId}-analytics`);
+  if (!stream) return;
+  const current = INTERVIEW.asked[INTERVIEW.qIndex];
+  const curAns = INTERVIEW.answers.find(a => a.q === current?.q)?.answer || '';
+  const pending = INTERVIEW.pendingFollowUp;
+  stream.innerHTML = `
+    <div class="bubble ai"><strong>${current?.cat || 'Round'}</strong><br>${current?.q || 'No question available'}</div>
+    ${curAns ? `<div class="bubble user">${curAns}</div>` : ''}
+    ${pending ? `<div class="bubble ai">${pending}</div>` : ''}
+  `;
+  const ta = document.getElementById(`${containerId}-answer`);
+  if (ta) ta.value = curAns;
+  const a = interviewAnalytics();
+  if (prog) prog.textContent = `Q${INTERVIEW.qIndex+1}/${INTERVIEW.asked.length}`;
+  if (ana) ana.textContent = `Score ${a.score}/100 · Avg ${a.avgWords}w`;
+  stream.scrollTop = stream.scrollHeight;
+}
+
+function submitInterviewAnswer(containerId) {
+  const ta = document.getElementById(`${containerId}-answer`);
+  const current = INTERVIEW.asked[INTERVIEW.qIndex];
+  if (!ta || !current) return;
+  const txt = ta.value.trim();
+  if (!txt) return;
+  const hit = INTERVIEW.answers.find(a => a.q === current.q);
+  if (hit) hit.answer = txt; else INTERVIEW.answers.push({ q:current.q, cat:current.cat, answer:txt, ts:Date.now() });
+  INTERVIEW.transcript.push({ role:'user', text:txt, cat:current.cat, ts:Date.now() });
+  INTERVIEW.pendingFollowUp = chooseFollowUp(txt, current.cat);
+  if (!INTERVIEW.pendingFollowUp || INTERVIEW.deepDive === false) {
+    INTERVIEW.qIndex = Math.min(INTERVIEW.qIndex + 1, INTERVIEW.asked.length - 1);
+    INTERVIEW.pendingFollowUp = null;
+  }
+  save();
+  renderInterviewStream(containerId);
+}
+
+function skipInterviewQuestion(containerId) {
+  INTERVIEW.pendingFollowUp = null;
+  INTERVIEW.qIndex = (INTERVIEW.qIndex + 1) % Math.max(1, INTERVIEW.asked.length);
+  renderInterviewStream(containerId);
+}
+
+function convertInterviewToSkillHex(containerId) {
+  const scene = INTERVIEW.activeScene || 'V10';
+  const profile = {
+    name: document.getElementById(`${containerId}-name`)?.value || STATE.playerName,
+    company: document.getElementById(`${containerId}-company`)?.value || STATE.company,
+    role: document.getElementById(`${containerId}-role`)?.value || STATE.role,
+    level: document.getElementById(`${containerId}-level`)?.value || STATE.level,
+  };
+  handleInterviewResult({
+    scene,
+    score: interviewAnalytics().score,
+    answersByCategory: interviewAnswersByCategory(),
+    profile,
+    analytics: interviewAnalytics(),
+  });
+  if (containerId === 'interview-modal-body') closeInterviewModal();
+}
+
+function downloadInterviewTranscript() {
+  const lines = INTERVIEW.answers.map(a => `[${a.cat}] Q: ${a.q}\nA: ${a.answer}\n`).join('\n');
+  const blob = new Blob([lines || 'No interview transcript yet.'], { type:'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'interview-transcript.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 /* ═══ MISSION ENGINE ═══════════════════════════════════════════════ */
@@ -962,6 +1370,8 @@ function renderMission() {
   const m = MISSIONS[missionIdx];
   if (!m) return;
   choiceMade = false;
+
+  missionWarmup = getWarmupForMission(m);
 
   document.getElementById('m-num').textContent  = `MISSION ${String(missionIdx+1).padStart(2,'0')}`;
   document.getElementById('m-cat').textContent  = m.category;
@@ -974,6 +1384,7 @@ function renderMission() {
   pips.forEach((p,i) => p.classList.toggle('on', i < m.diff));
 
   buildChoiceList(m);
+  renderWarmupBox();
   buildSectors(m);
   updateKadaHUD(`M-${String(missionIdx+1).padStart(2,'0')}`, m.title.slice(0,9));
 }
@@ -1004,7 +1415,8 @@ function handleChoice(choice) {
   });
 
   if (choice.ok) {
-    const pts = 500 + (30 - kadaTimer) * 20 + MISSIONS[missionIdx].diff * 100;
+    const warmBoost = missionWarmup?.mult || 1;
+    const pts = Math.round((500 + (30 - kadaTimer) * 20 + MISSIONS[missionIdx].diff * 100) * warmBoost);
     const srDelta = Math.round((pts - 600) / 25);
     STATE.sr = Math.max(300, STATE.sr + srDelta);
     STATE.xp += 40 + Math.max(0, Math.round((pts-600)/20));
@@ -1426,6 +1838,22 @@ function highlightSector(idx) {
 }
 
 function confirmSector(idx) {
+  const modalOpen = document.getElementById('interview-modal')?.classList.contains('open');
+  if (modalOpen) {
+    const sectorRounds = ['V07','V08','V09','V10'];
+    if (isPulled) {
+      skipInterviewQuestion('interview-modal-body');
+      showToast('Interview: skipped to next question', 'info');
+      updateKadaHUD('INTV', 'SKIP QUESTION');
+    } else {
+      const roundId = sectorRounds[idx % 4];
+      openInterviewModal(roundId);
+      showToast('Interview round: ' + (INTERVIEW_ROUNDS[roundId]?.label || roundId), 'info');
+      updateKadaHUD('INTV', roundId);
+    }
+    return;
+  }
+
   const m = MISSIONS[missionIdx];
   if (!m || choiceMade || idx < 0) return;
   const choice = m.choices[idx];
@@ -1602,7 +2030,7 @@ function startMissionTimer() {
 // Map V01–V10 slots → mission indices (first 6 real missions, rest are future placeholders)
 const SCENE_MISSION_MAP = {
   'V01': 0, 'V02': 1, 'V03': 2, 'V04': 3, 'V05': 4, 'V06': 5,
-  'V07': null, 'V08': null, 'V09': null, 'V10': null,
+  'V07': 6, 'V08': 7, 'V09': 8, 'V10': 9,
 };
 
 // Branch chips per mission → which answer letter was chosen
@@ -1612,6 +2040,7 @@ function buildSceneCardSVG(id, log, missionDef) {
   const slot = SCENE_MISSION_MAP[id];
   const hasLog = log !== undefined && log !== null;
   const isPending = slot !== null && !hasLog;
+  const isInterviewScene = !!INTERVIEW_ROUNDS[id];
   const isFuture  = slot === null;
 
   if (isFuture) {
@@ -1626,12 +2055,13 @@ function buildSceneCardSVG(id, log, missionDef) {
   }
 
   if (isPending) {
+    const pendingTitle = isInterviewScene ? INTERVIEW_ROUNDS[id].label : (missionDef ? missionDef.title.slice(0,20) : '—');
     return `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
       <rect width="160" height="90" fill="#060a14"/>
       <rect x="4" y="4" width="152" height="82" rx="4" fill="#0c1224" stroke="#152240"/>
       <text x="12" y="26" fill="#00e5ff" font-size="11" font-family="Orbitron" font-weight="700">${id}</text>
-      <text x="12" y="44" fill="#4a6080" font-size="7.5" font-family="Share Tech Mono">${missionDef ? missionDef.title.slice(0,20) : '—'}</text>
-      <text x="12" y="58" fill="#4a6080" font-size="7" font-family="Share Tech Mono">NOT YET PLAYED</text>
+      <text x="12" y="44" fill="#4a6080" font-size="7.5" font-family="Share Tech Mono">${pendingTitle}</text>
+      <text x="12" y="58" fill="#4a6080" font-size="7" font-family="Share Tech Mono">${isInterviewScene ? 'INTERVIEW READY' : 'NOT YET PLAYED'}</text>
       <rect x="12" y="68" width="60" height="4" rx="2" fill="#152240"/>
     </svg>`;
   }
@@ -1641,15 +2071,16 @@ function buildSceneCardSVG(id, log, missionDef) {
   const col   = pass ? '#00ff88' : '#ff3a50';
   const icon  = pass ? '✓' : '✗';
   const titleShort = log.title.slice(0, 18) + (log.title.length > 18 ? '…' : '');
-  const scoreStr = pass ? '+' + log.score : '—';
+  const scoreStr = log.type === 'interview' ? `${log.score}/100` : (pass ? '+' + log.score : '—');
   const t = new Date(log.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const skillText = log.type === 'interview' ? `avg ${log.avgWords || 0}w · interview` : `${scoreStr} pts · ${log.skill}`;
   return `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
     <rect width="160" height="90" fill="#060a14"/>
     <rect x="4" y="4" width="152" height="82" rx="4" fill="${pass ? '#001a0d' : '#1a0005'}" stroke="${col}33"/>
     <rect x="4" y="4" width="152" height="3" rx="1.5" fill="${col}" opacity=".7"/>
     <text x="12" y="23" fill="${col}" font-size="10" font-family="Orbitron" font-weight="700">${id} ${icon}</text>
     <text x="12" y="37" fill="#c8d8f0" font-size="7.5" font-family="Share Tech Mono">${titleShort}</text>
-    <text x="12" y="51" fill="${col}" font-size="8" font-family="Share Tech Mono">${scoreStr} pts · ${log.skill}</text>
+    <text x="12" y="51" fill="${col}" font-size="8" font-family="Share Tech Mono">${skillText}</text>
     <text x="12" y="64" fill="#4a6080" font-size="6.5" font-family="Share Tech Mono">${t}</text>
     <text x="12" y="78" fill="#4a6080" font-size="6" font-family="Share Tech Mono">${log.choice.slice(0,28)}</text>
   </svg>`;
@@ -1670,8 +2101,12 @@ function updateLogSummary() {
 }
 
 function jumpToMission(slot, sceneId) {
+  if (INTERVIEW_ROUNDS[sceneId]) {
+    openInterviewModal(sceneId);
+    return;
+  }
   // Navigate the active mission to a specific slot
-  if (slot === null || slot === undefined) return;
+  if (slot === null || slot === undefined || !MISSIONS[slot]) return;
   missionIdx = slot;
   choiceMade = false;
   clearInterval(kadaInterval);
@@ -1715,6 +2150,7 @@ function buildSceneGrids() {
       const def  = slot !== null ? MISSIONS[slot] : null;
       const hasLog = log !== undefined;
       const isFuture = slot === null;
+      const isInterviewScene = !!INTERVIEW_ROUNDS[id];
       const borderCol = isFuture ? '#152240' : hasLog
         ? (log.result === 'pass' ? '#00ff8833' : '#ff3a5033')
         : '#00e5ff22';
@@ -1722,7 +2158,7 @@ function buildSceneGrids() {
         ? `previewScene('${id}')`
         : `jumpToMission(${slot},'${id}')`;
       const extra = isFuture ? 'opacity:.32;cursor:not-allowed' : '';
-      return `<div class="scene-thumb" data-id="${id}" style="border-color:${borderCol};${extra}" onclick="${clickFn}" title="${isFuture ? 'Future mission' : hasLog ? 'Click to inspect result' : 'Click to jump to this mission'}">
+      return `<div class="scene-thumb" data-id="${id}" style="border-color:${borderCol};${extra}" onclick="${clickFn}" title="${isFuture ? 'Future mission' : hasLog ? 'Click to inspect result' : isInterviewScene ? 'Launch interview round' : 'Click to jump to this mission'}">
         ${buildSceneCardSVG(id, log, def)}
       </div>`;
     }).join('');
@@ -1766,6 +2202,7 @@ function previewScene(id) {
   const slot = SCENE_MISSION_MAP[id];
   const log  = slot !== null ? STATE.missionLog[slot] : undefined;
   const m    = slot !== null ? MISSIONS[slot] : null;
+  const interviewRound = INTERVIEW_ROUNDS[id];
 
   document.querySelectorAll('.scene-thumb').forEach(el => el.classList.toggle('active-scene', el.dataset.id === id));
 
@@ -1792,6 +2229,19 @@ function previewScene(id) {
     return;
   }
 
+  if (!log && interviewRound) {
+    prev.innerHTML = `<svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="800" height="200" fill="#080d1a"/>
+      <rect x="8" y="8" width="784" height="184" rx="6" fill="#0c1224" stroke="#00e5ff22"/>
+      <rect x="8" y="8" width="784" height="3" rx="1.5" fill="#00e5ff" opacity=".3"/>
+      <text x="22" y="42" fill="#00e5ff" font-size="18" font-family="Orbitron" font-weight="700">${id} — ${interviewRound.label}</text>
+      <text x="22" y="70" fill="#4a6080" font-size="12" font-family="Share Tech Mono">Categories: ${interviewRound.cats.join(', ')}</text>
+      <text x="22" y="96" fill="#c8d8f0" font-size="11" font-family="Share Tech Mono">Pending interview round. Click this card to launch in modal.</text>
+      <text x="22" y="124" fill="#4a6080" font-size="10" font-family="Share Tech Mono">Output: score/100 + avg words + SR delta bridge</text>
+    </svg>`;
+    return;
+  }
+
   if (!log) {
     const choices = m.choices.map((c,i) => `${BRANCH_LETTERS[i]}) ${c.l}`).join(' · ');
     prev.innerHTML = `<svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
@@ -1810,20 +2260,43 @@ function previewScene(id) {
   const pass = log.result === 'pass';
   const col  = pass ? '#00ff88' : '#ff3a50';
   const ts   = new Date(log.ts).toLocaleString();
-  const srDelta = pass ? '+' + Math.round((log.score - 600)/25) : '−' + Math.round(100/25);
+  const srDelta = log.type === 'interview'
+    ? ((Math.round((log.score - 65) / 3) >= 0 ? '+' : '') + Math.round((log.score - 65) / 3))
+    : (pass ? '+' + Math.round((log.score - 600)/25) : '−' + Math.round(100/25));
+  const scoreTxt = log.type === 'interview' ? `${log.score}/100` : `${log.score} pts`;
+  const skillTxt = log.type === 'interview' ? `Interview · Avg words: ${log.avgWords || 0}` : `Skill XP: ${log.skill} +45`;
 
   prev.innerHTML = `<svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
     <rect width="800" height="200" fill="#080d1a"/>
     <rect x="8" y="8" width="784" height="184" rx="6" fill="${pass?'#001a0d':'#1a0005'}" stroke="${col}33"/>
     <rect x="8" y="8" width="784" height="3" rx="1.5" fill="${col}"/>
     <text x="22" y="42" fill="${col}" font-size="18" font-family="Orbitron" font-weight="900">${pass?'✓ PASS':'✗ FAIL'} — ${id}: ${log.title}</text>
-    <text x="22" y="66" fill="#c8d8f0" font-size="12" font-family="Share Tech Mono">Score: ${log.score} pts · SR Δ: ${srDelta} · Skill XP: ${log.skill} +45</text>
+    <text x="22" y="66" fill="#c8d8f0" font-size="12" font-family="Share Tech Mono">Score: ${scoreTxt} · SR Δ: ${srDelta} · ${skillTxt}</text>
     <text x="22" y="90" fill="#4a6080" font-size="11" font-family="Share Tech Mono">Choice: ${log.choice.slice(0,80)}</text>
     <text x="22" y="114" fill="#4a6080" font-size="10" font-family="Share Tech Mono">Played: ${ts}</text>
-    <rect x="22" y="134" width="${Math.min(600, (log.score/1500)*600)}" height="6" rx="3" fill="${col}" opacity=".6"/>
+    <rect x="22" y="134" width="${Math.min(600, ((log.type === 'interview' ? log.score*15 : log.score)/1500)*600)}" height="6" rx="3" fill="${col}" opacity=".6"/>
     <rect x="22" y="134" width="600" height="6" rx="3" fill="none" stroke="${col}22"/>
-    <text x="22" y="165" fill="${col}" font-size="10" font-family="Share Tech Mono">${pass ? 'Hex node unlocked · ' + log.skill + ' skill advanced' : 'No XP awarded · Retry to improve your score'}</text>
+    <text x="22" y="165" fill="${col}" font-size="10" font-family="Share Tech Mono">${pass ? (log.type === 'interview' ? 'Interview converted into SR + hex XP' : 'Hex node unlocked · ' + log.skill + ' skill advanced') : 'No XP awarded · Retry to improve your score'}</text>
   </svg>`;
+}
+
+function openInterviewModal(sceneId) {
+  const meta = INTERVIEW_ROUNDS[sceneId];
+  if (!meta) return;
+  INTERVIEW.activeScene = sceneId;
+  const modal = document.getElementById('interview-modal');
+  const title = document.getElementById('interview-modal-title');
+  const body = document.getElementById('interview-modal-body');
+  if (title) title.textContent = `${sceneId} · ${meta.label}`;
+  if (modal && body) {
+    modal.classList.add('open');
+    mountInterview('interview-modal-body', meta.cats, { deepDive: !!meta.deepDive, compact:false });
+  }
+}
+
+function closeInterviewModal() {
+  const modal = document.getElementById('interview-modal');
+  if (modal) modal.classList.remove('open');
 }
 
 const PIPE_NODES = ['pn-read','pn-page','pn-shot','pn-enc','pn-out'];
@@ -1856,6 +2329,7 @@ function updateFooter() {
 
 /* ═══ MAIN INIT ════════════════════════════════════════════════════ */
 function init() {
+  loadInterviewState();
   // Ensure player has a name
   if (!STATE.playerName || STATE.playerName === 'OPERATIVE') {
     const input = prompt('Enter your callsign:');
@@ -1876,6 +2350,7 @@ function init() {
   updateFooter();
   updateEvent();
   renderMission();
+  mountInterview('interview-shell', INTERVIEW_ROUNDS.V10.cats, { deepDive:true, compact:true });
   startMissionTimer();
   setInterval(updateEvent, 1000);
   setInterval(() => { if (!isDragging) rotorAngle *= .98; }, 50); // drift damping
