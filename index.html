@@ -1927,10 +1927,32 @@ const SECTORS = [
   { label:'D', angle: 180 },  // left
 ];
 
+const INTERVIEW_WHEEL_SCENES = ['V07', 'V08', 'V09', 'V10'];
+
+function getWheelSectorLabels(mission) {
+  const modalOpen = document.getElementById('interview-modal')?.classList.contains('open');
+  if (modalOpen) return INTERVIEW_WHEEL_SCENES;
+
+  const choices = mission ? mission.choices : [];
+  return SECTORS.map((sec, i) => {
+    const label = choices[i]?.l || sec.label;
+    return label.length > 14 ? `${label.slice(0, 14)}…` : label;
+  });
+}
+
+function refreshWheelSectorLabels(mission = MISSIONS[missionIdx]) {
+  const labels = getWheelSectorLabels(mission);
+  for (let i = 0; i < 4; i++) {
+    const lbl = document.getElementById('sec-lbl-' + i);
+    if (lbl) lbl.textContent = labels[i] || SECTORS[i].label;
+  }
+}
+
 function buildSectors(mission) {
   const svg = document.getElementById('sector-svg');
   if (!svg) return;
   const cx = 120, cy = 120, ri = 105, ro = 118;
+  const sectorLabels = getWheelSectorLabels(mission);
 
   let html = '';
   SECTORS.forEach((sec, i) => {
@@ -1950,11 +1972,8 @@ function buildSectors(mission) {
     const lx = cx + lr * Math.cos(lAngle);
     const ly = cy + lr * Math.sin(lAngle);
 
-    const choices = mission ? mission.choices : [];
-    const shortLabel = choices[i] ? choices[i].l.slice(0, 14) + (choices[i].l.length > 14 ? '…' : '') : sec.label;
-
     html += `<path id="sec-${i}" class="sector-arc idle" d="${d}" data-idx="${i}"/>`;
-    html += `<text x="${lx}" y="${ly}" class="sector-label" id="sec-lbl-${i}" text-anchor="middle" dominant-baseline="middle" fill="#4a6080">${sec.label}</text>`;
+    html += `<text x="${lx}" y="${ly}" class="sector-label" id="sec-lbl-${i}" text-anchor="middle" dominant-baseline="middle" fill="#4a6080">${sectorLabels[i] || sec.label}</text>`;
   });
 
   // Zero marker line
@@ -2016,18 +2035,20 @@ function highlightSector(idx) {
 function confirmSector(idx) {
   const modalOpen = document.getElementById('interview-modal')?.classList.contains('open');
   if (modalOpen) {
-    const round = INTERVIEW_ROUNDS[INTERVIEW.activeScene || 'V10'];
-    const cats = round?.cats || INTERVIEW_ROUNDS.V10.cats;
+    const scene = INTERVIEW_WHEEL_SCENES[idx] || INTERVIEW.activeScene || 'V10';
+    const round = INTERVIEW_ROUNDS[scene] || INTERVIEW_ROUNDS.V10;
     if (isPulled) {
       skipInterviewQuestion('interview-modal-body');
       showToast('Interview: skipped to next question', 'info');
     } else {
-      const cat = cats[idx % cats.length];
-      const fakeBtn = document.querySelectorAll('#interview-modal-body-cats .cat-chip')[idx % cats.length];
-      focusInterviewCategory('interview-modal-body', cat, fakeBtn);
-      showToast('Interview category: ' + cat, 'info');
+      INTERVIEW.activeScene = scene;
+      const title = document.getElementById('interview-modal-title');
+      if (title) title.textContent = `${scene} · ${round.label}`;
+      mountInterview('interview-modal-body', round.cats, { deepDive: !!round.deepDive, compact:false });
+      showToast('Interview round: ' + scene, 'info');
     }
-    updateKadaHUD('INTV', isPulled ? 'SKIP QUESTION' : `CAT ${idx+1}`);
+    updateKadaHUD(scene, isPulled ? 'SKIP QUESTION' : round.label);
+    refreshWheelSectorLabels();
     return;
   }
 
@@ -2468,12 +2489,15 @@ function openInterviewModal(sceneId) {
   if (modal && body) {
     modal.classList.add('open');
     mountInterview('interview-modal-body', meta.cats, { deepDive: !!meta.deepDive, compact:false });
+    refreshWheelSectorLabels();
+    updateKadaHUD(sceneId, meta.label);
   }
 }
 
 function closeInterviewModal() {
   const modal = document.getElementById('interview-modal');
   if (modal) modal.classList.remove('open');
+  refreshWheelSectorLabels();
 }
 
 const PIPE_NODES = ['pn-read','pn-page','pn-shot','pn-enc','pn-out'];
