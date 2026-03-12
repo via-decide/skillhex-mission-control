@@ -547,6 +547,17 @@ footer {
     </div>
     <h2 class="m-title" id="m-title">Initialising…</h2>
     <p class="m-desc" id="m-desc">Awaiting mission briefing from command.</p>
+    <div id="warmup-card" style="margin:-.35rem 0 1rem;display:none;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:.6rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.4rem">
+        <div style="font-family:var(--fmono);font-size:.52rem;letter-spacing:.12em;color:var(--cyan)">PRE-BRIEF WARM-UP</div>
+        <div id="warmup-mult" style="font-family:var(--fhud);font-size:.56rem;color:var(--amber)">×1.00</div>
+      </div>
+      <div id="warmup-question" style="font-size:.8rem;line-height:1.45;color:var(--txt);margin-bottom:.45rem"></div>
+      <textarea id="warmup-answer" class="inp" style="min-height:70px;resize:vertical" placeholder="Quick pre-brief answer likho…"></textarea>
+      <div class="btn-row" style="margin-top:.45rem">
+        <button class="btn btn-c" onclick="applyWarmupAnswer()">Apply</button>
+      </div>
+    </div>
     <div class="prog-wrap">
       <div class="prog-row"><span>Mission Progress</span><span id="prog-txt">1/6</span></div>
       <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:10%"></div></div>
@@ -1029,6 +1040,23 @@ let missionIdx = 0;
 let choiceMade  = false;
 let missionWarmup = null;
 
+function warmupKeyForMission(mission, idx = missionIdx) {
+  if (!mission) return '';
+  return `${mission.skill || 'Unknown'}::${mission.title || ''}::${idx}`;
+}
+
+function upsertInterviewAnswer(entry = {}) {
+  const key = entry.warmupKey;
+  const q = entry.q;
+  const idx = INTERVIEW.answers.findIndex(a => (key && a.warmupKey === key) || (!key && q && a.q === q));
+  if (idx >= 0) {
+    INTERVIEW.answers[idx] = { ...INTERVIEW.answers[idx], ...entry };
+    return INTERVIEW.answers[idx];
+  }
+  INTERVIEW.answers.push(entry);
+  return entry;
+}
+
 const INTERVIEW = {
   qIndex: 0,
   asked: [],
@@ -1162,11 +1190,14 @@ function getWarmupForMission(mission) {
   const pool = INTERVIEW_BANK.filter(q => cats.includes(q.cat));
   if (!pool.length) return null;
   const picked = pool[(missionIdx + mission.title.length) % pool.length];
-  const prior = INTERVIEW.answers.find(a => a.fromWarmup === picked.q);
+  const warmupKey = warmupKeyForMission(mission, missionIdx);
+  const prior = INTERVIEW.answers.find(a => a.warmupKey === warmupKey)
+    || INTERVIEW.answers.find(a => a.fromWarmup === true && a.q === picked.q);
   const wc = prior ? wordsOf(prior.answer || '') : 0;
   const mult = prior ? (wc >= 30 ? 1.3 : wc >= 15 ? 1.15 : 1.0) : 1.0;
-  return { ...picked, mult, prior: prior?.answer || '' };
+  return { ...picked, warmupKey, mult, prior: prior?.answer || '' };
 }
+
 
 function interviewTemplate(containerId, compact = false) {
   return `<div class="interview-shell" data-compact="${compact ? 1 : 0}">
@@ -1253,8 +1284,7 @@ function submitInterviewAnswer(containerId) {
   if (!ta || !current) return;
   const txt = ta.value.trim();
   if (!txt) return;
-  const hit = INTERVIEW.answers.find(a => a.q === current.q);
-  if (hit) hit.answer = txt; else INTERVIEW.answers.push({ q:current.q, cat:current.cat, answer:txt, ts:Date.now() });
+  upsertInterviewAnswer({ q:current.q, cat:current.cat, answer:txt, ts:Date.now() });
   INTERVIEW.transcript.push({ role:'user', text:txt, cat:current.cat, ts:Date.now() });
   INTERVIEW.pendingFollowUp = chooseFollowUp(txt, current.cat);
   if (!INTERVIEW.pendingFollowUp || INTERVIEW.deepDive === false) {
@@ -1300,6 +1330,45 @@ function downloadInterviewTranscript() {
 }
 
 /* ═══ MISSION ENGINE ═══════════════════════════════════════════════ */
+function renderWarmupUI() {
+  const card = document.getElementById('warmup-card');
+  const qEl = document.getElementById('warmup-question');
+  const multEl = document.getElementById('warmup-mult');
+  const ta = document.getElementById('warmup-answer');
+  if (!card || !qEl || !multEl || !ta) return;
+  if (!missionWarmup) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  qEl.textContent = missionWarmup.q;
+  multEl.textContent = `×${(missionWarmup.mult || 1).toFixed(2)}`;
+  ta.value = missionWarmup.prior || '';
+}
+
+function applyWarmupAnswer() {
+  if (!missionWarmup) return;
+  const ta = document.getElementById('warmup-answer');
+  const m = MISSIONS[missionIdx];
+  if (!ta || !m) return;
+  const answer = ta.value.trim();
+  if (!answer) return;
+
+  upsertInterviewAnswer({
+    q: missionWarmup.q,
+    cat: missionWarmup.cat,
+    answer,
+    ts: Date.now(),
+    fromWarmup: true,
+    warmupKey: missionWarmup.warmupKey || warmupKeyForMission(m, missionIdx),
+  });
+
+  missionWarmup = getWarmupForMission(m);
+  renderWarmupUI();
+  updateStats();
+  save();
+}
+
 function renderMission() {
   const m = MISSIONS[missionIdx];
   if (!m) return;
@@ -1310,18 +1379,19 @@ function renderMission() {
   document.getElementById('m-num').textContent  = `MISSION ${String(missionIdx+1).padStart(2,'0')}`;
   document.getElementById('m-cat').textContent  = m.category;
   document.getElementById('m-title').textContent = m.title;
-  const warmupHint = missionWarmup ? `\n\nWarm-up: ${missionWarmup.q}` : '';
-  document.getElementById('m-desc').textContent  = `${m.desc}${warmupHint}`;
+  document.getElementById('m-desc').textContent  = m.desc;
   document.getElementById('prog-txt').textContent = `${missionIdx+1}/${MISSIONS.length}`;
   document.getElementById('prog-fill').style.width = Math.max(4, (missionIdx/MISSIONS.length)*100) + '%';
 
   const pips = document.querySelectorAll('#m-diff .pip');
   pips.forEach((p,i) => p.classList.toggle('on', i < m.diff));
 
+  renderWarmupUI();
   buildChoiceList(m);
   buildSectors(m);
   updateKadaHUD(`M-${String(missionIdx+1).padStart(2,'0')}`, m.title.slice(0,9));
 }
+
 
 function buildChoiceList(m) {
   const keys = ['A','B','C','D'];
