@@ -605,34 +605,49 @@ footer {
 <!-- ═══════════════════ BOTTOM SECTIONS ════════════════════════════ -->
 <div class="sections-bottom">
 
-  <!-- SVG PIPELINE -->
+  <!-- MISSION LOGBOOK -->
   <div class="panel">
-    <div class="panel-hd">Scene Pipeline — SVG → Video</div>
-    <div class="pipeline-header">
-      <button class="btn btn-c" onclick="runCaptureSim()">▶ Simulate Capture</button>
-      <button class="btn btn-ghost" onclick="resetCapture()">↺ Reset</button>
-      <span style="font-family:var(--fmono);font-size:.55rem;color:var(--txt-dim);margin-left:.3rem" id="cap-status">IDLE</span>
+    <div class="panel-hd">Mission Logbook</div>
+
+    <!-- Summary bar -->
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem;flex-wrap:wrap">
+      <div style="font-family:var(--fmono);font-size:.55rem;background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:.3rem .6rem;color:var(--txt-dim)">
+        <span id="log-pass-count" style="color:var(--green);font-weight:700">0</span> passed &nbsp;·&nbsp;
+        <span id="log-fail-count" style="color:var(--red);font-weight:700">0</span> failed &nbsp;·&nbsp;
+        <span id="log-pend-count" style="color:var(--txt-dim)">6</span> pending
+      </div>
+      <div style="margin-left:auto;display:flex;gap:.4rem">
+        <button class="btn btn-o" onclick="demoFillLog()" style="font-size:.52rem;padding:.3rem .6rem" title="Populate with sample data to preview cards">⬡ Demo Fill</button>
+        <button class="btn btn-ghost" onclick="clearMissionLog()" style="font-size:.52rem;padding:.3rem .6rem">↺ Clear</button>
+      </div>
     </div>
 
-    <div style="font-family:var(--fmono);font-size:.5rem;color:var(--txt-dim);letter-spacing:.1em;margin-bottom:.4rem">LINEAR PATH</div>
+    <div style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);letter-spacing:.12em;margin-bottom:.4rem">MISSIONS — click card to inspect · click pending card to jump to that mission</div>
     <div class="scene-grid" id="scene-grid-main"></div>
 
-    <div style="font-family:var(--fmono);font-size:.5rem;color:var(--txt-dim);letter-spacing:.1em;margin-bottom:.4rem;margin-top:.5rem">BRANCH VARIANTS</div>
+    <div style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);letter-spacing:.12em;margin-bottom:.4rem;margin-top:.65rem">CHOICE PATHS — ✓ correct · ✗ wrong · faded = unchosen</div>
     <div class="branch-tree" id="branch-tree"></div>
 
     <div style="margin-top:.75rem">
-      <div style="font-family:var(--fmono);font-size:.5rem;color:var(--txt-dim);letter-spacing:.1em;margin-bottom:.4rem">PREVIEW</div>
-      <div class="scene-preview" id="scene-preview"></div>
+      <div style="font-family:var(--fmono);font-size:.48rem;color:var(--txt-dim);letter-spacing:.12em;margin-bottom:.4rem">MISSION DETAIL</div>
+      <div class="scene-preview" id="scene-preview">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--fmono);font-size:.6rem;color:var(--txt-dim);flex-direction:column;gap:.5rem;text-align:center;padding:1rem">
+          <span style="font-size:1.8rem;opacity:.3">⬡</span>
+          <span>Click any mission card above to inspect result</span>
+          <span style="color:var(--txt-mute)">Cards populate as you complete missions</span>
+        </div>
+      </div>
+      <!-- pipeline = mission flow stages -->
       <div class="capture-pipeline" id="cap-pipeline">
-        <div class="pipe-node" id="pn-read">1. SVG Load</div>
+        <div class="pipe-node" id="pn-read">Mission</div>
         <div class="pipe-arrow">→</div>
-        <div class="pipe-node" id="pn-page">2. Puppeteer Page</div>
+        <div class="pipe-node" id="pn-page">Choice</div>
         <div class="pipe-arrow">→</div>
-        <div class="pipe-node" id="pn-shot">3. Screenshot</div>
+        <div class="pipe-node" id="pn-shot">Result</div>
         <div class="pipe-arrow">→</div>
-        <div class="pipe-node" id="pn-enc">4. FFmpeg Encode</div>
+        <div class="pipe-node" id="pn-enc">Skill XP</div>
         <div class="pipe-arrow">→</div>
-        <div class="pipe-node" id="pn-out">5. MP4 Output</div>
+        <div class="pipe-node" id="pn-out">SR Δ</div>
       </div>
     </div>
   </div>
@@ -902,6 +917,7 @@ const EVENTS = [
 const DEFAULT = {
   playerName: 'OPERATIVE',
   sr: 1000, xp: 0, tokens: 0, passLevel: 1, lastScore: 0,
+  missionLog: {},   // keyed by missionIdx: { title, result:'pass'|'fail', score, skill, choice, ts }
   daily: { stamp:'', missions:[] },
   streak: { count:0, lastLogin:'' },
   squad: { room:'', members:[] },
@@ -921,6 +937,7 @@ let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(e){}
 const S = {
   ...DEFAULT, ...saved,
+  missionLog:  { ...(saved.missionLog||{}) },
   daily:       { ...DEFAULT.daily,       ...(saved.daily||{}) },
   streak:      { ...DEFAULT.streak,      ...(saved.streak||{}) },
   squad:       { ...DEFAULT.squad,       ...(saved.squad||{}) },
@@ -998,15 +1015,18 @@ function handleChoice(choice) {
     spawnSparks();
     showToast('✓ ' + choice.fb, 'ok');
     flashKadaCorrect();
+    STATE.missionLog[missionIdx] = { title: MISSIONS[missionIdx].title, result:'pass', score: pts, skill: MISSIONS[missionIdx].skill, choice: choice.l, ts: Date.now() };
   } else {
     showToast('✗ ' + choice.fb, 'err');
     flashKadaWrong();
+    STATE.missionLog[missionIdx] = { title: MISSIONS[missionIdx].title, result:'fail', score: 0, skill: MISSIONS[missionIdx].skill, choice: choice.l, ts: Date.now() };
   }
 
   advancePassLevel();
   updateStats();
   save();
   fbWritePlayer();
+  buildSceneGrids(); // refresh the mission log view
 
   setTimeout(() => {
     missionIdx = (missionIdx + 1) % MISSIONS.length;
@@ -1577,100 +1597,254 @@ function startMissionTimer() {
   }, 1000);
 }
 
-/* ═══ SVG PIPELINE ═════════════════════════════════════════════════ */
-function buildSceneInlineSVG(id) {
-  const colors = { V:'#00e5ff', A:'#60a5fa', B:'#a78bfa', C:'#2dd4bf', D:'#fb923c' };
-  const type   = id[0];
-  const num    = id.slice(1);
-  const col    = colors[type] || '#4a6080';
+/* ═══ MISSION LOGBOOK (scene pipeline replaced) ══════════════════════ */
+
+// Map V01–V10 slots → mission indices (first 6 real missions, rest are future placeholders)
+const SCENE_MISSION_MAP = {
+  'V01': 0, 'V02': 1, 'V03': 2, 'V04': 3, 'V05': 4, 'V06': 5,
+  'V07': null, 'V08': null, 'V09': null, 'V10': null,
+};
+
+// Branch chips per mission → which answer letter was chosen
+const BRANCH_LETTERS = ['A','B','C','D'];
+
+function buildSceneCardSVG(id, log, missionDef) {
+  const slot = SCENE_MISSION_MAP[id];
+  const hasLog = log !== undefined && log !== null;
+  const isPending = slot !== null && !hasLog;
+  const isFuture  = slot === null;
+
+  if (isFuture) {
+    return `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+      <rect width="160" height="90" fill="#060a14"/>
+      <rect x="4" y="4" width="152" height="82" rx="4" fill="#0c1224" stroke="#152240"/>
+      <text x="12" y="26" fill="#1e3050" font-size="11" font-family="Orbitron" font-weight="700">${id}</text>
+      <text x="12" y="44" fill="#1e3050" font-size="7.5" font-family="Share Tech Mono">FUTURE MISSION</text>
+      <text x="12" y="60" fill="#1e3050" font-size="7" font-family="Share Tech Mono">not yet released</text>
+      <text x="140" y="82" fill="#1e3050" font-size="16" font-family="Orbitron" opacity=".4">⬡</text>
+    </svg>`;
+  }
+
+  if (isPending) {
+    return `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+      <rect width="160" height="90" fill="#060a14"/>
+      <rect x="4" y="4" width="152" height="82" rx="4" fill="#0c1224" stroke="#152240"/>
+      <text x="12" y="26" fill="#00e5ff" font-size="11" font-family="Orbitron" font-weight="700">${id}</text>
+      <text x="12" y="44" fill="#4a6080" font-size="7.5" font-family="Share Tech Mono">${missionDef ? missionDef.title.slice(0,20) : '—'}</text>
+      <text x="12" y="58" fill="#4a6080" font-size="7" font-family="Share Tech Mono">NOT YET PLAYED</text>
+      <rect x="12" y="68" width="60" height="4" rx="2" fill="#152240"/>
+    </svg>`;
+  }
+
+  // Has log entry
+  const pass  = log.result === 'pass';
+  const col   = pass ? '#00ff88' : '#ff3a50';
+  const icon  = pass ? '✓' : '✗';
+  const titleShort = log.title.slice(0, 18) + (log.title.length > 18 ? '…' : '');
+  const scoreStr = pass ? '+' + log.score : '—';
+  const t = new Date(log.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   return `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
-    <rect width="160" height="90" fill="#0c1224"/>
-    <rect x="6" y="6" width="148" height="78" rx="4" fill="#080d1a" stroke="${col}22"/>
-    <rect x="6" y="6" width="148" height="3" fill="${col}" opacity=".6"/>
-    <text x="12" y="28" fill="${col}" font-size="12" font-family="Orbitron" font-weight="700">${id}</text>
-    <text x="12" y="46" fill="#4a6080" font-size="8" font-family="Share Tech Mono">scene · ${type==='V'?'linear':'branch '+type}</text>
-    <circle cx="140" cy="20" r="6" fill="${col}" opacity=".3"/>
-    <circle cx="140" cy="20" r="3" fill="${col}" opacity=".8"/>
+    <rect width="160" height="90" fill="#060a14"/>
+    <rect x="4" y="4" width="152" height="82" rx="4" fill="${pass ? '#001a0d' : '#1a0005'}" stroke="${col}33"/>
+    <rect x="4" y="4" width="152" height="3" rx="1.5" fill="${col}" opacity=".7"/>
+    <text x="12" y="23" fill="${col}" font-size="10" font-family="Orbitron" font-weight="700">${id} ${icon}</text>
+    <text x="12" y="37" fill="#c8d8f0" font-size="7.5" font-family="Share Tech Mono">${titleShort}</text>
+    <text x="12" y="51" fill="${col}" font-size="8" font-family="Share Tech Mono">${scoreStr} pts · ${log.skill}</text>
+    <text x="12" y="64" fill="#4a6080" font-size="6.5" font-family="Share Tech Mono">${t}</text>
+    <text x="12" y="78" fill="#4a6080" font-size="6" font-family="Share Tech Mono">${log.choice.slice(0,28)}</text>
   </svg>`;
 }
 
+/* ═══ LOGBOOK HELPERS ════════════════════════════════════════════ */
+function updateLogSummary() {
+  const entries = Object.values(STATE.missionLog);
+  const passes  = entries.filter(e => e.result === 'pass').length;
+  const fails   = entries.filter(e => e.result === 'fail').length;
+  const pending = Object.keys(SCENE_MISSION_MAP).filter(k => SCENE_MISSION_MAP[k] !== null && !STATE.missionLog[SCENE_MISSION_MAP[k]]).length;
+  const ep = document.getElementById('log-pass-count');
+  const ef = document.getElementById('log-fail-count');
+  const en = document.getElementById('log-pend-count');
+  if (ep) ep.textContent = passes;
+  if (ef) ef.textContent = fails;
+  if (en) en.textContent = pending;
+}
+
+function jumpToMission(slot, sceneId) {
+  // Navigate the active mission to a specific slot
+  if (slot === null || slot === undefined) return;
+  missionIdx = slot;
+  choiceMade = false;
+  clearInterval(kadaInterval);
+  renderMission();
+  startMissionTimer();
+  document.getElementById('mission-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast(`Jumped to ${sceneId}: ${MISSIONS[slot].title}`, 'info');
+}
+
+function demoFillLog() {
+  MISSIONS.forEach((m, i) => {
+    if (STATE.missionLog[i] && !STATE.missionLog[i].isDemo) return;
+    const pass = Math.random() > 0.4;
+    const correctIdx = m.choices.findIndex(c => c.ok);
+    const wrongOptions = [0,1,2,3].filter(ci => ci !== correctIdx);
+    const choiceIdx = pass ? correctIdx : wrongOptions[Math.floor(Math.random()*wrongOptions.length)];
+    const choice = m.choices[choiceIdx] || m.choices[0];
+    STATE.missionLog[i] = {
+      title: m.title,
+      result: pass ? 'pass' : 'fail',
+      score: pass ? (500 + Math.floor(Math.random()*350)) : 0,
+      skill: m.skill,
+      choice: choice.l,
+      ts: Date.now() - Math.floor(Math.random() * 7200000),
+      isDemo: true,
+    };
+  });
+  save();
+  buildSceneGrids();
+  showToast('Demo data loaded — real missions will overwrite these', 'info');
+}
+
 function buildSceneGrids() {
+  const SCENE_IDS = ['V01','V02','V03','V04','V05','V06','V07','V08','V09','V10'];
+  updateLogSummary();
   const mg = document.getElementById('scene-grid-main');
   if (mg) {
-    mg.innerHTML = SVG_SCENES.linear.map(id => `
-      <div class="scene-thumb" data-id="${id}" onclick="previewScene('${id}')">
-        ${buildSceneInlineSVG(id)}
-        <div style="position:absolute;bottom:2px;left:4px;font-family:var(--fmono);font-size:.4rem;color:var(--txt-dim)">${id}</div>
-      </div>`).join('');
+    mg.innerHTML = SCENE_IDS.map(id => {
+      const slot = SCENE_MISSION_MAP[id];
+      const log  = slot !== null ? STATE.missionLog[slot] : undefined;
+      const def  = slot !== null ? MISSIONS[slot] : null;
+      const hasLog = log !== undefined;
+      const isFuture = slot === null;
+      const borderCol = isFuture ? '#152240' : hasLog
+        ? (log.result === 'pass' ? '#00ff8833' : '#ff3a5033')
+        : '#00e5ff22';
+      const clickFn = isFuture ? '' : hasLog
+        ? `previewScene('${id}')`
+        : `jumpToMission(${slot},'${id}')`;
+      const extra = isFuture ? 'opacity:.32;cursor:not-allowed' : '';
+      return `<div class="scene-thumb" data-id="${id}" style="border-color:${borderCol};${extra}" onclick="${clickFn}" title="${isFuture ? 'Future mission' : hasLog ? 'Click to inspect result' : 'Click to jump to this mission'}">
+        ${buildSceneCardSVG(id, log, def)}
+      </div>`;
+    }).join('');
   }
+
+  // Branch chips — show which answer paths were taken per mission
   const bt = document.getElementById('branch-tree');
   if (bt) {
-    bt.innerHTML = Object.entries(SVG_SCENES.branches).map(([bk, ids]) => `
-      <div class="branch-col">
-        <div class="branch-chip ${bk}" style="font-weight:700;margin-bottom:.15rem">Branch ${bk}</div>
-        ${ids.map(id=>`<div class="branch-chip ${bk}" onclick="previewScene('${id}')">${id}</div>`).join('')}
-      </div>`).join('');
+    const branchCols = MISSIONS.map((m, idx) => {
+      const log = STATE.missionLog[idx];
+      const id  = `V${String(idx+1).padStart(2,'0')}`;
+      if (!log) {
+        return `<div class="branch-col">
+          <div class="branch-chip main" style="opacity:.4;cursor:pointer" onclick="jumpToMission(${idx},'${id}')" title="Jump to this mission">${id}</div>
+          <div class="branch-chip" style="color:var(--txt-mute);font-size:.44rem;cursor:pointer" onclick="jumpToMission(${idx},'${id}')">→ play</div>
+        </div>`;
+      }
+      const choiceIdx = m.choices.findIndex(c => c.l === log.choice);
+      const pass = log.result === 'pass';
+      const demoTag = log.isDemo ? ' style="opacity:.65"' : '';
+      return `<div class="branch-col"${demoTag}>
+        <div class="branch-chip main" onclick="previewScene('${id}')" style="cursor:pointer">${id}${log.isDemo?' ·demo':''}</div>
+        ${m.choices.map((c, ci) => {
+          const taken = ci === choiceIdx;
+          const correct = c.ok;
+          const col = taken ? (correct ? 'var(--green)' : 'var(--red)') : 'var(--txt-mute)';
+          const bg  = taken ? (correct ? '#00ff880a' : '#ff3a500a') : 'transparent';
+          const prefix = taken ? (correct ? '✓ ' : '✗ ') : '';
+          const weight = taken ? 'font-weight:700' : '';
+          return `<div class="branch-chip" onclick="previewScene('${id}')" style="border-color:${taken ? col : 'var(--border)'};color:${col};background:${bg};font-size:.44rem;${weight};cursor:pointer">
+            ${prefix}${BRANCH_LETTERS[ci]}: ${c.l.slice(0,14)}${c.l.length>14?'…':''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    });
+    bt.innerHTML = branchCols.join('');
   }
 }
 
 function previewScene(id) {
-  // highlight
+  const slot = SCENE_MISSION_MAP[id];
+  const log  = slot !== null ? STATE.missionLog[slot] : undefined;
+  const m    = slot !== null ? MISSIONS[slot] : null;
+
   document.querySelectorAll('.scene-thumb').forEach(el => el.classList.toggle('active-scene', el.dataset.id === id));
-  // render preview
+
   const prev = document.getElementById('scene-preview');
-  if (prev) prev.innerHTML = `<svg viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg">
-    <rect width="800" height="450" fill="#0c1224"/>
-    <rect x="20" y="20" width="760" height="410" rx="8" fill="#080d1a" stroke="#00e5ff22"/>
-    <rect x="20" y="20" width="760" height="4" rx="2" fill="#00e5ff" opacity=".5"/>
-    <text x="40" y="80" fill="#00e5ff" font-size="42" font-family="Orbitron" font-weight="900">${id}</text>
-    <text x="40" y="125" fill="#c8d8f0" font-size="22" font-family="Share Tech Mono">Scene: ${id} — ${id[0]==='V'?'Linear Documentary Path':'Branch Decision Variant '+id[0]}</text>
-    <text x="40" y="165" fill="#4a6080" font-size="16" font-family="Share Tech Mono">Capture target: public/github/${id}.svg</text>
-    <text x="40" y="200" fill="#4a6080" font-size="16" font-family="Share Tech Mono">Output: public/footage/${id}.png → renders/final/${id}.mp4</text>
-    <rect x="40" y="240" width="720" height="1" fill="#152240"/>
-    <text x="40" y="280" fill="#f59e0b" font-size="15" font-family="Share Tech Mono">Puppeteer: goto(url) → waitForSelector('.scene') → screenshot()</text>
-    <text x="40" y="310" fill="#f59e0b" font-size="15" font-family="Share Tech Mono">FFmpeg: -r 30 -loop 1 -t 4 -i ${id}.png -c:v libx264 ${id}.mp4</text>
-    <rect x="40" y="360" width="120" height="30" rx="4" fill="#00e5ff22" stroke="#00e5ff44"/>
-    <text x="100" y="381" text-anchor="middle" fill="#00e5ff" font-size="13" font-family="Share Tech Mono">READY</text>
+  if (!prev) return;
+
+  // Light up pipeline nodes
+  const pipe_states = log
+    ? ['done','done','done','done','done']
+    : slot !== null
+    ? ['running','idle','idle','idle','idle']
+    : ['idle','idle','idle','idle','idle'];
+  PIPE_NODES.forEach((pid, i) => {
+    const el = document.getElementById(pid);
+    if (el) el.className = 'pipe-node ' + (pipe_states[i] === 'done' ? 'done' : pipe_states[i] === 'running' ? 'running' : '');
+  });
+
+  if (slot === null) {
+    prev.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--fmono);font-size:.65rem;color:var(--txt-dim);flex-direction:column;gap:.4rem">
+      <span style="font-size:1.5rem">⬡</span>
+      <span>${id} — Future mission slot</span>
+      <span style="color:var(--txt-mute)">Check back next season</span>
+    </div>`;
+    return;
+  }
+
+  if (!log) {
+    const choices = m.choices.map((c,i) => `${BRANCH_LETTERS[i]}) ${c.l}`).join(' · ');
+    prev.innerHTML = `<svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="800" height="200" fill="#080d1a"/>
+      <rect x="8" y="8" width="784" height="184" rx="6" fill="#0c1224" stroke="#00e5ff22"/>
+      <rect x="8" y="8" width="784" height="3" rx="1.5" fill="#00e5ff" opacity=".3"/>
+      <text x="22" y="42" fill="#00e5ff" font-size="18" font-family="Orbitron" font-weight="700">${id} — ${m.title}</text>
+      <text x="22" y="66" fill="#4a6080" font-size="12" font-family="Share Tech Mono">${m.category} · Difficulty ${m.diff}/5 · Skill: ${m.skill}</text>
+      <text x="22" y="92" fill="#c8d8f0" font-size="11" font-family="Share Tech Mono">${m.desc.slice(0,90)}${m.desc.length>90?'…':''}</text>
+      <text x="22" y="120" fill="#4a6080" font-size="10" font-family="Share Tech Mono">STATUS: NOT YET PLAYED</text>
+      <text x="22" y="148" fill="#1e3050" font-size="9" font-family="Share Tech Mono">${choices.slice(0,100)}</text>
+    </svg>`;
+    return;
+  }
+
+  const pass = log.result === 'pass';
+  const col  = pass ? '#00ff88' : '#ff3a50';
+  const ts   = new Date(log.ts).toLocaleString();
+  const srDelta = pass ? '+' + Math.round((log.score - 600)/25) : '−' + Math.round(100/25);
+
+  prev.innerHTML = `<svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="800" height="200" fill="#080d1a"/>
+    <rect x="8" y="8" width="784" height="184" rx="6" fill="${pass?'#001a0d':'#1a0005'}" stroke="${col}33"/>
+    <rect x="8" y="8" width="784" height="3" rx="1.5" fill="${col}"/>
+    <text x="22" y="42" fill="${col}" font-size="18" font-family="Orbitron" font-weight="900">${pass?'✓ PASS':'✗ FAIL'} — ${id}: ${log.title}</text>
+    <text x="22" y="66" fill="#c8d8f0" font-size="12" font-family="Share Tech Mono">Score: ${log.score} pts · SR Δ: ${srDelta} · Skill XP: ${log.skill} +45</text>
+    <text x="22" y="90" fill="#4a6080" font-size="11" font-family="Share Tech Mono">Choice: ${log.choice.slice(0,80)}</text>
+    <text x="22" y="114" fill="#4a6080" font-size="10" font-family="Share Tech Mono">Played: ${ts}</text>
+    <rect x="22" y="134" width="${Math.min(600, (log.score/1500)*600)}" height="6" rx="3" fill="${col}" opacity=".6"/>
+    <rect x="22" y="134" width="600" height="6" rx="3" fill="none" stroke="${col}22"/>
+    <text x="22" y="165" fill="${col}" font-size="10" font-family="Share Tech Mono">${pass ? 'Hex node unlocked · ' + log.skill + ' skill advanced' : 'No XP awarded · Retry to improve your score'}</text>
   </svg>`;
 }
 
 const PIPE_NODES = ['pn-read','pn-page','pn-shot','pn-enc','pn-out'];
-let capRunning = false;
 
-async function runCaptureSim() {
-  if (capRunning) return;
-  capRunning = true;
-  const cap = document.getElementById('cap-status');
-  if (cap) cap.textContent = 'RUNNING…';
-  PIPE_NODES.forEach(id => { const e=document.getElementById(id); if(e) e.className='pipe-node'; });
-
-  const scenes = SVG_SCENES.linear;
-  for (let i = 0; i < scenes.length; i++) {
-    previewScene(scenes[i]);
-    // run each pipeline stage
-    for (let p = 0; p <= Math.min(i, PIPE_NODES.length-1); p++) {
-      const el = document.getElementById(PIPE_NODES[p]);
-      if (el) el.className = 'pipe-node running';
-      await delay(220);
-      if (el) el.className = 'pipe-node done';
-    }
-    await delay(180);
-  }
-  if (cap) cap.textContent = 'COMPLETE';
-  showToast('Capture simulation complete — 10 scenes processed', 'ok');
-  capRunning = false;
-}
-
-function resetCapture() {
-  capRunning = false;
-  PIPE_NODES.forEach(id => { const e=document.getElementById(id); if(e) e.className='pipe-node'; });
-  const cap = document.getElementById('cap-status');
-  if (cap) cap.textContent = 'IDLE';
-  document.querySelectorAll('.scene-thumb').forEach(e=>e.classList.remove('active-scene'));
+function clearMissionLog() {
+  STATE.missionLog = {};
+  save();
+  buildSceneGrids();
   const prev = document.getElementById('scene-preview');
-  if (prev) prev.innerHTML = '';
+  if (prev) prev.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--fmono);font-size:.6rem;color:var(--txt-dim);flex-direction:column;gap:.5rem;text-align:center;padding:1rem">
+    <span style="font-size:1.8rem;opacity:.3">&#x2B21;</span>
+    <span>Log cleared</span>
+    <span style="color:var(--txt-mute)">Play missions or hit Demo Fill to preview</span>
+  </div>`;
+  PIPE_NODES.forEach(pid => { const e=document.getElementById(pid); if(e) e.className='pipe-node'; });
+  showToast('Mission log cleared', 'info');
 }
 
+// Legacy stubs (kept so nothing breaks)
+function runCaptureSim() { showToast('Run missions to generate log entries', 'info'); }
+function resetCapture() { clearMissionLog(); }
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /* ═══ FOOTER SEASON ════════════════════════════════════════════════ */
