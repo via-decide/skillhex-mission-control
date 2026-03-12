@@ -1232,6 +1232,10 @@ function skipWarmup() {
   missionWarmup.followUp = '';
   renderWarmupBox();
   showToast('Warm-up skipped · multiplier 1.00x', 'info');
+  const prior = INTERVIEW.answers.find(a => a.fromWarmup === picked.q);
+  const wc = prior ? wordsOf(prior.answer || '') : 0;
+  const mult = prior ? (wc >= 30 ? 1.3 : wc >= 15 ? 1.15 : 1.0) : 1.0;
+  return { ...picked, mult, prior: prior?.answer || '' };
 }
 
 function interviewTemplate(containerId, compact = false) {
@@ -1376,7 +1380,8 @@ function renderMission() {
   document.getElementById('m-num').textContent  = `MISSION ${String(missionIdx+1).padStart(2,'0')}`;
   document.getElementById('m-cat').textContent  = m.category;
   document.getElementById('m-title').textContent = m.title;
-  document.getElementById('m-desc').textContent  = m.desc;
+  const warmupHint = missionWarmup ? `\n\nWarm-up: ${missionWarmup.q}` : '';
+  document.getElementById('m-desc').textContent  = `${m.desc}${warmupHint}`;
   document.getElementById('prog-txt').textContent = `${missionIdx+1}/${MISSIONS.length}`;
   document.getElementById('prog-fill').style.width = Math.max(4, (missionIdx/MISSIONS.length)*100) + '%';
 
@@ -1851,6 +1856,18 @@ function confirmSector(idx) {
       showToast('Interview round: ' + (INTERVIEW_ROUNDS[roundId]?.label || roundId), 'info');
       updateKadaHUD('INTV', roundId);
     }
+    const round = INTERVIEW_ROUNDS[INTERVIEW.activeScene || 'V10'];
+    const cats = round?.cats || INTERVIEW_ROUNDS.V10.cats;
+    if (isPulled) {
+      skipInterviewQuestion('interview-modal-body');
+      showToast('Interview: skipped to next question', 'info');
+    } else {
+      const cat = cats[idx % cats.length];
+      const fakeBtn = document.querySelectorAll('#interview-modal-body-cats .cat-chip')[idx % cats.length];
+      focusInterviewCategory('interview-modal-body', cat, fakeBtn);
+      showToast('Interview category: ' + cat, 'info');
+    }
+    updateKadaHUD('INTV', isPulled ? 'SKIP QUESTION' : `CAT ${idx+1}`);
     return;
   }
 
